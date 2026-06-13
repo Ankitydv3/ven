@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const asyncHandler_1 = require("../utils/asyncHandler");
+const complaintController_1 = require("../controllers/complaintController");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.post("/", (0, asyncHandler_1.asyncHandler)(complaintController_1.createComplaint));
+router.get("/", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(complaintController_1.listComplaints));
+router.get("/:complaintId/track", (0, asyncHandler_1.asyncHandler)(complaintController_1.trackComplaint));
+router.patch("/:id/assign", auth_1.authRequired, (0, auth_1.requireRole)("admin"), (0, asyncHandler_1.asyncHandler)(complaintController_1.assignComplaint));
+router.patch("/:id/start", auth_1.authRequired, (0, auth_1.requireRole)("team"), (0, asyncHandler_1.asyncHandler)(complaintController_1.startComplaint));
+router.patch("/:id/update", auth_1.authRequired, (0, auth_1.requireRole)("team"), (0, asyncHandler_1.asyncHandler)(complaintController_1.updateComplaint));
+router.patch("/:id/complete", auth_1.authRequired, (0, auth_1.requireRole)("team"), (0, asyncHandler_1.asyncHandler)(complaintController_1.completeComplaint));
+exports.default = router;
