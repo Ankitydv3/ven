@@ -2,21 +2,72 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LogOut, Shield, Workflow } from "lucide-react";
+import { useState } from "react";
+import { 
+  Bell, 
+  LogOut, 
+  Shield, 
+  Workflow, 
+  Menu, 
+  X,
+  ChevronRight,
+  LayoutDashboard,
+  Users,
+  FileText,
+  Settings,
+  BarChart3,
+  MessageSquare,
+  Home,
+  ListChecks,
+  Clock,
+  UserCog
+} from "lucide-react";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { clearSession, readUser } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { navGroups } from "@/lib/constants";
+import { motion, AnimatePresence } from "framer-motion";
 
-export function DashboardShell({ role, title, subtitle, children }: { role: "admin" | "team"; title: string; subtitle: string; children: React.ReactNode }) {
+// Icon mapping for nav items
+const iconMap: Record<string, any> = {
+  Dashboard: LayoutDashboard,
+  Complaints: FileText,
+  "My Team": Users,
+  "Team Members": Users,
+  Analytics: BarChart3,
+  Messages: MessageSquare,
+  Settings: Settings,
+  "System Health": Home,
+  "Audit Log": Clock,
+  "User Management": UserCog,
+};
+
+export function DashboardShell({ 
+  role, 
+  title, 
+  subtitle, 
+  children 
+}: { 
+  role: "admin" | "team"; 
+  title: string; 
+  subtitle: string; 
+  children: React.ReactNode 
+}) {
   const pathname = usePathname();
   const user = readUser();
   const navItems = role === "admin" ? navGroups.admin : navGroups.team;
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change
+  const handleNavClick = () => {
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
+      {/* Desktop Sidebar */}
       <aside className="hidden border-r border-white/10 bg-slate-950/80 px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
         <div className="mb-10 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
@@ -31,24 +82,31 @@ export function DashboardShell({ role, title, subtitle, children }: { role: "adm
         <nav className="space-y-2">
           {navItems.map((item) => {
             const active = pathname === item.href;
+            const Icon = iconMap[item.label] || ChevronRight;
+            
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition",
-                  active ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
+                  active 
+                    ? "bg-white/10 text-white shadow-lg shadow-white/5" 
+                    : "text-slate-300 hover:bg-white/5 hover:text-white hover:translate-x-1"
                 )}
               >
-                {item.label}
-                {active ? <span className="h-2 w-2 rounded-full bg-teal-400" /> : null}
+                <span className="flex items-center gap-3">
+                  <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  {item.label}
+                </span>
+                {active ? <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" /> : null}
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto rounded-3xl border border-white/10 bg-white/5 p-4">
-          <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300">
+        <div className="mt-auto rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
+          <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
             {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
           </Badge>
           <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
@@ -56,32 +114,137 @@ export function DashboardShell({ role, title, subtitle, children }: { role: "adm
         </div>
       </aside>
 
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            
+            {/* Mobile Sidebar */}
+            <motion.aside
+              initial={{ x: -320 }}
+              animate={{ x: 0 }}
+              exit={{ x: -320 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-slate-950/95 px-5 py-6 text-white backdrop-blur-xl lg:hidden"
+            >
+              <div className="mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
+                    <Workflow className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-lg font-semibold">Complaint Flow OS</p>
+                    <p className="text-xs text-slate-400">Enterprise service desk</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full hover:bg-white/10"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <nav className="space-y-2">
+                {navItems.map((item) => {
+                  const active = pathname === item.href;
+                  const Icon = iconMap[item.label] || ChevronRight;
+                  
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={handleNavClick}
+                      className={cn(
+                        "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
+                        active 
+                          ? "bg-white/10 text-white shadow-lg shadow-white/5" 
+                          : "text-slate-300 hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon className="h-4 w-4 opacity-60" />
+                        {item.label}
+                      </span>
+                      {active ? (
+                        <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 opacity-40" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-auto rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
+                <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
+                  {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
+                </Badge>
+                <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
+                <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content */}
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-30 border-b border-white/10 bg-white/70 px-4 py-4 backdrop-blur-xl dark:bg-slate-950/70 lg:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-600 dark:text-teal-300">
-                <Shield className="h-3.5 w-3.5" /> Secure workflow platform
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden h-10 w-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+
+              <div>
+                <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-600 dark:text-teal-300">
+                  <Shield className="h-3.5 w-3.5" /> Secure workflow platform
+                </div>
+                <h1 className="font-heading text-2xl font-semibold text-slate-950 dark:text-white">{title}</h1>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
               </div>
-              <h1 className="font-heading text-2xl font-semibold text-slate-950 dark:text-white">{title}</h1>
-              <p className="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <ThemeToggle />
-              <Button variant="outline" size="sm" className="rounded-full">
-                <Bell className="h-4 w-4" /> Notifications
+              <Button variant="outline" size="sm" className="rounded-full border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <Bell className="h-4 w-4 mr-1.5" /> 
+                <span className="hidden sm:inline">Notifications</span>
+                <span className="sm:hidden">Alerts</span>
+                <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
+                  3
+                </Badge>
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="rounded-full"
+                className="rounded-full border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => {
                   clearSession();
                   window.location.href = role === "admin" ? "/admin/login" : "/team/login";
                 }}
               >
-                <LogOut className="h-4 w-4" /> Sign out
+                <LogOut className="h-4 w-4 mr-1.5" /> 
+                <span className="hidden sm:inline">Sign out</span>
+                <span className="sm:hidden">Exit</span>
               </Button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Search, Loader2, Filter, ArrowUpRight } from "lucide-react";
+import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
 import { complaintStatuses, teamNames } from "@/lib/constants";
@@ -20,6 +20,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function statusVariant(status: Complaint["status"]) {
   if (status === "Completed") return "success";
@@ -75,10 +81,23 @@ export function ComplaintsManager() {
   const handleAssign = () => {
     if (!assignTarget) return;
 
+    // Prevent assignment if complaint is completed
+    if (assignTarget.status === "Completed") {
+      toast.error("Cannot assign or reassign a completed complaint");
+      return;
+    }
+
     startTransition(async () => {
       try {
+        const isReassign = Boolean(assignTarget.assignedTeam);
         await assignComplaint(assignTarget._id, selectedTeam);
-        toast.success(`Complaint assigned to ${selectedTeam} team`);
+        
+        toast.success(
+          isReassign 
+            ? `Complaint reassigned from ${assignTarget.assignedTeam} to ${selectedTeam} team` 
+            : `Complaint assigned to ${selectedTeam} team`
+        );
+        
         setAssignTarget(null);
         await load();
       } catch (error) {
@@ -88,6 +107,11 @@ export function ComplaintsManager() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  // Check if complaint can be assigned/reassigned
+  const canAssign = (complaint: Complaint) => {
+    return complaint.status !== "Completed";
+  };
 
   return (
     <div className="space-y-6">
@@ -121,10 +145,19 @@ export function ComplaintsManager() {
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] py-2 pl-9 pr-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                           bg-white dark:bg-[#0A1F1A]
+                           py-2 pl-9 pr-3 text-sm
+                           text-slate-900 dark:text-white"
               >
                 {complaintStatuses.map((value) => (
-                  <option key={value} value={value}>{value}</option>
+                  <option
+                    key={value}
+                    value={value}
+                    className="bg-[#132f29] text-white"
+                  >
+                    {value}
+                  </option>
                 ))}
               </select>
             </div>
@@ -175,49 +208,92 @@ export function ComplaintsManager() {
                     </TD>
                   </TR>
                 )
-                : items.map((item) => (
-                  <TR
-                    key={item._id}
-                    className="border-b border-slate-100 dark:border-white/[0.06] last:border-0 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
-                  >
-                    <TD className="font-medium text-[#04342C] dark:text-white">{item.complaintId}</TD>
-                    <TD className="text-slate-700 dark:text-white/70">{item.clientName}</TD>
-                    <TD>
-                      <span className="inline-flex items-center gap-1.5 text-sm text-slate-700 dark:text-white/70">
-                        <span className={`h-1.5 w-1.5 rounded-full ${priorityDotClass(item.priority)}`} />
-                        {item.priority}
-                      </span>
-                    </TD>
-                    <TD className="text-slate-700 dark:text-white/70 hidden lg:table-cell">{item.location}</TD>
-                    <TD>
-                      <Badge
-                        variant={statusVariant(item.status)}
-                        className="rounded-full border-0 font-normal"
+                : items.map((item) => {
+                    const isCompleted = item.status === "Completed";
+                    const canAssignItem = canAssign(item);
+                    
+                    return (
+                      <TR
+                        key={item._id}
+                        className={`border-b border-slate-100 dark:border-white/[0.06] last:border-0 transition-colors ${
+                          isCompleted ? 'opacity-70' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'
+                        }`}
                       >
-                        {item.status}
-                      </Badge>
-                    </TD>
-                    <TD className="text-slate-700 dark:text-white/70 hidden xl:table-cell">{item.assignedTeam ?? "—"}</TD>
-                    <TD className="text-slate-500 dark:text-white/50 hidden xl:table-cell">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
-                    </TD>
-                    <TD>
-                      <Button
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                        className="border-slate-200 dark:border-white/[0.1] text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]"
-                        onClick={() => {
-                          setAssignTarget(item);
-                          setSelectedTeam(item.assignedTeam ?? teamNames[0]);
-                        }}
-                      >
-                        Assign team
-                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                      </Button>
-                    </TD>
-                  </TR>
-                ))}
+                        <TD className="font-medium text-[#04342C] dark:text-white">{item.complaintId}</TD>
+                        <TD className="text-slate-700 dark:text-white/70">{item.clientName}</TD>
+                        <TD>
+                          <span className="inline-flex items-center gap-1.5 text-sm text-slate-700 dark:text-white/70">
+                            <span className={`h-1.5 w-1.5 rounded-full ${priorityDotClass(item.priority)}`} />
+                            {item.priority}
+                          </span>
+                        </TD>
+                        <TD className="text-slate-700 dark:text-white/70 hidden lg:table-cell">{item.location}</TD>
+                        <TD>
+                          <Badge
+                            variant={statusVariant(item.status)}
+                            className="rounded-full border-0 font-normal"
+                          >
+                            {item.status}
+                          </Badge>
+                        </TD>
+                        <TD className="text-slate-700 dark:text-white/70 hidden xl:table-cell">
+                          {item.assignedTeam ?? "—"}
+                        </TD>
+                        <TD className="text-slate-500 dark:text-white/50 hidden xl:table-cell">
+                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+                        </TD>
+                        <TD>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    type="button"
+                                    variant="outline"
+                                    disabled={!canAssignItem}
+                                    className={`border-slate-200 dark:border-white/[0.1] ${
+                                      canAssignItem 
+                                        ? 'text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]'
+                                        : 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+                                    }`}
+                                    onClick={() => {
+                                      if (canAssignItem) {
+                                        setAssignTarget(item);
+                                        setSelectedTeam(item.assignedTeam ?? teamNames[0]);
+                                      }
+                                    }}
+                                  >
+                                    {isCompleted ? (
+                                      <>
+                                        <Ban className="h-3.5 w-3.5 mr-1" />
+                                        Locked
+                                      </>
+                                    ) : item.assignedTeam ? (
+                                      <>
+                                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                        Reassign
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ArrowUpRight className="h-3.5 w-3.5 mr-1" />
+                                        Assign
+                                      </>
+                                    )}
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              {isCompleted && (
+                                <TooltipContent>
+                                  <p>Cannot assign or reassign completed complaints</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TD>
+                      </TR>
+                    );
+                  })}
             </tbody>
           </TableElement>
         </Table>
@@ -237,46 +313,91 @@ export function ComplaintsManager() {
             </CardContent>
           </Card>
         ) : (
-          items.map((item) => (
-            <Card key={item._id} className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
-              <CardContent className="space-y-3 pt-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">{item.complaintId}</p>
-                    <p className="text-sm text-slate-500 dark:text-white/50">{item.clientName}</p>
+          items.map((item) => {
+            const isCompleted = item.status === "Completed";
+            const canAssignItem = canAssign(item);
+            
+            return (
+              <Card 
+                key={item._id} 
+                className={`border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none ${
+                  isCompleted ? 'opacity-70' : ''
+                }`}
+              >
+                <CardContent className="space-y-3 pt-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">{item.complaintId}</p>
+                      <p className="text-sm text-slate-500 dark:text-white/50">{item.clientName}</p>
+                    </div>
+                    <Badge
+                      variant={statusVariant(item.status)}
+                      className="rounded-full border-0 font-normal"
+                    >
+                      {item.status}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={statusVariant(item.status)}
-                    className="rounded-full border-0 font-normal"
-                  >
-                    {item.status}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 dark:text-white/60">
-                  <p className="inline-flex items-center gap-1.5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${priorityDotClass(item.priority)}`} />
-                    {item.priority}
-                  </p>
-                  <p>{item.location}</p>
-                  <p>Team: {item.assignedTeam ?? "—"}</p>
-                  <p>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}</p>
-                </div>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  className="w-full border-slate-200 dark:border-white/[0.1] text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]"
-                  onClick={() => {
-                    setAssignTarget(item);
-                    setSelectedTeam(item.assignedTeam ?? teamNames[0]);
-                  }}
-                >
-                  Assign team
-                  <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))
+                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 dark:text-white/60">
+                    <p className="inline-flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${priorityDotClass(item.priority)}`} />
+                      {item.priority}
+                    </p>
+                    <p>{item.location}</p>
+                    <p>Team: {item.assignedTeam ?? "—"}</p>
+                    <p>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}</p>
+                  </div>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="w-full">
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                            disabled={!canAssignItem}
+                            className={`w-full border-slate-200 dark:border-white/[0.1] ${
+                              canAssignItem 
+                                ? 'text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]'
+                                : 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+                            }`}
+                            onClick={() => {
+                              if (canAssignItem) {
+                                setAssignTarget(item);
+                                setSelectedTeam(item.assignedTeam ?? teamNames[0]);
+                              }
+                            }}
+                          >
+                            {isCompleted ? (
+                              <>
+                                <Ban className="h-3.5 w-3.5 mr-1" />
+                                Locked
+                              </>
+                            ) : item.assignedTeam ? (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                Reassign
+                              </>
+                            ) : (
+                              <>
+                                <ArrowUpRight className="h-3.5 w-3.5 mr-1" />
+                                Assign
+                              </>
+                            )}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {isCompleted && (
+                        <TooltipContent>
+                          <p>Cannot assign or reassign completed complaints</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -310,34 +431,102 @@ export function ComplaintsManager() {
         </div>
       )}
 
-      {/* Assign dialog */}
+      {/* Assign Dialog with current team display */}
       <Dialog open={Boolean(assignTarget)} onOpenChange={(open) => {
         if (!open) setAssignTarget(null);
       }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Assign complaint to team</DialogTitle>
+            <DialogTitle>
+              {assignTarget?.assignedTeam ? 'Reassign complaint' : 'Assign complaint to team'}
+            </DialogTitle>
             <DialogDescription>
-              Select a team to handle this complaint.
+              {assignTarget?.assignedTeam 
+                ? `This complaint is currently assigned to the "${assignTarget.assignedTeam}" team. Select a new team to reassign it.`
+                : 'Select a team to handle this complaint.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.03] px-4 py-3">
               <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">complaint id</p>
               <p className="font-serif text-lg font-medium text-[#04342C] dark:text-white">{assignTarget?.complaintId}</p>
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">Select team</label>
-              <select
-                value={selectedTeam}
-                onChange={(event) => setSelectedTeam(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+              <p className="text-sm text-slate-500 dark:text-white/50 mt-1">{assignTarget?.title}</p>
+              <Badge
+                variant={statusVariant(assignTarget?.status || "Pending")}
+                className="rounded-full border-0 font-normal mt-2"
               >
-                {teamNames.map((team) => (
-                  <option key={team} value={team}>{team}</option>
-                ))}
-              </select>
+                {assignTarget?.status}
+              </Badge>
             </div>
+
+            {/* Show warning if completed */}
+            {assignTarget?.status === "Completed" && (
+              <div className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Ban className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                    This complaint is completed
+                  </p>
+                </div>
+                <p className="text-sm text-red-600 dark:text-red-400/70 mt-1">
+                  Completed complaints cannot be assigned or reassigned.
+                </p>
+              </div>
+            )}
+
+            {/* Current team display */}
+            {assignTarget?.assignedTeam && assignTarget?.status !== "Completed" && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="warning" className="rounded-full border-0 font-normal">
+                    Currently Assigned
+                  </Badge>
+                </div>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mt-1">
+                  Team: {assignTarget.assignedTeam}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-500/70 mt-0.5">
+                  Reassigning will move this complaint to a new team
+                </p>
+              </div>
+            )}
+
+            {assignTarget?.status !== "Completed" && (
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">
+                    {assignTarget?.assignedTeam ? 'Select new team' : 'Select team'}
+                  </label>
+                  <select
+  value={selectedTeam}
+  onChange={(event) => setSelectedTeam(event.target.value)}
+  className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+             bg-[#08111f] text-white
+             px-3 py-2 text-sm"
+>
+  {teamNames.map((team) => (
+    <option
+      key={team}
+      value={team}
+      className="bg-[#1b3a6b] text-white"
+    >
+      {team} {assignTarget?.assignedTeam === team ? "(Current)" : ""}
+    </option>
+  ))}
+</select>
+                </div>
+
+                {/* Reassignment confirmation */}
+                {assignTarget?.assignedTeam && selectedTeam !== assignTarget.assignedTeam && (
+                  <div className="rounded-xl border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 px-4 py-3">
+                    <p className="text-sm text-blue-700 dark:text-blue-400">
+                      <RefreshCw className="inline h-4 w-4 mr-1.5" />
+                      Reassigning from <strong>{assignTarget.assignedTeam}</strong> to <strong>{selectedTeam}</strong>
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -347,15 +536,17 @@ export function ComplaintsManager() {
             >
               Cancel
             </Button>
-            <Button
-              className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
-              onClick={handleAssign}
-              disabled={pending}
-              type="button"
-            >
-              {pending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save assignment
-            </Button>
+            {assignTarget?.status !== "Completed" && (
+              <Button
+                className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
+                onClick={handleAssign}
+                disabled={pending || selectedTeam === assignTarget?.assignedTeam}
+                type="button"
+              >
+                {pending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {assignTarget?.assignedTeam ? 'Reassign' : 'Assign'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
