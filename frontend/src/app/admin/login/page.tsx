@@ -2,7 +2,7 @@ import { LoginForm } from "@/components/forms/login-form";
 
 export default function AdminLoginPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-4 py-10">
+    <main className="">
       <LoginForm
         role="admin"
         redirectTo="/admin/dashboard"

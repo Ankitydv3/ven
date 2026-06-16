@@ -1,7 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Loader2, PlayCircle, MessageSquareText, CircleCheckBig, MapPin, CalendarClock, CheckCircle2, XCircle } from "lucide-react";
+import { 
+  PlayCircle, 
+  MessageSquareText, 
+  CircleCheckBig, 
+  MapPin, 
+  CalendarClock, 
+  CheckCircle2, 
+  XCircle,
+  Sparkles,
+  Clock,
+  TrendingUp,
+  Users,
+  Briefcase,
+  ArrowUpRight,
+  Zap,
+  Award,
+  Target,
+  Eye,
+  AlertTriangle,
+  User,
+  Building,
+  ChevronRight,
+  Filter,
+  Search,
+  Plus,
+  RefreshCw
+} from "lucide-react";
 import { toast } from "sonner";
 import { completeComplaint, fetchComplaints, startComplaint, updateComplaint } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
@@ -18,45 +44,75 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend
+} from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-function priorityBadgeClass(priority: Complaint["priority"]) {
-  if (priority === "High") return "bg-[#E24B4A]/[0.12] text-[#B3322E] dark:bg-[#E24B4A]/[0.12] dark:text-[#E24B4A]";
-  if (priority === "Medium") return "bg-[#EF9F27]/[0.12] text-[#B5740F] dark:bg-[#EF9F27]/[0.12] dark:text-[#EF9F27]";
-  return "bg-[#4F9B8C]/[0.12] text-[#2F6B63] dark:bg-[#7BE3CF]/[0.12] dark:text-[#7BE3CF]";
-}
-
+// New status configuration with enhanced styling
 function getStatusConfig(status: Complaint["status"]) {
   switch (status) {
     case "Completed":
       return {
         label: "COMPLETED",
-        icon: <CheckCircle2 className="h-12 w-12" />,
-        gradient: "from-emerald-500/50 via-green-500/50 to-teal-500/80",
-        glow: "shadow-emerald-500/50",
+        icon: <CheckCircle2 className="h-5 w-5" />,
+        color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+        dot: "bg-emerald-500"
       };
     case "In Progress":
       return {
         label: "IN PROGRESS",
-        icon: <Loader2 className="h-12 w-12 animate-spin" />,
-        gradient: "from-blue-500/50 via-sky-500/50 to-cyan-500/80",
-        glow: "shadow-blue-500/50",
+        icon: <RefreshCw className="h-5 w-5 animate-spin" />,
+        color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+        dot: "bg-blue-500"
       };
     case "Assigned":
       return {
         label: "ASSIGNED",
-        icon: <MessageSquareText className="h-12 w-12" />,
-        gradient: "from-amber-500/50 via-orange-500/50 to-yellow-500/80",
-        glow: "shadow-amber-500/50",
+        icon: <MessageSquareText className="h-5 w-5" />,
+        color: "bg-violet-500/10 text-violet-500 border-violet-500/20",
+        dot: "bg-violet-500"
       };
     default:
       return {
         label: "PENDING",
-        icon: <CircleCheckBig className="h-12 w-12" />,
-        gradient: "from-slate-500/50 via-gray-500/50 to-zinc-500/80",
-        glow: "shadow-slate-500/50",
+        icon: <AlertTriangle className="h-5 w-5" />,
+        color: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+        dot: "bg-amber-500"
       };
   }
 }
+
+// Priority badge styling
+function priorityBadgeClass(priority: Complaint["priority"]) {
+  if (priority === "High") return "bg-red-500/10 text-red-500 border-red-500/20";
+  if (priority === "Medium") return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+  return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+}
+
+const pieColors = [
+  "#F59E0B", // Amber - Pending
+  "#3B82F6", // Blue - Assigned
+  "#8B5CF6", // Violet - In Progress
+  "#10B981", // Emerald - Completed
+];
+
+const tooltipStyle = {
+  borderRadius: "12px",
+  border: "1px solid rgba(229, 231, 235, 0.5)",
+  background: "rgba(255,255,255,0.95)",
+  backdropFilter: "blur(12px)",
+  fontSize: "13px",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+  padding: "12px 16px"
+};
 
 export function TeamWorkspace() {
   const [items, setItems] = useState<Complaint[]>([]);
@@ -69,6 +125,11 @@ export function TeamWorkspace() {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  
+  // New state for filtering and search
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
   const load = async () => {
     setLoading(true);
@@ -86,19 +147,42 @@ export function TeamWorkspace() {
     void load();
   }, []);
 
-  // Sort items: PENDING first
+  // Filter complaints based on search and filters
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = item.complaintId.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            item.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter;
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [items, searchTerm, statusFilter, priorityFilter]);
+
   const sortedItems = useMemo(() => {
     const statusOrder = { "Pending Assignment": 0, Assigned: 1, "In Progress": 2, Completed: 3 };
-    return [...items].sort((a, b) => {
+    return [...filteredItems].sort((a, b) => {
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 999;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 999;
       return orderA - orderB;
     });
-  }, [items]);
+  }, [filteredItems]);
 
-  const assignedTasks = items.filter((item) => item.status === "Assigned").length;
-  const inProgressTasks = items.filter((item) => item.status === "In Progress").length;
-  const completedTasks = items.filter((item) => item.status === "Completed").length;
+  const statusDistribution = useMemo(() => {
+    const statusOrder = ["Assigned", "In Progress", "Completed"];
+    return statusOrder.map((statusName) => {
+      const count = filteredItems.filter((item) => item.status === statusName).length;
+      return { name: statusName, value: count };
+    });
+  }, [filteredItems]);
+
+  const assignedTasks = filteredItems.filter((item) => item.status === "Assigned").length;
+  const inProgressTasks = filteredItems.filter((item) => item.status === "In Progress").length;
+  const completedTasks = filteredItems.filter((item) => item.status === "Completed").length;
+  const pendingTasks = filteredItems.filter((item) => item.status === "Pending Assignment").length;
+  const totalTasks = filteredItems.length;
 
   const handleStartWork = (id: string) => {
     startTransition(async () => {
@@ -173,143 +257,312 @@ export function TeamWorkspace() {
     });
   };
 
-  const cards = [
-    { label: "Assigned Tasks", value: assignedTasks },
-    { label: "In Progress Tasks", value: inProgressTasks },
-    { label: "Completed Tasks", value: completedTasks }
+  const stats = [
+    { label: "Pending", value: pendingTasks, icon: Clock, color: "text-amber-500" },
+    { label: "Assigned", value: assignedTasks, icon: Briefcase, color: "text-blue-500" },
+    { label: "In Progress", value: inProgressTasks, icon: Zap, color: "text-violet-500" },
+    { label: "Completed", value: completedTasks, icon: Award, color: "text-emerald-500" }
   ];
+
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        {cards.map((card) => (
-          <Card key={card.label} className="border-slate-200/50 dark:border-white/[0.08] bg-white/10 dark:bg-[#0A1F1A]/50 backdrop-blur-sm shadow-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium tracking-wide uppercase text-slate-400 dark:text-white/40">
-                {card.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-serif text-3xl font-medium text-[#04342C] dark:text-white">{card.value}</p>
-            </CardContent>
-          </Card>
+      {/* Header Section */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="h-5 w-5 text-emerald-500" />
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Team Workspace</h1>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Manage your assigned complaints efficiently
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <Target className="h-4 w-4 text-emerald-500" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Completion Rate: <span className="font-bold text-emerald-600 dark:text-emerald-400">{completionRate}%</span>
+            </span>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => load()}
+            className="flex items-center gap-2 border-gray-200 dark:border-gray-700"
+          >
+            <RefreshCw className={`h-4 w-4 ${pending ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            whileHover={{ y: -4 }}
+            className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {stat.label}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
+                  {stat.value}
+                </p>
+              </div>
+              <div className={`p-2 rounded-lg ${stat.color.replace('text-', 'bg-')}/10`}>
+                <stat.icon className={`h-5 w-5 ${stat.color}`} />
+              </div>
+            </div>
+          </motion.div>
         ))}
       </div>
 
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search complaints..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+          />
+        </div>
+        
+        <div className="flex gap-3">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <Filter className="h-4 w-4 mr-2 opacity-70" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Pending Assignment">Pending</SelectItem>
+              <SelectItem value="Assigned">Assigned</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[140px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <AlertTriangle className="h-4 w-4 mr-2 opacity-70" />
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+  variant="outline"
+  onClick={() => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+  }}
+  className="
+    h-11
+    rounded-2xl
+    border border-white/10
+    bg-gradient-to-br
+    from-white/10
+    to-white/5
+    backdrop-blur-xl
+    shadow-[0_8px_32px_rgba(0,0,0,0.25)]
+    hover:scale-[1.02]
+    hover:bg-white/10
+    transition-all
+  "
+>
+  <RefreshCw className="h-4 w-4 mr-2" />
+  Reset
+</Button>
+        </div>
+      </div>
+
+      {/* Chart Section */}
+      <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                Complaint Distribution
+              </CardTitle>
+              <CardDescription className="text-gray-500 dark:text-gray-400">
+                Breakdown by status
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+              <Users className="h-4 w-4" />
+              <span>{totalTasks} total</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="h-[280px] pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+           
+            <PieChart>
+                          <Pie
+                            data={statusDistribution}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={0}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            cornerRadius={6}
+                            label
+                          >
+                            {statusDistribution.map((entry, index) => (
+                              <Cell key={entry.name} fill={pieColors[index % pieColors.length]} stroke="none" />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Legend wrapperStyle={{ fontSize: "12px" }} />
+                        </PieChart>
+
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Complaints List */}
       {loading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-64 rounded-3xl bg-slate-100/50 dark:bg-white/[0.04]" />
+            <Skeleton key={index} className="h-64 rounded-xl bg-gray-100 dark:bg-gray-800" />
           ))}
         </div>
       ) : sortedItems.length === 0 ? (
-        <Card className="border-slate-200/50 dark:border-white/[0.08] bg-white/10 dark:bg-[#0A1F1A]/50 backdrop-blur-sm shadow-none">
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">No tasks assigned</p>
-            <p className="text-sm text-slate-500 dark:text-white/50">New assignments will appear here.</p>
+        <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <CardContent className="py-12 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+              <Sparkles className="h-8 w-8 text-emerald-500" />
+            </div>
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No complaints found</h3>
+            <p className="mt-1 text-gray-500 dark:text-gray-400">
+              {searchTerm || statusFilter !== "all" || priorityFilter !== "all" 
+                ? "Try adjusting your filters" 
+                : "New assignments will appear here automatically"}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {sortedItems.map((item) => {
+        <div className="grid gap-4 md:grid-cols-2">
+          {sortedItems.map((item, index) => {
             const statusConfig = getStatusConfig(item.status);
             
             return (
-              <Card
+              <motion.div
                 key={item._id}
-                className="group relative overflow-hidden border-slate-200/50 dark:border-white/[0.08] bg-white/10 dark:bg-[#0A1F1A]/10 backdrop-blur-sm shadow-none transition-all duration-500 hover:shadow-2xl"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ y: -4 }}
               >
-                {/* Transparent Glass Overlay */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${statusConfig.gradient} backdrop-blur-md transition-all duration-500 ease-out group-hover:backdrop-blur-none group-hover:bg-opacity-0 group-hover:invisible z-20 flex items-center justify-center cursor-pointer`}>
-                  <div className="text-center transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-3">
-                    <div className="flex flex-col items-center gap-4">
-                      {/* Glowing icon */}
-                      <div className={`relative ${statusConfig.glow}`}>
-                        <div className="absolute inset-0 blur-xl bg-gradient-to-r from-white/30 to-transparent rounded-full"></div>
-                        <div className="relative text-white drop-shadow-lg">
-                          {statusConfig.icon}
+                <Card className="overflow-hidden border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md transition-shadow">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`rounded-md font-medium ${statusConfig.color}`}>
+                            {statusConfig.icon}
+                            <span>{item.status}</span>
+                          </Badge>
+                          <Badge className={`rounded-md font-medium ${priorityBadgeClass(item.priority)}`}>
+                            {item.priority}
+                          </Badge>
+                        </div>
+                        <h3 className="mt-2 text-lg font-semibold text-gray-900 dark:text-white truncate">
+                          {item.complaintId}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                          {item.clientName}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 ml-2">
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 border-gray-200 dark:border-gray-700"
+                            onClick={() => {
+                              setActiveComplaint(item);
+                              setModalMode("update");
+                              setRemarks("");
+                              setDetails("");
+                            }}
+                            disabled={item.status === "Completed"}
+                          >
+                            <MessageSquareText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 border-gray-200 dark:border-gray-700"
+                            onClick={() => {
+                              setActiveComplaint(item);
+                              setModalMode("complete");
+                              setRemarks("");
+                              setDetails("");
+                            }}
+                            disabled={pending || item.status === "Completed"}
+                          >
+                            <CircleCheckBig className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      
-                      {/* Status text with gradient */}
-                      <h3 className="text-3xl font-black tracking-wider text-white drop-shadow-lg uppercase">
-                        {statusConfig.label}
-                      </h3>
-                      
-                      {/* Animated underline */}
-                      <div className="w-16 h-0.5 bg-white/60 rounded-full animate-pulse"></div>
-                      
-                      
                     </div>
                   </div>
-                </div>
-
-                {/* Card Content - Hidden under glass until hover */}
-                <div className="relative z-10 transition-all duration-500">
-                  <CardHeader className="border-b border-slate-100/50 dark:border-white/[0.06] pb-5 pt-4">
-                    <div className="flex w-full items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CardTitle className="font-serif text-lg font-medium text-[#04342C] dark:text-white">
-                            {item.complaintId}
-                          </CardTitle>
-                        </div>
-                        <CardDescription className="text-slate-500 dark:text-white/50">{item.clientName}</CardDescription>
-                      </div>
-                      <Badge className={`rounded-full border-0 font-normal ${priorityBadgeClass(item.priority)}`}>
-                        {item.priority}
-                      </Badge>
-                    </div>
-                  </CardHeader>
                   
-                  <CardContent className="space-y-4 pt-5">
-                    <p className="text-sm leading-relaxed text-slate-600 dark:text-white/60">{item.description}</p>
-                    <div className="grid gap-2 text-sm text-slate-500 dark:text-white/50">
-                      <p className="inline-flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 text-[#4F9B8C] dark:text-[#7BE3CF]" />
-                        {item.location}
-                      </p>
-                      <p className="inline-flex items-center gap-2">
-                        <CalendarClock className="h-3.5 w-3.5 text-[#4F9B8C] dark:text-[#7BE3CF]" />
-                        Assigned {item.assignedDate ? new Date(item.assignedDate).toLocaleDateString() : "-"}
-                      </p>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                      {item.description}
+                    </p>
+                    
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{item.location}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <CalendarClock className="h-4 w-4 flex-shrink-0" />
+                        <span>Assigned {item.assignedDate ? new Date(item.assignedDate).toLocaleDateString() : "-"}</span>
+                      </div>
                     </div>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    
+                    <div className="mt-5 flex gap-2">
                       <Button
-                        type="button"
                         size="sm"
-                        className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white border-none"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                         onClick={() => handleStartWork(item._id)}
                         disabled={pending || item.status !== "Assigned"}
                       >
                         {startingId === item._id ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                         ) : (
-                          <PlayCircle className="h-4 w-4" />
+                          <PlayCircle className="h-4 w-4 mr-2" />
                         )}
                         Start Work
                       </Button>
                       <Button
-                        type="button"
                         size="sm"
                         variant="outline"
-                        className="border-slate-200 dark:border-white/[0.1] text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]"
-                        onClick={() => {
-                          setActiveComplaint(item);
-                          setModalMode("update");
-                          setRemarks("");
-                          setDetails("");
-                        }}
-                        disabled={item.status === "Completed"}
-                      >
-                        <MessageSquareText className="h-4 w-4" /> Update Work
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="bg-slate-100/50 hover:bg-slate-200/50 text-[#04342C] dark:bg-white/[0.06] dark:hover:bg-white/[0.1] dark:text-white border-none backdrop-blur-sm"
+                        className="flex-1 border-gray-200 dark:border-gray-700"
                         onClick={() => {
                           setActiveComplaint(item);
                           setModalMode("complete");
@@ -318,26 +571,29 @@ export function TeamWorkspace() {
                         }}
                         disabled={pending || item.status === "Completed"}
                       >
-                        <CircleCheckBig className="h-4 w-4" /> Mark Completed
+                        Complete
                       </Button>
                     </div>
-
-                    {item.status === "Completed" && item.completionRemarks && (
-                      <div className="mt-3 rounded-lg bg-green-50/50 dark:bg-green-500/10 backdrop-blur-sm p-3">
-                        <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">Completion Remarks:</p>
-                        <p className="text-sm text-green-600 dark:text-green-300">{item.completionRemarks}</p>
-                      </div>
-                    )}
-
-                    {item.status === "Completed" && item.resolutionDetails && (
-                      <div className="mt-2 rounded-lg bg-blue-50/50 dark:bg-blue-500/10 backdrop-blur-sm p-3">
-                        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-1">Resolution Details:</p>
-                        <p className="text-sm text-blue-600 dark:text-blue-300">{item.resolutionDetails}</p>
+                    
+                    {(item.status === "Completed") && (
+                      <div className="mt-4 space-y-2">
+                        {item.completionRemarks && (
+                          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-200 dark:border-emerald-800/30">
+                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-1">Completion Remarks</p>
+                            <p className="text-sm text-emerald-600 dark:text-emerald-200">{item.completionRemarks}</p>
+                          </div>
+                        )}
+                        {item.resolutionDetails && (
+                          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800/30">
+                            <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Resolution Details</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-200">{item.resolutionDetails}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
-                </div>
-              </Card>
+                </Card>
+              </motion.div>
             );
           })}
         </div>
@@ -352,34 +608,36 @@ export function TeamWorkspace() {
           setDetails("");
         }
       }}>
-        <DialogContent className="sm:max-w-[500px] bg-white/95 dark:bg-[#0A1F1A]/95 backdrop-blur-md border-slate-200/50 dark:border-white/[0.08]">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
           <DialogHeader>
-            <DialogTitle>Update Work</DialogTitle>
+            <div className="flex items-center gap-2">
+              <MessageSquareText className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-lg font-semibold">Update Work Progress</DialogTitle>
+            </div>
             <DialogDescription>
               Provide details about the work done on this complaint.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="rounded-xl border border-slate-100/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.03] backdrop-blur-sm px-4 py-3">
-              <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">complaint id</p>
-              <p className="font-serif text-lg font-medium text-[#04342C] dark:text-white">{activeComplaint?.complaintId}</p>
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Complaint ID</p>
+              <p className="font-medium text-gray-900 dark:text-white">{activeComplaint?.complaintId}</p>
             </div>
             <Textarea
               value={remarks}
               onChange={(event) => setRemarks(event.target.value)}
-              placeholder="Work remarks"
-              className="border-slate-200/50 dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#4F9B8C]/30 backdrop-blur-sm"
-              rows={3}
+              placeholder="Work remarks (required)"
+              className="min-h-[100px] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus-visible:ring-blue-500"
+              required
             />
             <Textarea
               value={details}
               onChange={(event) => setDetails(event.target.value)}
-              placeholder="Work details"
-              className="border-slate-200/50 dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#4F9B8C]/30 backdrop-blur-sm"
-              rows={3}
+              placeholder="Work details (optional)"
+              className="min-h-[100px] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus-visible:ring-blue-500"
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -388,17 +646,19 @@ export function TeamWorkspace() {
                 setRemarks("");
                 setDetails("");
               }}
-              className="border-slate-200/50 dark:border-white/[0.1]"
+              className="border-gray-200 dark:border-gray-700"
             >
               Cancel
             </Button>
             <Button
-              className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
-              disabled={pending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={pending || !remarks.trim()}
               onClick={handleUpdateWork}
             >
-              {pending && updatingId === activeComplaint?._id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {pending && updatingId === activeComplaint?._id ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Save Update
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -413,36 +673,37 @@ export function TeamWorkspace() {
           setDetails("");
         }
       }}>
-        <DialogContent className="sm:max-w-[500px] bg-white/95 dark:bg-[#0A1F1A]/95 backdrop-blur-md border-slate-200/50 dark:border-white/[0.08]">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
           <DialogHeader>
-            <DialogTitle>Complete Complaint</DialogTitle>
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-emerald-500" />
+              <DialogTitle className="text-lg font-semibold">Complete Complaint</DialogTitle>
+            </div>
             <DialogDescription>
-              Provide completion remarks and resolution details for this complaint.
+              Mark this complaint as completed with final details.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="rounded-xl border border-slate-100/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.03] backdrop-blur-sm px-4 py-3">
-              <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">complaint id</p>
-              <p className="font-serif text-lg font-medium text-[#04342C] dark:text-white">{activeComplaint?.complaintId}</p>
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Complaint ID</p>
+              <p className="font-medium text-gray-900 dark:text-white">{activeComplaint?.complaintId}</p>
             </div>
             <Textarea
               value={remarks}
               onChange={(event) => setRemarks(event.target.value)}
-              placeholder="Completion remarks *"
-              className="border-slate-200/50 dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#4F9B8C]/30 backdrop-blur-sm"
-              rows={3}
+              placeholder="Completion remarks (required)"
+              className="min-h-[100px] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus-visible:ring-emerald-500"
               required
             />
             <Textarea
               value={details}
               onChange={(event) => setDetails(event.target.value)}
-              placeholder="Resolution details *"
-              className="border-slate-200/50 dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#4F9B8C]/30 backdrop-blur-sm"
-              rows={3}
+              placeholder="Resolution details (required)"
+              className="min-h-[100px] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus-visible:ring-emerald-500"
               required
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -451,17 +712,21 @@ export function TeamWorkspace() {
                 setRemarks("");
                 setDetails("");
               }}
-              className="border-slate-200/50 dark:border-white/[0.1]"
+              className="border-gray-200 dark:border-gray-700"
             >
               Cancel
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={pending || !remarks || !details}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={pending || !remarks.trim() || !details.trim()}
               onClick={handleCompleteWork}
             >
-              {pending && completingId === activeComplaint?._id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CircleCheckBig className="h-4 w-4 mr-2" />}
-              Mark as Completed
+              {pending && completingId === activeComplaint?._id ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CircleCheckBig className="h-4 w-4 mr-2" />
+              )}
+              Mark Completed
             </Button>
           </DialogFooter>
         </DialogContent>

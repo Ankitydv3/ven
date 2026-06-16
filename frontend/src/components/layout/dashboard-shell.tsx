@@ -67,6 +67,7 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
+      
       {/* Desktop Sidebar */}
       <aside className="hidden border-r border-white/10 bg-slate-950/80 px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
         <div className="mb-10 flex items-center gap-3">
@@ -77,6 +78,13 @@ export function DashboardShell({
             <p className="font-heading text-lg font-semibold">Complaint Flow OS</p>
             <p className="text-xs text-slate-400">Enterprise service desk</p>
           </div>
+        </div>
+<div className="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
+          <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
+            {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
+          </Badge>
+          <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
+          <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
         </div>
 
         <nav className="space-y-2">
@@ -105,13 +113,7 @@ export function DashboardShell({
           })}
         </nav>
 
-        <div className="mt-auto rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
-          <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
-            {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
-          </Badge>
-          <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
-          <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
-        </div>
+        
       </aside>
 
       {/* Mobile Menu Overlay */}
