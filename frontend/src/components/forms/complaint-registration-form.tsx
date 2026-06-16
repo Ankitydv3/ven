@@ -208,42 +208,7 @@ export function ComplaintRegistrationForm() {
         </CardContent>
       </Card>
 
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Complaint Tracking</CardTitle>
-              <CardDescription>Track a submitted complaint using its ID.</CardDescription>
-            </div>
-            <ScanSearch className="h-5 w-5 text-teal-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Label>Complaint ID</Label>
-              <Input value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="CMP-2026-001" />
-              <Button className="w-full" onClick={handleTrack} type="button">
-                {trackingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Track Complaint
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {trackingComplaint ? (
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>{trackingComplaint.complaintId}</CardTitle>
-                <CardDescription>{trackingComplaint.title}</CardDescription>
-              </div>
-              <Badge>{trackingComplaint.status}</Badge>
-            </CardHeader>
-            <CardContent>
-              <Timeline complaint={trackingComplaint} />
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
+      
     </div>
   );
 }

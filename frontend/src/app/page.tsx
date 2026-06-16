@@ -47,16 +47,6 @@ export default function Home() {
                 Submit, route, and resolve issues through one intelligent workflow — with live analytics and role-based access throughout.
               </p>
 
-              <div className="flex flex-wrap gap-3 pt-2">
-                <button className="group inline-flex items-center gap-2 rounded-lg bg-[#7BE3CF] px-6 py-3 text-sm font-medium text-[#04342C] transition-all hover:bg-[#9FE1CB]">
-                  Get started
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </button>
-                <button className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-white/5">
-                  Watch demo
-                </button>
-              </div>
-
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3 pt-8 max-w-md">
                 {stats.map((stat, idx) => (
