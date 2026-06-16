@@ -75,3 +75,62 @@ body {
 ::selection {
   background: rgba(15, 118, 110, 0.2);
 }
+/* Add these to your globals.css */
+
+@keyframes float-a {
+  0%, 100% { transform: translateY(0px) translateX(0px); }
+  33%       { transform: translateY(-18px) translateX(8px); }
+  66%       { transform: translateY(10px) translateX(-6px); }
+}
+@keyframes float-b {
+  0%, 100% { transform: translateY(0px) translateX(0px); }
+  50%       { transform: translateY(-14px) translateX(-10px); }
+}
+@keyframes float-c {
+  0%, 100% { transform: translateY(0px); }
+  40%       { transform: translateY(12px); }
+  80%       { transform: translateY(-8px); }
+}
+@keyframes pulse-ring {
+  0%, 100% { opacity: 0.18; }
+  50%       { opacity: 0.35; }
+}
+
+.animate-float-a   { animation: float-a   7s ease-in-out infinite; }
+.animate-float-b   { animation: float-b   5.5s ease-in-out infinite; }
+.animate-float-c   { animation: float-c   6s ease-in-out infinite 1s; }
+.animate-pulse-ring{ animation: pulse-ring 4s ease-in-out infinite; }
+
+/* ── OR add to tailwind.config.ts ── */
+/*
+theme: {
+  extend: {
+    keyframes: {
+      'float-a': {
+        '0%, 100%': { transform: 'translateY(0px) translateX(0px)' },
+        '33%':      { transform: 'translateY(-18px) translateX(8px)' },
+        '66%':      { transform: 'translateY(10px) translateX(-6px)' },
+      },
+      'float-b': {
+        '0%, 100%': { transform: 'translateY(0px) translateX(0px)' },
+        '50%':      { transform: 'translateY(-14px) translateX(-10px)' },
+      },
+      'float-c': {
+        '0%, 100%': { transform: 'translateY(0px)' },
+        '40%':      { transform: 'translateY(12px)' },
+        '80%':      { transform: 'translateY(-8px)' },
+      },
+      'pulse-ring': {
+        '0%, 100%': { opacity: '0.18' },
+        '50%':      { opacity: '0.35' },
+      },
+    },
+    animation: {
+      'float-a':    'float-a 7s ease-in-out infinite',
+      'float-b':    'float-b 5.5s ease-in-out infinite',
+      'float-c':    'float-c 6s ease-in-out infinite 1s',
+      'pulse-ring': 'pulse-ring 4s ease-in-out infinite',
+    },
+  },
+},
+*/

@@ -1,7 +1,7 @@
 import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
 import { Card, CardDescription, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, ClipboardList, Users, BarChart3, Clock, CheckCircle2, Shield, TrendingUp } from "lucide-react";
+import { ClipboardList, Users, BarChart3, Clock, CheckCircle2, Shield, TrendingUp } from "lucide-react";
 
 export default function Home() {
   const steps = [
@@ -14,76 +14,85 @@ export default function Home() {
   const stats = [
     { label: "Active", value: "1,247", change: "+12%", icon: ClipboardList },
     { label: "Resolved", value: "94.2%", change: "+5%", icon: CheckCircle2 },
-    { label: "Response", value: "2.4h", change: "-18%", icon: Clock },
+    { label: "Response", value: "2.4h", change: "−18%", icon: Clock },
   ];
 
-  return (
-    <main className="min-h-screen bg-[#FAFBFA] dark:bg-[#04140F]">
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-[#04342C]">
-        {/* Decorative rings */}
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-[#7BE3CF]/10" />
-        <div className="absolute right-10 top-10 h-44 w-44 rounded-full border border-[#7BE3CF]/[0.08]" />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%237BE3CF' fill-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
+ 
 
-        <div className="relative mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-          <div className="grid gap-16 lg:grid-cols-2 lg:gap-20">
+  return (
+    <main className="min-h-screen bg-[#EFF4FB] dark:bg-[#020F1E]">
+
+      {/* ── Hero ── */}
+      <div className="relative overflow-hidden bg-[#042C53]">
+
+        {/* Floating orbs */}
+        <div className="pointer-events-none absolute -right-10 -top-14 h-56 w-56 rounded-full bg-[#185FA5] opacity-25 animate-float-a" />
+        <div className="pointer-events-none absolute right-36 top-28 h-28 w-28 rounded-full bg-[#378ADD] opacity-20 animate-float-b" />
+        <div className="pointer-events-none absolute bottom-10 left-14 h-20 w-20 rounded-full bg-[#85B7EB] opacity-15 animate-float-c" />
+        <div className="pointer-events-none absolute left-52 top-14 h-12 w-12 rounded-full bg-[#B5D4F4] opacity-20 animate-float-b" />
+
+        {/* Rings */}
+        <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full border border-[#B5D4F4]/20 animate-pulse-ring" />
+        <div className="pointer-events-none absolute right-20 top-20 h-44 w-44 rounded-full border border-[#B5D4F4]/15 animate-pulse-ring [animation-delay:2s]" />
+
+        {/* Cross accents */}
+        <span className="pointer-events-none absolute left-28 top-10 text-[#B5D4F4] opacity-15 text-3xl select-none animate-float-a [animation-delay:2s]">+</span>
+        <span className="pointer-events-none absolute bottom-12 right-48 text-[#B5D4F4] opacity-15 text-3xl select-none animate-float-b [animation-delay:3s]">+</span>
+
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-24">
+          <div className="grid gap-16 lg:grid-cols-2 lg:gap-20 items-center">
+
             {/* Left */}
             <div className="space-y-8">
-              <Badge className="border border-[#7BE3CF]/30 bg-transparent text-[#7BE3CF] px-4 py-1.5 text-xs font-medium tracking-wide rounded-full">
+              <Badge className="border border-[#B5D4F4]/35 bg-transparent text-[#B5D4F4] px-4 py-1.5 text-[11px] font-medium tracking-widest rounded-full">
                 Complaint management, refined
               </Badge>
 
-              <h1 className="font-serif text-4xl font-medium leading-tight text-white md:text-5xl lg:text-6xl max-w-xl">
-                A calmer way to handle every complaint
+              <h1 className="font-serif text-4xl font-medium leading-tight tracking-tight text-white md:text-5xl lg:text-[50px] max-w-xl">
+                A smarter way to resolve every complaint
               </h1>
 
-              <p className="text-base leading-relaxed text-white/60 md:text-lg max-w-md">
+              <p className="text-sm leading-relaxed text-white/50 md:text-base max-w-md">
                 Submit, route, and resolve issues through one intelligent workflow — with live analytics and role-based access throughout.
               </p>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-3 pt-8 max-w-md">
+              <div className="grid grid-cols-3 gap-2.5 pt-6 max-w-md">
                 {stats.map((stat, idx) => (
-                  <div key={idx} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-                    <div className="flex items-center gap-1.5 text-white/45 mb-2">
-                      <stat.icon className="h-3.5 w-3.5" />
-                      <span className="text-[11px] tracking-wide">{stat.label}</span>
+                  <div key={idx} className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-3.5">
+                    <div className="flex items-center gap-1.5 text-white/38 mb-2">
+                      <stat.icon className="h-3 w-3" />
+                      <span className="text-[10px] tracking-wide">{stat.label}</span>
                     </div>
                     <div className="text-xl font-medium text-white">{stat.value}</div>
-                    <div className="text-[11px] text-[#7BE3CF] mt-1">{stat.change} this month</div>
+                    <div className="text-[10px] text-[#85B7EB] mt-1">{stat.change} this month</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right - Workflow card */}
+            {/* Right — Workflow card */}
             <div className="relative hidden lg:block">
-              <Card className="border-white/10 bg-white/[0.04] backdrop-blur-sm shadow-none">
+              <Card className="border-white/10 bg-white/[0.05] shadow-none">
                 <CardHeader>
-                  <CardTitle className="font-serif text-xl font-medium text-white">Smart workflow</CardTitle>
-                  <CardDescription className="text-white/50">
-                    Automated complaint lifecycle management
+                  <CardTitle className="font-serif text-[17px] font-medium text-white">Smart workflow</CardTitle>
+                  <CardDescription className="text-white/38 text-xs">
+                    Automated complaint lifecycle
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     {steps.map((step, idx) => (
-                      <div key={idx} className="relative flex items-start gap-4">
-                        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#7BE3CF]/25 bg-[#7BE3CF]/10">
-                          <step.icon className="h-4.5 w-4.5 text-[#7BE3CF]" />
+                      <div key={idx} className="relative flex items-start gap-3.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#85B7EB]/30 bg-[#85B7EB]/10">
+                          <step.icon className="h-4 w-4 text-[#85B7EB]" />
                         </div>
-                        <div className="flex-1 pt-1">
-                          <div className="font-medium text-white text-sm mb-1">{step.title}</div>
-                          <div className="text-sm text-white/50 leading-relaxed">{step.description}</div>
+                        <div className="pt-0.5">
+                          <div className="text-sm font-medium text-white mb-0.5">{step.title}</div>
+                          <div className="text-xs text-white/42 leading-relaxed">{step.description}</div>
                         </div>
                         {idx < steps.length - 1 && (
-                          <div className="absolute left-5 top-10 h-7 w-px bg-white/10" />
+                          <div className="absolute left-[17px] top-9 h-5 w-px bg-white/08" />
                         )}
                       </div>
                     ))}
@@ -91,59 +100,41 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+
           </div>
         </div>
       </div>
 
-      {/* Features */}
-      <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
-        <div className="mb-12 max-w-2xl">
-          <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-2">why choose us</p>
-          <h2 className="font-serif text-3xl font-medium tracking-tight text-[#04342C] dark:text-white sm:text-4xl">
-            Enterprise-grade, beautifully simple
-          </h2>
-          <p className="mt-4 text-base text-slate-500 dark:text-slate-400 leading-relaxed">
-            Powerful features to streamline your support operations from intake to resolution.
-          </p>
-        </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
-          {[
-            { icon: Shield, title: "Role-based access", desc: "Granular permissions for customers, agents, and admins." },
-            { icon: BarChart3, title: "Live analytics", desc: "Dashboards covering metrics, trends, and performance insights." },
-            { icon: TrendingUp, title: "Auto-escalation", desc: "Smart routing based on SLA and priority level." },
-          ].map((feature, idx) => (
-            <Card
-              key={idx}
-              className="group border-slate-200 dark:border-slate-800 shadow-none transition-all duration-300 hover:border-[#4F9B8C]/40 hover:-translate-y-0.5"
-            >
-              <CardHeader>
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#4F9B8C]/25 bg-[#4F9B8C]/[0.06]">
-                  <feature.icon className="h-5 w-5 text-[#2F6B63]" />
-                </div>
-                <CardTitle className="font-serif text-lg font-medium">{feature.title}</CardTitle>
-                <CardDescription className="leading-relaxed">{feature.desc}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </div>
+      {/* ── Form ── */}
+      <div className="mx-auto max-w-6xl px-6 pb-20 lg:px-8">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#061628]">
 
-      {/* Registration Form */}
-      <div className="mx-auto max-w-7xl px-6 pb-20 lg:px-8">
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1F1A] overflow-hidden">
-          <div className="border-b border-slate-100 dark:border-slate-800 bg-[#FAFBFA] dark:bg-[#04140F] px-8 py-7">
-            <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">new request</p>
-            <h3 className="font-serif text-2xl font-medium text-[#04342C] dark:text-white">Submit a complaint</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Fill out the form below and our team will take it from here.
+          {/* Floating orbs behind form */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#E6F1FB] opacity-60 dark:opacity-10 animate-float-b" />
+          <div className="pointer-events-none absolute bottom-16 right-20 h-24 w-24 rounded-full bg-[#B5D4F4] opacity-25 dark:opacity-10 animate-float-a [animation-delay:1s]" />
+          <div className="pointer-events-none absolute right-5 top-48 h-12 w-12 rounded-full bg-[#85B7EB] opacity-15 dark:opacity-10 animate-float-c [animation-delay:0.5s]" />
+
+          {/* Header */}
+          <div className="relative z-10 border-b border-[#185FA5]/10 bg-[#EFF4FB] dark:bg-[#061628] px-8 py-6">
+            <p className="text-[11px] font-medium tracking-[0.1em] text-[#185FA5] uppercase mb-1">new request</p>
+            <h3 className="font-serif text-xl font-medium text-[#042C53] dark:text-white">Submit a complaint</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Fill out the form and our team will take it from here.
             </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#E6F1FB] dark:bg-[#0C447C]/20 px-3 py-1 text-[11px] font-medium text-[#0C447C] dark:text-[#85B7EB]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#378ADD]" />
+              Pending assignment
+            </span>
           </div>
-          <div className="p-8">
+
+          {/* Form body */}
+          <div className="relative z-10 p-8">
             <ComplaintRegistrationForm />
           </div>
         </div>
       </div>
+
     </main>
   );
 }
