@@ -1,0 +1,318 @@
+"use client";
+
+import { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { teamNames } from "@/lib/constants";
+import { primaryButtonClass } from "@/lib/schedule-constants";
+import { fetchComplaints } from "@/services/complaints";
+import { fetchOrders } from "@/services/orders";
+import type { SchedulePayload } from "@/lib/schedule.types";
+import { cn } from "@/lib/utils";
+
+const assignSchema = z.object({
+  complaintId: z.string().optional(),
+  orderId: z.string().optional(),
+  customerName: z.string().trim().min(2, "Customer name is required"),
+  serviceType: z.string().trim().min(2, "Service type is required"),
+  team: z.string().min(2, "Team is required"),
+  scheduledDate: z.string().min(1, "Date is required"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
+  priority: z.enum(["Low", "Medium", "High", "Critical"]),
+  remarks: z.string().optional(),
+});
+
+type AssignFormValues = z.infer<typeof assignSchema>;
+
+interface AssignTaskModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (payload: SchedulePayload) => Promise<void>;
+  isSaving?: boolean;
+}
+
+export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: AssignTaskModalProps) {
+  const form = useForm<AssignFormValues>({
+    resolver: zodResolver(assignSchema),
+    defaultValues: {
+      complaintId: "",
+      orderId: "",
+      customerName: "",
+      serviceType: "",
+      team: "",
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      startTime: "10:00",
+      endTime: "12:00",
+      priority: "Medium",
+      remarks: "",
+    },
+  });
+
+  const { data: complaintsData } = useQuery({
+    queryKey: ["complaints", "assign-modal"],
+    queryFn: () => fetchComplaints({ limit: 100 }),
+    enabled: open,
+  });
+
+  const { data: ordersData } = useQuery({
+    queryKey: ["orders", "assign-modal"],
+    queryFn: () => fetchOrders({ limit: 100, page: 1 }),
+    enabled: open,
+  });
+
+  const complaints = complaintsData?.items ?? [];
+  const orders = ordersData?.items ?? [];
+
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+    }
+  }, [open, form]);
+
+  const handleComplaintSelect = (complaintId: string) => {
+    const complaint = complaints.find((c) => c.complaintId === complaintId);
+    if (!complaint) return;
+    form.setValue("complaintId", complaint.complaintId);
+    form.setValue("customerName", complaint.clientName);
+    form.setValue("serviceType", complaint.title);
+  };
+
+  const handleOrderSelect = (orderId: string) => {
+    const order = orders.find((o) => o.orderId === orderId);
+    if (!order) return;
+    form.setValue("orderId", orderId);
+    form.setValue("customerName", order.customerName);
+    form.setValue("serviceType", order.serviceType);
+  };
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await onSubmit({
+        complaintId: values.complaintId || undefined,
+        orderId: values.orderId || undefined,
+        customerName: values.customerName,
+        serviceType: values.serviceType,
+        team: values.team,
+        scheduledDate: values.scheduledDate,
+        startTime: values.startTime,
+        endTime: values.endTime,
+        priority: values.priority,
+        remarks: values.remarks,
+      });
+      onOpenChange(false);
+      form.reset();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to assign task");
+    }
+  });
+
+  const errors = form.formState.errors;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-xl dark:border-white/[0.08] dark:bg-[#0A1F1A]">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-slate-900 dark:text-white">Assign Task</DialogTitle>
+          <DialogDescription className="text-slate-500 dark:text-white/50">
+            Schedule a service task and assign it to a team.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="space-y-4" onSubmit={submit}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Complaint</Label>
+              <Select onValueChange={handleComplaintSelect}>
+                <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                  <SelectValue placeholder="Select complaint" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-[#0A1F1A]">
+                  {complaints.map((c) => (
+                    <SelectItem key={c._id} value={c.complaintId}>
+                      {c.complaintId} — {c.clientName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Order</Label>
+              <Select onValueChange={handleOrderSelect}>
+                <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                  <SelectValue placeholder="Select order" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-[#0A1F1A]">
+                  {orders.map((o) => (
+                    <SelectItem key={o._id} value={o.orderId}>
+                      {o.orderId} — {o.customerName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="customerName">
+                Customer <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="customerName"
+                {...form.register("customerName")}
+                className={cn("h-11 rounded-xl dark:bg-[#071A17]/60", errors.customerName && "border-rose-500")}
+              />
+              {errors.customerName && (
+                <p className="text-xs text-rose-500">{errors.customerName.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="serviceType">
+                Service Type <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="serviceType"
+                {...form.register("serviceType")}
+                className={cn("h-11 rounded-xl dark:bg-[#071A17]/60", errors.serviceType && "border-rose-500")}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Assign To Team <span className="text-rose-500">*</span>
+            </Label>
+            <Controller
+              control={form.control}
+              name="team"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent className="dark:bg-[#0A1F1A]">
+                    {teamNames.map((team) => (
+                      <SelectItem key={team} value={team}>
+                        {team}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="scheduledDate">
+                Schedule Date <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="scheduledDate"
+                type="date"
+                {...form.register("scheduledDate")}
+                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="startTime">
+                Start Time <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="startTime"
+                type="time"
+                {...form.register("startTime")}
+                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="endTime">
+                End Time <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="endTime"
+                type="time"
+                {...form.register("endTime")}
+                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Priority</Label>
+            <Controller
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="dark:bg-[#0A1F1A]">
+                    {(["Low", "Medium", "High", "Critical"] as const).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="remarks">Remarks</Label>
+            <Textarea
+              id="remarks"
+              {...form.register("remarks")}
+              placeholder="Optional assignment notes"
+              className="min-h-[80px] rounded-xl dark:bg-[#071A17]/60"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-11 flex-1 rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSaving}
+              className={cn("h-11 flex-1 rounded-xl", primaryButtonClass)}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Assign Task
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

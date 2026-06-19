@@ -21,7 +21,8 @@ import {
   ListChecks,
   Clock,
   UserCog,
-  ShoppingBag
+  ShoppingBag,
+  CalendarDays
 } from "lucide-react";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ const iconMap: Record<string, any> = {
   Orders: ShoppingBag,
   "My Tasks": ListChecks,
   Customers: Users,
+  Schedule: CalendarDays,
   Complaints: FileText,
   "My Team": Users,
   "Team Members": Users,

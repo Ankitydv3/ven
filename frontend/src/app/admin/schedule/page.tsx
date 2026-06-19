@@ -1,9 +1,5 @@
-import React from 'react'
+import { SchedulePage } from "@/components/schedule/SchedulePage";
 
-const page = () => {
-  return (
-    <div>page</div>
-  )
+export default function AdminSchedulePage() {
+  return <SchedulePage />;
 }
-
-export default page

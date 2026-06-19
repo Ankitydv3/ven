@@ -7,6 +7,7 @@ import customerRoutes from "./routes/customerRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import orderRoutes from "./routes/orderRoutes";
+import scheduleRoutes from "./routes/scheduleRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
@@ -24,6 +25,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/schedules", scheduleRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use(notFound);
