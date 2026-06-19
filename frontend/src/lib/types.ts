@@ -2,6 +2,35 @@ export type ComplaintStatus = "Pending Assignment" | "Assigned" | "In Progress" 
 export type Priority = "High" | "Medium" | "Low";
 export type UserRole = "admin" | "team" | "customer";
 
+export interface Customer {
+  _id: string;
+  customerId: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  alternatePhone?: string;
+  notes?: string;
+  totalComplaints: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerListResponse {
+  items: Customer[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CustomerMutationResponse {
+  message: string;
+  customer: Customer;
+}
+
 export interface Complaint {
   _id: string;
   complaintId: string;

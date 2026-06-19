@@ -69,8 +69,8 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden border-r border-white/10 bg-slate-950/80 px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
-        <div className="mb-10 flex items-center gap-3">
+      <aside className="hidden border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
+        <div className="mb-10 bg-white flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
             <Workflow className="h-5 w-5" />
           </div>
@@ -136,7 +136,7 @@ export function DashboardShell({
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-slate-950/95 px-5 py-6 text-white backdrop-blur-xl lg:hidden"
+              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:hidden"
             >
               <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">

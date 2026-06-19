@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import authRoutes from "./routes/authRoutes";
+import customerRoutes from "./routes/customerRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
@@ -19,6 +20,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/customers", customerRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 

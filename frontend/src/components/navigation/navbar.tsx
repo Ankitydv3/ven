@@ -11,25 +11,24 @@ import { ThemeToggle } from "@/components/navigation/theme-toggle";
 // Define navigation items for different roles
 const publicLinks = [
   { href: "/", label: "Home" },
-  { href: "/track", label: "Track" }
+  { href: "/track", label: "Track" },
 ];
 
 const adminLinks = [
   { href: "/admin/dashboard", label: "Admin dashboard" },
   { href: "/admin/complaints", label: "Complaints" },
-  { href: "/admin/analytics", label: "Analytics" }
+  { href: "/admin/analytics", label: "Analytics" },
 ];
 
-const teamLinks = [
-  { href: "/team/dashboard", label: "Team dashboard" }
-];
+const teamLinks = [{ href: "/team/dashboard", label: "Team dashboard" }];
 
 // Auth check function - replace with your actual auth logic
 const getAuthStatus = () => {
   // Example: Check localStorage or cookies
   // Replace this with your actual authentication method
-  if (typeof window === "undefined") return { isAuthenticated: false, role: null };
-  
+  if (typeof window === "undefined")
+    return { isAuthenticated: false, role: null };
+
   const token = localStorage.getItem("auth_token");
   const role = localStorage.getItem("user_role");
 
@@ -75,7 +74,7 @@ export function Navbar() {
       return [
         ...publicLinks,
         { href: "/admin/login", label: "Admin login" },
-        { href: "/team/login", label: "Team login" }
+        { href: "/team/login", label: "Team login" },
       ];
     }
 
@@ -98,35 +97,18 @@ export function Navbar() {
         "sticky top-0 z-40 w-full border-b backdrop-blur-xl transition-all duration-300",
         scrolled
           ? "border-slate-200/70 bg-white/80 shadow-[0_4px_24px_-12px_rgba(4,52,44,0.12)] dark:border-white/[0.06] dark:bg-[#04140F]/90"
-          : "border-transparent bg-white/50 dark:border-transparent dark:bg-[#04140F]/60"
+          : "border-transparent bg-white/50 dark:border-transparent dark:bg-[#04140F]/60",
       )}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3.5 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center  justify-between gap-4 px-6 py-3.5 lg:px-8">
         {/* Brand */}
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#4F9B8C]/30 bg-[#4F9B8C]/[0.08] text-[#2F6B63] transition-all duration-300 group-hover:scale-105 group-hover:border-[#4F9B8C]/50 group-hover:bg-[#4F9B8C]/[0.14] dark:text-[#7BE3CF]">
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transition-transform duration-300 group-hover:rotate-6"
-            >
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="font-serif text-base font-medium text-[#04342C] transition-colors duration-300 dark:text-white">
-              Complaint Flow OS
-            </span>
-            <span className="hidden text-xs text-slate-400 transition-colors duration-300 dark:text-white/40 md:inline">
-              Service desk
-            </span>
+        <Link href="/" className="group flex items-center">
+          <div className="flex h-10 items-center justify-center transition-all duration-300 group-hover:scale-105">
+            <img
+              src="/okna.png"
+              alt="Complaint Flow OS"
+              className="w-28 sm:w-36 md:w-44 lg:w-52 h-auto object-contain"
+            />
           </div>
         </Link>
 
@@ -142,7 +124,7 @@ export function Navbar() {
                   "relative rounded-full px-4 py-2 text-sm font-medium transition-all duration-300",
                   active
                     ? "bg-[#2F6B63] text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-[#2F6B63] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#7BE3CF]"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-[#2F6B63] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#7BE3CF]",
                 )}
               >
                 {l.label}
@@ -176,7 +158,9 @@ export function Navbar() {
             <span
               className={cn(
                 "absolute transition-all duration-300",
-                open ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100"
+                open
+                  ? "rotate-90 scale-0 opacity-0"
+                  : "rotate-0 scale-100 opacity-100",
               )}
             >
               <Menu className="h-4 w-4" />
@@ -184,7 +168,9 @@ export function Navbar() {
             <span
               className={cn(
                 "absolute transition-all duration-300",
-                open ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0"
+                open
+                  ? "rotate-0 scale-100 opacity-100"
+                  : "-rotate-90 scale-0 opacity-0",
               )}
             >
               <X className="h-4 w-4" />
@@ -199,7 +185,7 @@ export function Navbar() {
           "overflow-hidden border-t backdrop-blur-xl transition-[max-height,opacity,border-color] duration-300 ease-in-out dark:bg-[#04140F]/95 md:hidden",
           open
             ? "max-h-96 border-slate-200/70 bg-white/90 opacity-100 dark:border-white/[0.06]"
-            : "max-h-0 border-transparent bg-white/90 opacity-0 dark:border-transparent"
+            : "max-h-0 border-transparent bg-white/90 opacity-0 dark:border-transparent",
         )}
       >
         <div className="flex flex-col gap-1 px-6 py-4">
@@ -207,10 +193,12 @@ export function Navbar() {
             style={{ transitionDelay: open ? "0ms" : "0ms" }}
             className={cn(
               "mb-1 flex items-center justify-between rounded-lg px-3 py-2 transition-all duration-300",
-              open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
+              open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
             )}
           >
-            <span className="text-sm font-medium text-slate-700 dark:text-white/70">Appearance</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-white/70">
+              Appearance
+            </span>
             <ThemeToggle />
           </div>
           {navLinks.map((l, index) => {
@@ -220,13 +208,17 @@ export function Navbar() {
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                style={{ transitionDelay: open ? `${(index + 1) * 35}ms` : "0ms" }}
+                style={{
+                  transitionDelay: open ? `${(index + 1) * 35}ms` : "0ms",
+                }}
                 className={cn(
                   "rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300",
-                  open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
+                  open
+                    ? "translate-y-0 opacity-100"
+                    : "-translate-y-1 opacity-0",
                   active
                     ? "bg-[#2F6B63] text-white"
-                    : "text-slate-700 hover:bg-slate-50 hover:text-[#2F6B63] dark:text-white/70 dark:hover:bg-white/[0.05] dark:hover:text-[#7BE3CF]"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-[#2F6B63] dark:text-white/70 dark:hover:bg-white/[0.05] dark:hover:text-[#7BE3CF]",
                 )}
               >
                 {l.label}
@@ -241,10 +233,14 @@ export function Navbar() {
                 logout();
                 setOpen(false);
               }}
-              style={{ transitionDelay: open ? `${(navLinks.length + 1) * 35}ms` : "0ms" }}
+              style={{
+                transitionDelay: open
+                  ? `${(navLinks.length + 1) * 35}ms`
+                  : "0ms",
+              }}
               className={cn(
                 "mt-2 border-slate-200 text-slate-600 transition-all duration-300 hover:border-[#E24B4A]/30 hover:bg-[#E24B4A]/[0.06] hover:text-[#B3322E] dark:border-white/[0.1] dark:text-white/70 dark:hover:border-[#E24B4A]/30 dark:hover:bg-[#E24B4A]/[0.1] dark:hover:text-[#E24B4A]",
-                open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
+                open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
               )}
             >
               <LogOut className="h-3.5 w-3.5" />

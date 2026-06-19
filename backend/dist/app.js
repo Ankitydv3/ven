@@ -8,6 +8,7 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
+const customerRoutes_1 = __importDefault(require("./routes/customerRoutes"));
 const complaintRoutes_1 = __importDefault(require("./routes/complaintRoutes"));
 const dashboardRoutes_1 = __importDefault(require("./routes/dashboardRoutes"));
 const errorHandler_1 = require("./middleware/errorHandler");
@@ -20,6 +21,7 @@ app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
 });
 app.use("/api/auth", authRoutes_1.default);
+app.use("/api/customers", customerRoutes_1.default);
 app.use("/api/complaints", complaintRoutes_1.default);
 app.use("/api/dashboard", dashboardRoutes_1.default);
 app.use(errorHandler_1.notFound);
