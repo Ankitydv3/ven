@@ -59,7 +59,7 @@ export function StatusCards({
         return (
           <Card
             key={card.label}
-            className="group relative overflow-hidden border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none transition-all hover:shadow-[0_8px_30px_-12px_rgba(47,107,99,0.25)] dark:hover:shadow-[0_8px_30px_-12px_rgba(123,227,207,0.15)]"
+            className="group relative overflow-hidden border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none transition-all hover:shadow-[0_8px_30px_-12px_rgba(47,107,99,0.25)] dark:hover:shadow-[0_8px_30px_-12px_rgba(123,227,207,0.15)]"
           >
             <div className="p-5">
               <div

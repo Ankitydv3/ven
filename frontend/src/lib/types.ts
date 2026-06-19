@@ -76,6 +76,60 @@ export interface RecentOrder {
   createdAt?: string;
 }
 
+export interface Order {
+  _id: string;
+  orderId: string;
+  customerName: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+
+  materialType: "Aluminium" | "uPVC";
+
+  deliveryDate: string;
+
+  unpaidServiceAvailable: boolean;
+  paymentStatus: "Paid" | "Unpaid";
+
+  serviceType: string;
+  status: string;
+  amount: number;
+
+  paid: boolean;
+
+  assignedTeam?: string;
+  category?: string;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OrderFilters {
+  q?: string;
+  materialType?: string;
+  paid?: boolean | string;
+  status?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export interface OrderListResponse {
+  items: Order[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface OrderMutationResponse {
+  message: string;
+  order: Order;
+}
+
 export interface RecentComplaintItem {
   _id?: string;
   complaintId: string;

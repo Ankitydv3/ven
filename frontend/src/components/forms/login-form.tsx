@@ -83,7 +83,7 @@ export function LoginForm({ role, demoHint, redirectTo }: { role: "admin" | "tea
   const RoleIcon = role === "admin" ? ShieldCheck : Users;
 
   return (
-    <div className="relative rounded-3xl flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-[#EAF5F2] px-4 py-12 dark:from-[#04120F] dark:via-[#06160F] dark:to-[#0A1F1A] sm:px-6">
+    <div className="relative rounded-3xl flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-[#EAF5F2] px-4 py-12 dark:from-[#04120F] dark:via-[#06160F] dark:to-[#020816] sm:px-6">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -left-24 -top-24 h-72 w-72 animate-pulse rounded-full bg-[#4F9B8C]/[0.12] blur-[100px] [animation-duration:7s] motion-reduce:animate-none dark:bg-[#7BE3CF]/[0.08]" />

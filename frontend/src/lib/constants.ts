@@ -15,6 +15,7 @@ export const dashboardStatuses = ["Pending Assignment", "Assigned", "In Progress
 export const navGroups = {
   admin: [
     { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/orders", label: "Orders" },
     { href: "/admin/complaints", label: "Complaints" },
     { href: "/admin/customers", label: "Customers" },
     { href: "/admin/analytics", label: "Analytics" },

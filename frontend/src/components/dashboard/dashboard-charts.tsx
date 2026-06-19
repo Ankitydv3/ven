@@ -43,7 +43,7 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <Card className="xl:col-span-2 border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+      <Card className="xl:col-span-2 border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
         <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">team performance</p>
@@ -68,7 +68,7 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
         <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">distribution</p>
@@ -106,7 +106,7 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
         <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">trends</p>

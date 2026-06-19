@@ -116,7 +116,7 @@ export function ComplaintsManager() {
   return (
     <div className="space-y-6">
       {/* Header / search panel */}
-      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+      <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
         <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">overview</p>
@@ -146,7 +146,7 @@ export function ComplaintsManager() {
                 value={status}
                 onChange={(event) => setStatus(event.target.value)}
                 className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                           bg-white dark:bg-[#0A1F1A]
+                           bg-white dark:bg-[#020816]
                            py-2 pl-9 pr-3 text-sm
                            text-slate-900 dark:text-white"
               >
@@ -173,7 +173,7 @@ export function ComplaintsManager() {
       </Card>
 
       {/* Table - desktop */}
-      <div className="hidden rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] overflow-hidden md:block">
+      <div className="hidden rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] overflow-hidden md:block">
         <Table>
           <TableElement>
             <THead>
@@ -306,7 +306,7 @@ export function ComplaintsManager() {
             <Skeleton key={index} className="h-32 rounded-2xl bg-slate-100 dark:bg-white/[0.04]" />
           ))
         ) : items.length === 0 ? (
-          <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+          <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
             <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">No complaints found</p>
               <p className="text-sm text-slate-500 dark:text-white/50">Try adjusting your search or filters.</p>
@@ -320,7 +320,7 @@ export function ComplaintsManager() {
             return (
               <Card 
                 key={item._id} 
-                className={`border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none ${
+                className={`border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none ${
                   isCompleted ? 'opacity-70' : ''
                 }`}
               >

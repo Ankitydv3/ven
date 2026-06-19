@@ -103,25 +103,39 @@ function KpiCard({
 }) {
   return (
     <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-sm">
-      <CardContent className="p-5">
-        <div
-          className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${color.bg} text-white shadow-sm`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <p className="text-xs font-medium text-gray-500 dark:text-slate-400">{label}</p>
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <p className="text-3xl font-semibold text-gray-900 dark:text-white">
-            {value.toLocaleString()}
-          </p>
-        </div>
-        <span
-          className={`mt-1 inline-block text-xs font-medium ${
-            positive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
-          }`}
-        >
-          {positive ? "↑" : "↓"} {delta} vs last month
-        </span>
+      <CardContent className="">
+        <div className="flex items-center gap-4">
+  {/* Icon */}
+  <div
+    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${color.bg}`}
+  >
+    <Icon className="h-7 w-7 text-white" />
+  </div>
+
+  {/* Content */}
+  <div className="flex flex-col">
+    <p className="text-sm font-medium text-slate-300">
+      {label}
+    </p>
+
+    <p className="text-2xl font-bold leading-none text-white">
+      {value.toLocaleString()}
+    </p>
+
+    <span
+      className={`mt-1 text-sm font-medium ${
+        positive
+          ? "text-emerald-400"
+          : "text-red-400"
+      }`}
+    >
+      {positive ? "↑" : "↓"} {delta}
+      <span className="text-slate-400 font-normal">
+        {" "}vs last month
+      </span>
+    </span>
+  </div>
+</div>
       </CardContent>
     </Card>
   );
@@ -405,7 +419,7 @@ function TopCategories({ data }: { data: DashboardPageData["categories"] }) {
 function SummaryTables({ data }: { data: DashboardPageData }) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <SectionCard title="Recent Orders" action={<button className="text-sm text-blue-600 hover:underline">View All</button>}>
+      <SectionCard title="Recent Orders" >
         <div className="overflow-x-auto">
           <Table className="bg-transparent">
             <TableElement>
@@ -444,7 +458,7 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
         </div>
       </SectionCard>
 
-      <SectionCard title="Recent Complaints" action={<button className="text-sm text-blue-600 hover:underline">View All</button>}>
+      <SectionCard title="Recent Complaints" >
         <div className="overflow-x-auto">
           <Table className="bg-transparent">
             <TableElement>

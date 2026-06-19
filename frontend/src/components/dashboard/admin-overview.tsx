@@ -50,7 +50,7 @@ export function AdminOverview() {
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
         <DashboardCharts data={data} />
 
-        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none">
+        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
           <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
             <div>
               <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">activity log</p>

@@ -23,7 +23,7 @@ export function AnalyticsDashboard({ data }: { data: DashboardResponse }) {
           return (
             <Card
               key={team.team}
-              className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0A1F1A] shadow-none transition-all hover:shadow-[0_8px_30px_-12px_rgba(47,107,99,0.2)] dark:hover:shadow-[0_8px_30px_-12px_rgba(123,227,207,0.12)]"
+              className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none transition-all hover:shadow-[0_8px_30px_-12px_rgba(47,107,99,0.2)] dark:hover:shadow-[0_8px_30px_-12px_rgba(123,227,207,0.12)]"
             >
               <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-5">
                 <div className="flex w-full items-start justify-between gap-3">

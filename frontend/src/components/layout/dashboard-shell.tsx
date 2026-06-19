@@ -20,7 +20,8 @@ import {
   Home,
   ListChecks,
   Clock,
-  UserCog
+  UserCog,
+  ShoppingBag
 } from "lucide-react";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // Icon mapping for nav items
 const iconMap: Record<string, any> = {
   Dashboard: LayoutDashboard,
+  Orders: ShoppingBag,
   "My Tasks": ListChecks,
   Customers: Users,
   Complaints: FileText,
