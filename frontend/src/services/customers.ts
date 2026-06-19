@@ -3,6 +3,7 @@ import type { Customer, CustomerListResponse, CustomerMutationResponse } from "@
 
 export interface CustomerFilters {
   q?: string;
+  state?: string;
   page?: number;
   limit?: number;
   sortBy?: string;

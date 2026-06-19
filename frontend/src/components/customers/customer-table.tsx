@@ -1,34 +1,35 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Users, UserRound, Mail, Phone, MapPin } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Users } from "lucide-react";
 import type { Customer } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableElement, THead, TH, TD, TR } from "@/components/ui/table";
+import { TableElement, THead, TH, TD, TR } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CustomerActions } from "@/components/customers/customer-actions";
+import type { CustomerSortField } from "@/lib/customer-constants";
+import { accentTextClass, glassCardClass } from "@/lib/customer-constants";
 import { cn } from "@/lib/utils";
-
-type SortField = "customerId" | "fullName" | "phone" | "email" | "city" | "totalComplaints" | "createdAt";
 
 interface CustomerTableProps {
   customers: Customer[];
   isLoading?: boolean;
-  sortBy: SortField;
+  sortBy: CustomerSortField;
   sortOrder: "asc" | "desc";
-  onSort: (field: SortField) => void;
+  onSort: (field: CustomerSortField) => void;
+  onView: (customer: Customer) => void;
   onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
   deletingId?: string | null;
 }
 
-const sortableColumns: Array<{ key: SortField; label: string }> = [
-  { key: "customerId", label: "ID" },
-  { key: "fullName", label: "Customer" },
-  { key: "phone", label: "Phone" },
+const sortableColumns: Array<{ key: CustomerSortField; label: string }> = [
+  { key: "customerId", label: "Customer ID" },
+  { key: "fullName", label: "Customer Name" },
+  { key: "phone", label: "Phone Number" },
   { key: "email", label: "Email" },
   { key: "city", label: "City" },
-  { key: "totalComplaints", label: "Complaints" },
+  { key: "totalComplaints", label: "Total Orders" },
 ];
 
 function SortButton({
@@ -38,10 +39,10 @@ function SortButton({
   onSort,
   children,
 }: {
-  field: SortField;
-  currentSortBy: SortField;
+  field: CustomerSortField;
+  currentSortBy: CustomerSortField;
   sortOrder: "asc" | "desc";
-  onSort: (field: SortField) => void;
+  onSort: (field: CustomerSortField) => void;
   children: React.ReactNode;
 }) {
   const active = currentSortBy === field;
@@ -61,8 +62,8 @@ function SortButton({
       variant="ghost"
       size="sm"
       className={cn(
-        "h-auto p-0 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-transparent transition-colors",
-        active ? "text-cyan-400" : "text-slate-400 hover:text-white"
+        "h-auto p-0 text-xs font-semibold uppercase tracking-wide hover:bg-transparent",
+        active ? accentTextClass : "text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
       )}
       onClick={() => onSort(field)}
     >
@@ -74,24 +75,12 @@ function SortButton({
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-slate-950/30 px-6 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400">
-        <Users className="h-6 w-6" />
-      </div>
-      <h3 className="mb-1.5 text-base font-semibold text-white">No customers found</h3>
-      <p className="max-w-sm text-sm text-slate-400">Add a customer to get started or adjust your search criteria.</p>
-    </div>
-  );
-}
-
 function LoadingRow() {
   return (
     <TR>
       {Array.from({ length: 7 }).map((_, index) => (
         <TD key={index}>
-          <Skeleton className="h-4 w-full max-w-[120px] bg-slate-800/50" />
+          <Skeleton className="h-4 w-full max-w-[120px] rounded-md" />
         </TD>
       ))}
     </TR>
@@ -104,16 +93,17 @@ export function CustomerTable({
   sortBy,
   sortOrder,
   onSort,
+  onView,
   onEdit,
   onDelete,
   deletingId,
 }: CustomerTableProps) {
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden">
+      <div className={cn(glassCardClass, "hidden overflow-hidden md:block")}>
         <div className="overflow-x-auto">
           <TableElement>
-            <THead>
+            <THead className="sticky top-0 z-10">
               <tr>
                 {sortableColumns.map((column) => (
                   <TH key={column.key}>{column.label}</TH>
@@ -122,7 +112,7 @@ export function CustomerTable({
               </tr>
             </THead>
             <tbody>
-              {Array.from({ length: 5 }).map((_, index) => (
+              {Array.from({ length: 6 }).map((_, index) => (
                 <LoadingRow key={index} />
               ))}
             </tbody>
@@ -133,14 +123,29 @@ export function CustomerTable({
   }
 
   if (!customers.length) {
-    return <EmptyState />;
+    return (
+      <div
+        className={cn(
+          glassCardClass,
+          "hidden min-h-[280px] flex-col items-center justify-center p-10 text-center md:flex"
+        )}
+      >
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4F9B8C]/10">
+          <Users className={cn("h-6 w-6", accentTextClass)} />
+        </div>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">No customers found</h3>
+        <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-white/50">
+          Add a customer or adjust your search and filter criteria.
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden shadow-xl">
-      <div className="overflow-x-auto">
+    <div className={cn(glassCardClass, "hidden overflow-hidden md:block")}>
+      <div className="max-h-[calc(100vh-320px)] overflow-x-auto overflow-y-auto">
         <TableElement>
-          <THead>
+          <THead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-[#0c1327]">
             <tr>
               {sortableColumns.map((column) => (
                 <TH key={column.key}>
@@ -159,55 +164,32 @@ export function CustomerTable({
           </THead>
           <tbody>
             {customers.map((customer) => (
-              <TR key={customer._id} className="group hover:bg-white/5 transition-colors">
-                <TD className="font-mono text-sm font-medium text-cyan-400">
+              <TR
+                key={customer._id}
+                className="group border-slate-100 hover:bg-slate-50/80 dark:border-white/[0.06] dark:hover:bg-white/[0.03]"
+              >
+                <TD className={cn("font-mono text-sm font-medium", accentTextClass)}>
                   {customer.customerId}
                 </TD>
-                <TD>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 group-hover:scale-110 transition-transform duration-200">
-                      <UserRound className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-white truncate">{customer.fullName}</p>
-                      <p className="text-xs text-slate-400 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {customer.state}
-                      </p>
-                    </div>
-                  </div>
+                <TD className="font-medium text-slate-900 dark:text-white">{customer.fullName}</TD>
+                <TD className="text-slate-600 dark:text-white/70">{customer.phone}</TD>
+                <TD className="max-w-[200px] truncate text-slate-600 dark:text-white/70">
+                  {customer.email}
                 </TD>
                 <TD>
-                  <div className="flex items-center gap-1.5 text-sm text-slate-300">
-                    <Phone className="h-3.5 w-3.5 text-slate-500" />
-                    {customer.phone}
-                  </div>
-                </TD>
-                <TD>
-                  <div className="flex items-center gap-1.5 text-sm text-slate-300 max-w-[200px]">
-                    <Mail className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
-                    <span className="truncate">{customer.email}</span>
-                  </div>
-                </TD>
-                <TD>
-                  <Badge variant="outline" className="border-white/10 text-slate-300 bg-white/5">
+                  <Badge className="border border-slate-200 bg-slate-50 text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80">
                     {customer.city}
                   </Badge>
                 </TD>
                 <TD>
-                  <Badge
-                    variant="info"
-                    className={cn(
-                      "bg-cyan-500/10 text-cyan-400 font-semibold",
-                      customer.totalComplaints > 0 ? "px-3" : "px-2.5"
-                    )}
-                  >
+                  <Badge variant="info" className="bg-[#4F9B8C]/10 text-[#2F6B63] dark:text-[#4F9B8C]">
                     {customer.totalComplaints}
                   </Badge>
                 </TD>
                 <TD className="text-right">
                   <CustomerActions
                     customer={customer}
+                    onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     deleting={deletingId === customer._id}

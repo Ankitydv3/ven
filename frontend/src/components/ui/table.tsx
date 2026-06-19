@@ -9,8 +9,8 @@ export function TableElement({ children }: { children: React.ReactNode }) {
   return <table className="min-w-full divide-y divide-slate-200/70 dark:divide-slate-800">{children}</table>;
 }
 
-export function THead({ children }: { children: React.ReactNode }) {
-  return <thead className="bg-slate-50/80 dark:bg-slate-900/80">{children}</thead>;
+export function THead({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <thead className={cn("bg-slate-50/80 dark:bg-slate-900/80", className)}>{children}</thead>;
 }
 
 export function TH({ children, className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
@@ -29,6 +29,15 @@ export function TD({ children, className, ...props }: TdHTMLAttributes<HTMLTable
   );
 }
 
-export function TR({ children }: { children: React.ReactNode }) {
-  return <tr className="border-t border-slate-100 transition hover:bg-white/70 dark:border-slate-800 dark:hover:bg-white/5">{children}</tr>;
+export function TR({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <tr
+      className={cn(
+        "border-t border-slate-100 transition hover:bg-white/70 dark:border-slate-800 dark:hover:bg-white/5",
+        className
+      )}
+    >
+      {children}
+    </tr>
+  );
 }
