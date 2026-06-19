@@ -33,6 +33,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // Icon mapping for nav items
 const iconMap: Record<string, any> = {
   Dashboard: LayoutDashboard,
+  "My Tasks": ListChecks,
+  Customers: Users,
   Complaints: FileText,
   "My Team": Users,
   "Team Members": Users,
@@ -69,7 +71,7 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
+      <aside className="hidden border-r border-white/10 bg-[#020817]/95 px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
         <div className="mb-10 bg-white flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
             <Workflow className="h-5 w-5" />
@@ -136,7 +138,7 @@ export function DashboardShell({
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:hidden"
+              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-[#020817]/95 px-5 py-6 text-white backdrop-blur-xl lg:hidden"
             >
               <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -203,7 +205,7 @@ export function DashboardShell({
 
       {/* Main Content */}
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-white/70 px-4 py-4 backdrop-blur-xl dark:bg-slate-950/70 lg:px-8">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#020817]/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               {/* Mobile Menu Button */}
@@ -217,17 +219,17 @@ export function DashboardShell({
               </Button>
 
               <div>
-                <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-600 dark:text-teal-300">
+                <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
                   <Shield className="h-3.5 w-3.5" /> Secure workflow platform
                 </div>
-                <h1 className="font-heading text-2xl font-semibold text-slate-950 dark:text-white">{title}</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
+                <h1 className="font-heading text-2xl font-semibold text-white">{title}</h1>
+                <p className="text-sm text-slate-300">{subtitle}</p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <ThemeToggle />
-              <Button variant="outline" size="sm" className="rounded-full border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">
+              <Button variant="outline" size="sm" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10">
                 <Bell className="h-4 w-4 mr-1.5" /> 
                 <span className="hidden sm:inline">Notifications</span>
                 <span className="sm:hidden">Alerts</span>
@@ -238,7 +240,7 @@ export function DashboardShell({
               <Button
                 variant="secondary"
                 size="sm"
-                className="rounded-full border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
                 onClick={() => {
                   clearSession();
                   window.location.href = role === "admin" ? "/admin/login" : "/team/login";
@@ -252,7 +254,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 text-white lg:px-8">{children}</main>
       </div>
     </div>
   );

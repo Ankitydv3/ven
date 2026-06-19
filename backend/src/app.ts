@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes";
 import customerRoutes from "./routes/customerRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
+import orderRoutes from "./routes/orderRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
@@ -22,6 +23,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/complaints", complaintRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use(notFound);

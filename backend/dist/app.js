@@ -11,6 +11,7 @@ const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const customerRoutes_1 = __importDefault(require("./routes/customerRoutes"));
 const complaintRoutes_1 = __importDefault(require("./routes/complaintRoutes"));
 const dashboardRoutes_1 = __importDefault(require("./routes/dashboardRoutes"));
+const orderRoutes_1 = __importDefault(require("./routes/orderRoutes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
@@ -23,6 +24,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes_1.default);
 app.use("/api/customers", customerRoutes_1.default);
 app.use("/api/complaints", complaintRoutes_1.default);
+app.use("/api/orders", orderRoutes_1.default);
 app.use("/api/dashboard", dashboardRoutes_1.default);
 app.use(errorHandler_1.notFound);
 app.use(errorHandler_1.errorHandler);

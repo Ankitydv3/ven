@@ -31,6 +31,72 @@ export interface CustomerMutationResponse {
   customer: Customer;
 }
 
+export interface DashboardKpiSummary {
+  totalOrders: number;
+  complaintsReceived: number;
+  complaintsResolved: number;
+  complaintsUnresolved: number;
+  paidServicesDone: number;
+}
+
+export interface DashboardTrendPoint {
+  month: string;
+  orders: number;
+  complaintsReceived: number;
+  resolved: number;
+}
+
+export interface DashboardReasonPoint {
+  name: string;
+  value: number;
+}
+
+export interface DashboardOverviewPoint {
+  total: number;
+  resolved: number;
+  delayed: number;
+  materialUnavailable: number;
+  paymentPending: number;
+}
+
+export interface DashboardCategoryPoint {
+  name: string;
+  value: number;
+}
+
+export interface RecentOrder {
+  _id?: string;
+  orderId: string;
+  customerName: string;
+  serviceType: string;
+  status: string;
+  amount: number;
+  paid: boolean;
+  assignedTeam?: string;
+  createdAt?: string;
+}
+
+export interface RecentComplaintItem {
+  _id?: string;
+  complaintId: string;
+  clientName?: string;
+  status: ComplaintStatus | string;
+  title?: string;
+  assignedTeam?: string;
+  updatedAt: string;
+}
+
+export interface DashboardPageData {
+  summary: DashboardKpiSummary;
+  teamStats: Array<{ team: string; assigned: number; completed: number }>;
+  monthlyTrend: DashboardTrendPoint[];
+  unresolvedReasons: DashboardReasonPoint[];
+  complaintOverview: DashboardOverviewPoint;
+  categories: DashboardCategoryPoint[];
+  recentOrders: RecentOrder[];
+  recentComplaints: RecentComplaintItem[];
+}
+
 export interface Complaint {
   _id: string;
   complaintId: string;

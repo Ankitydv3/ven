@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { assignComplaint, completeComplaint, createComplaint, listComplaints, startComplaint, trackComplaint, updateComplaint } from "../controllers/complaintController";
+import { getRecentComplaints } from "../controllers/dashboardController";
 import { authRequired, requireRole } from "../middleware/auth";
 
 const router = Router();
 
 router.post("/", asyncHandler(createComplaint));
 router.get("/", authRequired, asyncHandler(listComplaints));
+router.get("/recent", authRequired, asyncHandler(getRecentComplaints));
 router.get("/:complaintId/track", asyncHandler(trackComplaint));
 router.patch("/:id/assign", authRequired, requireRole("admin"), asyncHandler(assignComplaint));
 router.patch("/:id/start", authRequired, requireRole("team"), asyncHandler(startComplaint));

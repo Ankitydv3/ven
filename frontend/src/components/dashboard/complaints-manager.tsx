@@ -121,7 +121,7 @@ export function ComplaintsManager() {
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">overview</p>
             <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
-              Complaint management
+              x
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-white/50">
               Search, filter, and assign complaints across all teams.
