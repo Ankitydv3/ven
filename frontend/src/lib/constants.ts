@@ -18,6 +18,7 @@ export const navGroups = {
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/complaints", label: "Complaints" },
     { href: "/admin/customers", label: "Customers" },
+    { href: "/admin/schedule", label: "Schedule" },
     { href: "/admin/analytics", label: "Analytics" },
     { href: "/admin/settings", label: "Settings" },
   ],

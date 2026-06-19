@@ -73,12 +73,12 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden border-r border-white/10 bg-[#020817]/95 px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
-        <div className="mb-10 bg-white flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
+      <aside className="hidden border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
+        <div className="mb-10 bg-Black flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl  text-teal-300">
             <Workflow className="h-5 w-5" />
           </div>
-          <div>
+          <div >
             <p className="font-heading text-lg font-semibold">Complaint Flow OS</p>
             <p className="text-xs text-slate-400">Enterprise service desk</p>
           </div>
