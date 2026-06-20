@@ -1,0 +1,101 @@
+import Complaint from "../models/Complaint";
+import TaskSchedule from "../models/TaskSchedule";
+
+const TEAM_NAMES = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"] as const;
+
+export interface TeamReport {
+  team: string;
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  status: "all_complete" | "has_pending" | "no_tasks";
+  message: string;
+  updatedAt: string;
+}
+
+function buildTeamMessage(
+  team: string,
+  total: number,
+  completed: number,
+  pending: number
+): { message: string; status: TeamReport["status"] } {
+  if (total === 0) {
+    return { message: `${team} has no assigned tasks`, status: "no_tasks" };
+  }
+  if (pending === 0) {
+    return { message: `${team} completed all tasks ${completed}/${total}`, status: "all_complete" };
+  }
+  return { message: `${team} has pending ${pending}/${total}`, status: "has_pending" };
+}
+
+export async function getAlertsData(filters?: { q?: string; team?: string }) {
+  const pendingFilter: Record<string, unknown> = { status: "Pending Review" };
+  if (filters?.q) {
+    pendingFilter.$or = [
+      { complaintId: { $regex: filters.q, $options: "i" } },
+      { title: { $regex: filters.q, $options: "i" } },
+      { clientName: { $regex: filters.q, $options: "i" } },
+    ];
+  }
+
+  const [pendingComplaints, taskAgg] = await Promise.all([
+    Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
+    TaskSchedule.aggregate([
+      { $match: { team: { $in: [...TEAM_NAMES] } } },
+      {
+        $group: {
+          _id: "$team",
+          totalTasks: { $sum: 1 },
+          completedTasks: {
+            $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
+          },
+          lastUpdated: { $max: "$updatedAt" },
+        },
+      },
+    ]),
+  ]);
+
+  const taskMap = new Map(taskAgg.map((row) => [row._id as string, row]));
+
+  let teamReports: TeamReport[] = TEAM_NAMES.map((team) => {
+    const row = taskMap.get(team);
+    const totalTasks = row?.totalTasks ?? 0;
+    const completedTasks = row?.completedTasks ?? 0;
+    const pendingTasks = totalTasks - completedTasks;
+    const { message, status } = buildTeamMessage(team, totalTasks, completedTasks, pendingTasks);
+
+    return {
+      team,
+      totalTasks,
+      completedTasks,
+      pendingTasks,
+      status,
+      message,
+      updatedAt: (row?.lastUpdated ?? new Date()).toISOString(),
+    };
+  });
+
+  if (filters?.team && filters.team !== "All Teams") {
+    teamReports = teamReports.filter((r) => r.team === filters.team);
+  }
+
+  if (filters?.q) {
+    const q = filters.q.toLowerCase();
+    teamReports = teamReports.filter((r) => r.team.toLowerCase().includes(q) || r.message.toLowerCase().includes(q));
+  }
+
+  teamReports.sort((a, b) => {
+    if (a.status === "has_pending" && b.status !== "has_pending") return -1;
+    if (b.status === "has_pending" && a.status !== "has_pending") return 1;
+    return b.pendingTasks - a.pendingTasks;
+  });
+
+  return {
+    pendingComplaints,
+    teamReports,
+    counts: {
+      pendingReview: pendingComplaints.length,
+      teamsWithPending: teamReports.filter((r) => r.status === "has_pending").length,
+    },
+  };
+}

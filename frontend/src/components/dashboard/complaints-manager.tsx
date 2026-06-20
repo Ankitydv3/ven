@@ -32,6 +32,7 @@ function statusVariant(status: Complaint["status"]) {
   if (status === "Completed") return "success";
   if (status === "In Progress") return "warning";
   if (status === "Assigned") return "info";
+  if (status === "Declined") return "destructive";
   return "default";
 }
 
@@ -57,10 +58,10 @@ export function ComplaintsManager() {
   const load = async () => {
     setLoading(true);
     try {
-      const filters: any = { limit, page };
+      const filters: Record<string, string | number> = { limit, page, scope: "reviewed" };
       if (search) filters.q = search;
       if (status && status !== "All") filters.status = status;
-      
+
       const response = await fetchComplaints(filters);
       setItems(response.items);
       setTotal(response.total);
@@ -112,7 +113,7 @@ export function ComplaintsManager() {
 
   // Check if complaint can be assigned/reassigned
   const canAssign = (complaint: Complaint) => {
-    return complaint.status !== "Completed";
+    return complaint.status !== "Completed" && complaint.status !== "Declined" && complaint.status !== "Pending Review";
   };
 
   return (

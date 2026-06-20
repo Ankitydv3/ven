@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { 
-  Bell, 
-  LogOut, 
-  Shield, 
-  Workflow, 
-  Menu, 
+import {
+  Bell,
+  LogOut,
+  Shield,
+  Workflow,
+  Menu,
   X,
   ChevronRight,
   LayoutDashboard,
@@ -32,6 +32,7 @@ import { clearSession, readUser } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { navGroups } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePendingAlertsCount } from "@/hooks/useAlerts";
 
 // Icon mapping for nav items
 const iconMap: Record<string, any> = {
@@ -43,6 +44,7 @@ const iconMap: Record<string, any> = {
   Complaints: FileText,
   Payments: CreditCard,
   Reports: FileText,
+  Alerts: Bell,
   "My Team": Users,
   "Team Members": Users,
   Analytics: BarChart3,
@@ -68,6 +70,7 @@ export function DashboardShell({
   const user = readUser();
   const navItems = role === "admin" ? navGroups.admin : navGroups.team;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { data: pendingAlerts = 0 } = usePendingAlertsCount();
 
   // Close mobile menu on route change
   const handleNavClick = () => {
@@ -236,14 +239,25 @@ export function DashboardShell({
 
             <div className="flex flex-wrap items-center gap-3">
               <ThemeToggle />
-              <Button variant="outline" size="sm" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10">
-                <Bell className="h-4 w-4 mr-1.5" /> 
-                <span className="hidden sm:inline">Notifications</span>
-                <span className="sm:hidden">Alerts</span>
-                <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
-                  3
-                </Badge>
-              </Button>
+              {role === "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  asChild
+                >
+                  <Link href="/admin/alerts">
+                    <Bell className="h-4 w-4 mr-1.5" />
+                    <span className="hidden sm:inline">Notifications</span>
+                    <span className="sm:hidden">Alerts</span>
+                    {pendingAlerts > 0 && (
+                      <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
+                        {pendingAlerts > 99 ? "99+" : pendingAlerts}
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"

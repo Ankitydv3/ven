@@ -1,4 +1,4 @@
-export type ComplaintStatus = "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
+export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
 export type Priority = "High" | "Medium" | "Low";
 export type UserRole = "admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
 
@@ -228,6 +228,25 @@ export interface Complaint {
     status: ComplaintStatus;
     createdAt?: string;
   }>;
+}
+
+export interface TeamReport {
+  team: string;
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  status: "all_complete" | "has_pending" | "no_tasks";
+  message: string;
+  updatedAt: string;
+}
+
+export interface AlertsResponse {
+  pendingComplaints: Complaint[];
+  teamReports: TeamReport[];
+  counts: {
+    pendingReview: number;
+    teamsWithPending: number;
+  };
 }
 
 export interface DashboardResponse {

@@ -27,8 +27,8 @@ export async function createComplaint(req: Request, res: Response) {
   const complaint = await Complaint.create({
     ...payload,
     complaintId,
-    status: "Pending Assignment",
-    history: [buildHistoryEntry("Complaint Submitted", { name: payload.contactPerson ?? "Customer", role: "customer" }, { status: "Pending Assignment", details: payload.title ?? "" })]
+    status: "Pending Review",
+    history: [buildHistoryEntry("Complaint Submitted", { name: payload.contactPerson ?? "Customer", role: "customer" }, { status: "Pending Review", details: payload.title ?? "" })]
   });
 
   res.status(201).json({
@@ -39,8 +39,14 @@ export async function createComplaint(req: Request, res: Response) {
 }
 
 export async function listComplaints(req: AuthRequest, res: Response) {
-  const { q, status, page = "1", limit = "10", team } = req.query as Record<string, string>;
+  const { q, status, page = "1", limit = "10", team, scope = "reviewed" } = req.query as Record<string, string>;
   const filter: Record<string, unknown> = {};
+
+  if (scope === "pending_review") {
+    filter.status = "Pending Review";
+  } else if (scope === "reviewed") {
+    filter.status = { $ne: "Pending Review" };
+  }
 
   if (status && status !== "All") {
     filter.status = status;
@@ -60,6 +66,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 
   if (req.user?.role === "team" && req.user.team) {
     filter.assignedTeam = req.user.team;
+    filter.status = { $in: ["Assigned", "In Progress", "Completed"] };
   }
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -86,6 +93,14 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
 
   if (complaint.status === "Completed") {
     throw new ApiError(400, "Completed complaints cannot be reassigned");
+  }
+
+  if (complaint.status === "Pending Review") {
+    throw new ApiError(400, "Complaint must be confirmed from Alerts before assignment");
+  }
+
+  if (complaint.status === "Declined") {
+    throw new ApiError(400, "Declined complaints cannot be assigned");
   }
 
   complaint.assignedTeam = team;
@@ -228,4 +243,50 @@ export async function trackComplaint(req: Request, res: Response) {
   }
 
   res.json({ complaint });
+}
+
+export async function confirmComplaint(req: AuthRequest, res: Response) {
+  const complaint = await Complaint.findById(req.params.id);
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+
+  if (complaint.status !== "Pending Review") {
+    throw new ApiError(400, "Only pending review complaints can be confirmed");
+  }
+
+  complaint.status = "Pending Assignment";
+  complaint.history.push(
+    buildHistoryEntry("Complaint Confirmed", req.user ?? { name: "Admin", role: "admin" }, {
+      status: "Pending Assignment",
+      details: `Confirmed and moved to complaint management`,
+    })
+  );
+  await complaint.save();
+
+  res.json({ message: "Complaint confirmed", complaint });
+}
+
+export async function declineComplaint(req: AuthRequest, res: Response) {
+  const complaint = await Complaint.findById(req.params.id);
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+
+  if (complaint.status !== "Pending Review") {
+    throw new ApiError(400, "Only pending review complaints can be declined");
+  }
+
+  const { reason } = req.body as { reason?: string };
+  complaint.status = "Declined";
+  complaint.history.push(
+    buildHistoryEntry("Complaint Declined", req.user ?? { name: "Admin", role: "admin" }, {
+      status: "Declined",
+      remarks: reason ?? "",
+      details: reason ? `Declined: ${reason}` : "Complaint declined by admin",
+    })
+  );
+  await complaint.save();
+
+  res.json({ message: "Complaint declined", complaint });
 }

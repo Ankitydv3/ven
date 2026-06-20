@@ -10,6 +10,7 @@ import orderRoutes from "./routes/orderRoutes";
 import scheduleRoutes from "./routes/scheduleRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import reportsRoutes from "./routes/reportsRoutes";
+import alertsRoutes from "./routes/alertsRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
@@ -31,6 +32,7 @@ app.use("/api/schedules", scheduleRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/alerts", alertsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

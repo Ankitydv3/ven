@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { assignComplaint, completeComplaint, createComplaint, listComplaints, startComplaint, trackComplaint, updateComplaint } from "../controllers/complaintController";
+import { assignComplaint, completeComplaint, confirmComplaint, createComplaint, declineComplaint, listComplaints, startComplaint, trackComplaint, updateComplaint } from "../controllers/complaintController";
 import { getRecentComplaints } from "../controllers/dashboardController";
 import { authRequired, requireRole } from "../middleware/auth";
 
@@ -11,6 +11,8 @@ router.get("/", authRequired, asyncHandler(listComplaints));
 router.get("/recent", authRequired, asyncHandler(getRecentComplaints));
 router.get("/:complaintId/track", asyncHandler(trackComplaint));
 router.patch("/:id/assign", authRequired, requireRole("admin"), asyncHandler(assignComplaint));
+router.patch("/:id/confirm", authRequired, requireRole("admin"), asyncHandler(confirmComplaint));
+router.patch("/:id/decline", authRequired, requireRole("admin"), asyncHandler(declineComplaint));
 router.patch("/:id/start", authRequired, requireRole("team"), asyncHandler(startComplaint));
 router.patch("/:id/update", authRequired, requireRole("team"), asyncHandler(updateComplaint));
 router.patch("/:id/complete", authRequired, requireRole("team"), asyncHandler(completeComplaint));

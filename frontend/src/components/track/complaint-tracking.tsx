@@ -83,10 +83,13 @@ function FloatingParticles() {
 // Premium Status Badge with glow
 function PremiumStatusBadge({ status, priority, assignedTeam }: { status: string; priority: string; assignedTeam?: string }) {
   const statusColors = {
+    "Pending Review": "bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-500/20",
     "Complaint Submitted": "bg-blue-500/20 text-blue-400 border-blue-500/30 shadow-blue-500/20",
+    "Pending Assignment": "bg-blue-500/20 text-blue-400 border-blue-500/30 shadow-blue-500/20",
     "Assigned": "bg-purple-500/20 text-purple-400 border-purple-500/30 shadow-purple-500/20",
     "In Progress": "bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-500/20",
     "Completed": "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/20",
+    "Declined": "bg-red-500/20 text-red-400 border-red-500/30 shadow-red-500/20",
   };
 
   const priorityColors = {
@@ -178,10 +181,13 @@ function Timeline({ complaint }: { complaint: Complaint }) {
   ];
 
   const statusMap: Record<string, number> = {
+    "Pending Review": 0,
     "Complaint Submitted": 0,
+    "Pending Assignment": 0,
     "Assigned": 1,
     "In Progress": 2,
     "Completed": 3,
+    "Declined": 0,
   };
   
   const currentLevel = statusMap[complaint.status] ?? 0;

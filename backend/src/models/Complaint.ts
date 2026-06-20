@@ -28,8 +28,8 @@ const complaintSchema = new Schema(
     assignedTeam: { type: String },
     status: {
       type: String,
-      enum: ["Pending Assignment", "Assigned", "In Progress", "Completed"],
-      default: "Pending Assignment",
+      enum: ["Pending Review", "Declined", "Pending Assignment", "Assigned", "In Progress", "Completed"],
+      default: "Pending Review",
       index: true
     },
     remarks: { type: String, default: "" },

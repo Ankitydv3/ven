@@ -6,7 +6,7 @@ export async function createComplaint(payload: Record<string, string>) {
   return data;
 }
 
-export async function fetchComplaints(params: { q?: string; status?: string; page?: number; limit?: number }) {
+export async function fetchComplaints(params: { q?: string; status?: string; page?: number; limit?: number; scope?: string }) {
   const { data } = await api.get<{ items: Complaint[]; total: number; page: number; limit: number }>("/complaints", { params });
   return data;
 }

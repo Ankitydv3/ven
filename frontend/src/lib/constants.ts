@@ -5,7 +5,8 @@ export const complaintStatuses = [
   "Pending Assignment",
   "Assigned",
   "In Progress",
-  "Completed"
+  "Completed",
+  "Declined"
 ] as const;
 
 export const priorities = ["High", "Medium", "Low"] as const;

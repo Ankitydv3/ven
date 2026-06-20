@@ -134,8 +134,11 @@ export function TeamWorkspace() {
   const load = async () => {
     setLoading(true);
     try {
-      const response = await fetchComplaints({ limit: 50 });
-      setItems(response.items);
+      const response = await fetchComplaints({ limit: 50, scope: "reviewed" });
+      const assignedTasks = response.items.filter(
+        (item) => item.status === "Assigned" || item.status === "In Progress" || item.status === "Completed"
+      );
+      setItems(assignedTasks);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load tasks");
     } finally {
@@ -145,6 +148,8 @@ export function TeamWorkspace() {
 
   useEffect(() => {
     void load();
+    const interval = setInterval(() => void load(), 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Filter complaints based on search and filters
@@ -162,7 +167,7 @@ export function TeamWorkspace() {
   }, [items, searchTerm, statusFilter, priorityFilter]);
 
   const sortedItems = useMemo(() => {
-    const statusOrder = { "Pending Assignment": 0, Assigned: 1, "In Progress": 2, Completed: 3 };
+    const statusOrder = { Assigned: 0, "In Progress": 1, Completed: 2 };
     return [...filteredItems].sort((a, b) => {
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 999;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 999;
@@ -181,7 +186,6 @@ export function TeamWorkspace() {
   const assignedTasks = filteredItems.filter((item) => item.status === "Assigned").length;
   const inProgressTasks = filteredItems.filter((item) => item.status === "In Progress").length;
   const completedTasks = filteredItems.filter((item) => item.status === "Completed").length;
-  const pendingTasks = filteredItems.filter((item) => item.status === "Pending Assignment").length;
   const totalTasks = filteredItems.length;
 
   const handleStartWork = (id: string) => {
@@ -258,10 +262,10 @@ export function TeamWorkspace() {
   };
 
   const stats = [
-    { label: "Pending", value: pendingTasks, icon: Clock, color: "text-amber-500" },
-    { label: "Assigned", value: assignedTasks, icon: Briefcase, color: "text-blue-500" },
+    { label: "New / Assigned", value: assignedTasks, icon: Briefcase, color: "text-blue-500" },
     { label: "In Progress", value: inProgressTasks, icon: Zap, color: "text-violet-500" },
-    { label: "Completed", value: completedTasks, icon: Award, color: "text-emerald-500" }
+    { label: "Completed", value: completedTasks, icon: Award, color: "text-emerald-500" },
+    { label: "Total Tasks", value: totalTasks, icon: Clock, color: "text-amber-500" },
   ];
 
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -273,10 +277,10 @@ export function TeamWorkspace() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="h-5 w-5 text-emerald-500" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Team Workspace</h1>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Assigned Tasks</h2>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Manage your assigned complaints efficiently
+            Tasks assigned by admin appear here automatically
           </p>
         </div>
         
@@ -348,7 +352,6 @@ export function TeamWorkspace() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Pending Assignment">Pending</SelectItem>
               <SelectItem value="Assigned">Assigned</SelectItem>
               <SelectItem value="In Progress">In Progress</SelectItem>
               <SelectItem value="Completed">Completed</SelectItem>
@@ -453,11 +456,11 @@ export function TeamWorkspace() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
               <Sparkles className="h-8 w-8 text-emerald-500" />
             </div>
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No complaints found</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No assigned tasks yet</h3>
             <p className="mt-1 text-gray-500 dark:text-gray-400">
-              {searchTerm || statusFilter !== "all" || priorityFilter !== "all" 
-                ? "Try adjusting your filters" 
-                : "New assignments will appear here automatically"}
+              {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
+                ? "Try adjusting your filters"
+                : "When admin assigns a task to your team, it will show up here"}
             </p>
           </CardContent>
         </Card>
