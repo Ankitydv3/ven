@@ -22,6 +22,7 @@ interface ScheduleFiltersProps {
   onStatusChange: (value: string) => void;
   priority: string;
   onPriorityChange: (value: string) => void;
+  showTeamFilter?: boolean;
 }
 
 export function ScheduleFilters({
@@ -33,9 +34,10 @@ export function ScheduleFilters({
   onStatusChange,
   priority,
   onPriorityChange,
+  showTeamFilter = true,
 }: ScheduleFiltersProps) {
   return (
-    <div className={cn(glassCardClass, "grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4")}>
+    <div className={cn(glassCardClass, "grid gap-3 p-4 sm:grid-cols-2", showTeamFilter ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
       <div className="relative sm:col-span-2 lg:col-span-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
@@ -47,19 +49,21 @@ export function ScheduleFilters({
         />
       </div>
 
-      <Select value={team} onValueChange={onTeamChange}>
-        <SelectTrigger className="h-10 w-full rounded-xl dark:bg-[#071A17]/60">
-          <SelectValue placeholder="Team" />
-        </SelectTrigger>
-        <SelectContent className="dark:bg-[#0A1F1A]">
-          <SelectItem value="All">All Teams</SelectItem>
-          {teamNames.map((name) => (
-            <SelectItem key={name} value={name}>
-              {name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {showTeamFilter && (
+        <Select value={team} onValueChange={onTeamChange}>
+          <SelectTrigger className="h-10 w-full rounded-xl dark:bg-[#071A17]/60">
+            <SelectValue placeholder="Team" />
+          </SelectTrigger>
+          <SelectContent className="dark:bg-[#0A1F1A]">
+            <SelectItem value="All">All Teams</SelectItem>
+            {teamNames.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Select value={status} onValueChange={onStatusChange}>
         <SelectTrigger className="h-10 w-full rounded-xl dark:bg-[#071A17]/60">

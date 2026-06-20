@@ -5,7 +5,7 @@ import { exportReports, getReports } from "../controllers/reportsController";
 
 const router = Router();
 
-router.use(authRequired, requireRole("admin", "manager", "accountant"));
+router.use(authRequired, requireRole("admin", "manager", "accountant", "team"));
 
 router.get("/", asyncHandler(getReports));
 router.get("/export", asyncHandler(exportReports));

@@ -14,8 +14,8 @@ export default function TeamComplaintsPage() {
   return (
     <DashboardShell
       role="team"
-      title="My Tasks"
-      subtitle="View and manage tasks assigned to your team."
+      title="Complaints"
+      subtitle="View and manage live complaints assigned to your team."
     >
       <TeamWorkspace />
     </DashboardShell>

@@ -83,6 +83,7 @@ export async function calendarSchedules(req: AuthRequest, res: Response) {
 
 export async function scheduleStats(req: AuthRequest, res: Response) {
   const { startDate, endDate } = req.query as Record<string, string | undefined>;
-  const stats = await getScheduleStats(startDate, endDate);
+  const team = req.user?.role === "team" ? req.user.team : undefined;
+  const stats = await getScheduleStats(startDate, endDate, team);
   res.json(stats);
 }

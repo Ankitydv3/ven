@@ -41,11 +41,12 @@ export function useDeclineComplaint() {
   });
 }
 
-export function usePendingAlertsCount() {
+export function usePendingAlertsCount(role: "admin" | "team" = "admin") {
   return useQuery({
-    queryKey: ["alerts", "count"],
+    queryKey: ["alerts", "count", role],
     queryFn: () => fetchAlerts(),
     staleTime: 60 * 1000,
-    select: (data) => data.counts.pendingReview,
+    select: (data) =>
+      role === "team" ? data.counts.teamsWithPending : data.counts.pendingReview,
   });
 }

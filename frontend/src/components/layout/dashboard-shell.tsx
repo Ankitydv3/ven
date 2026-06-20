@@ -70,7 +70,8 @@ export function DashboardShell({
   const user = readUser();
   const navItems = role === "admin" ? navGroups.admin : navGroups.team;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { data: pendingAlerts = 0 } = usePendingAlertsCount();
+  const { data: pendingAlerts = 0 } = usePendingAlertsCount(role);
+  const alertsHref = role === "admin" ? "/admin/alerts" : "/team/alerts";
 
   // Close mobile menu on route change
   const handleNavClick = () => {
@@ -239,25 +240,23 @@ export function DashboardShell({
 
             <div className="flex flex-wrap items-center gap-3">
               <ThemeToggle />
-              {role === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
-                  asChild
-                >
-                  <Link href="/admin/alerts">
-                    <Bell className="h-4 w-4 mr-1.5" />
-                    <span className="hidden sm:inline">Notifications</span>
-                    <span className="sm:hidden">Alerts</span>
-                    {pendingAlerts > 0 && (
-                      <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
-                        {pendingAlerts > 99 ? "99+" : pendingAlerts}
-                      </Badge>
-                    )}
-                  </Link>
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                asChild
+              >
+                <Link href={alertsHref}>
+                  <Bell className="h-4 w-4 mr-1.5" />
+                  <span className="hidden sm:inline">Notifications</span>
+                  <span className="sm:hidden">Alerts</span>
+                  {pendingAlerts > 0 && (
+                    <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
+                      {pendingAlerts > 99 ? "99+" : pendingAlerts}
+                    </Badge>
+                  )}
+                </Link>
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"

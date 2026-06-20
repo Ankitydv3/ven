@@ -21,7 +21,6 @@ export const navGroups = {
     { href: "/admin/customers", label: "Customers" },
     { href: "/admin/schedule", label: "Schedule" },
     { href: "/admin/analytics", label: "Analytics" },
-    { href: "/admin/settings", label: "Settings" },
     { href: "/admin/payments", label: "Payments" },
     { href: "/admin/reports", label: "Reports" },
     { href: "/admin/alerts", label: "Alerts" },
@@ -30,7 +29,12 @@ export const navGroups = {
   ],
   team: [
     { href: "/team/dashboard", label: "Dashboard" },
-    { href: "/team/complaints", label: "My Tasks" },
+    { href: "/team/orders", label: "Orders" },
+    { href: "/team/complaints", label: "Complaints" },
     { href: "/team/customers", label: "Customers" },
+    { href: "/team/schedule", label: "Schedule" },
+    { href: "/team/analytics", label: "Analytics" },
+    { href: "/team/reports", label: "Reports" },
+    { href: "/team/alerts", label: "Alerts" },
   ]
 } as const;

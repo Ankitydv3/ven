@@ -27,6 +27,7 @@ export interface OrderListOptions {
   materialType?: string;
   paid?: boolean;
   status?: string;
+  assignedTeam?: string;
   page: number;
   limit: number;
   sortBy: string;
@@ -90,6 +91,10 @@ export async function getOrders(options: OrderListOptions) {
   // Status filter
   if (options.status && options.status !== "All") {
     filter.status = options.status;
+  }
+
+  if (options.assignedTeam) {
+    filter.assignedTeam = options.assignedTeam;
   }
 
   const skip = (options.page - 1) * options.limit;

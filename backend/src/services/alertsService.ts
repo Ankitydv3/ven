@@ -28,7 +28,7 @@ function buildTeamMessage(
   return { message: `${team} has pending ${pending}/${total}`, status: "has_pending" };
 }
 
-export async function getAlertsData(filters?: { q?: string; team?: string }) {
+export async function getAlertsData(filters?: { q?: string; team?: string; teamOnly?: boolean }) {
   const pendingFilter: Record<string, unknown> = { status: "Pending Review" };
   if (filters?.q) {
     pendingFilter.$or = [
@@ -38,10 +38,15 @@ export async function getAlertsData(filters?: { q?: string; team?: string }) {
     ];
   }
 
+  const teamNamesToUse =
+    filters?.team && filters.team !== "All Teams" ? [filters.team] : [...TEAM_NAMES];
+
   const [pendingComplaints, taskAgg] = await Promise.all([
-    Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
+    filters?.teamOnly
+      ? Promise.resolve([])
+      : Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
     TaskSchedule.aggregate([
-      { $match: { team: { $in: [...TEAM_NAMES] } } },
+      { $match: { team: { $in: teamNamesToUse } } },
       {
         $group: {
           _id: "$team",
@@ -57,7 +62,7 @@ export async function getAlertsData(filters?: { q?: string; team?: string }) {
 
   const taskMap = new Map(taskAgg.map((row) => [row._id as string, row]));
 
-  let teamReports: TeamReport[] = TEAM_NAMES.map((team) => {
+  let teamReports: TeamReport[] = teamNamesToUse.map((team) => {
     const row = taskMap.get(team);
     const totalTasks = row?.totalTasks ?? 0;
     const completedTasks = row?.completedTasks ?? 0;

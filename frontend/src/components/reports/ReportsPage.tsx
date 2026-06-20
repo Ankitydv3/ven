@@ -52,7 +52,8 @@ function formatDateRangeLabel(startDate: string, endDate: string) {
   return `${start} – ${end}`;
 }
 
-export function ReportsPage() {
+export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
+  const isAdmin = role === "admin";
   const defaults = getDefaultDateRange();
   const [activeTab, setActiveTab] = useState("All Teams");
   const [teamDropdown, setTeamDropdown] = useState("All Teams");
@@ -122,9 +123,9 @@ export function ReportsPage() {
   if (isLoading) {
     return (
       <DashboardShell
-        role="admin"
+        role={role}
         title="Reports"
-        subtitle="Performance overview of all service teams"
+        subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
       >
         <ReportsPageSkeleton />
       </DashboardShell>
@@ -134,9 +135,9 @@ export function ReportsPage() {
   if (isError || !data) {
     return (
       <DashboardShell
-        role="admin"
+        role={role}
         title="Reports"
-        subtitle="Performance overview of all service teams"
+        subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
       >
         <ReportsErrorState onRetry={() => refetch()} />
       </DashboardShell>
@@ -145,9 +146,9 @@ export function ReportsPage() {
 
   return (
     <DashboardShell
-      role="admin"
+      role={role}
       title="Reports"
-      subtitle="Performance overview of all service teams"
+      subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
     >
       <div className="space-y-6">
         {/* Toolbar */}
@@ -166,27 +167,31 @@ export function ReportsPage() {
               <span className="text-sm">{dateLabel}</span>
             </Button>
 
-            <Button
-              className="h-10 rounded-xl bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25 hover:bg-[#2563EB]"
-              onClick={handleExport}
-              disabled={exportReports.isPending}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export Report
-            </Button>
+            {isAdmin && (
+              <Button
+                className="h-10 rounded-xl bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25 hover:bg-[#2563EB]"
+                onClick={handleExport}
+                disabled={exportReports.isPending}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Report
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              size="icon"
-              className="relative h-10 w-10 rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8] backdrop-blur-md hover:bg-[rgba(59,130,246,0.1)] hover:text-white"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              {activeFilterCount > 0 && (
-                <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] p-0 text-[10px] text-white">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative h-10 w-10 rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8] backdrop-blur-md hover:bg-[rgba(59,130,246,0.1)] hover:text-white"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {activeFilterCount > 0 && (
+                  <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] p-0 text-[10px] text-white">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
           </div>
         </motion.div>
 
@@ -203,6 +208,7 @@ export function ReportsPage() {
         </div>
 
         {/* Team Tabs */}
+        {isAdmin && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1 overflow-x-auto border-b border-[rgba(59,130,246,0.15)] pb-px">
             {teamTabs.map((tab) => (
@@ -243,14 +249,20 @@ export function ReportsPage() {
             </SelectContent>
           </Select>
         </div>
+        )}
 
         {/* Row 1 */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-4 md:grid-cols-2",
+            isAdmin ? "xl:grid-cols-3" : "xl:grid-cols-2"
+          )}
+        >
           <div className="md:col-span-2 xl:col-span-1">
             <TeamPerformanceTable data={data.teamPerformance} />
           </div>
           <TaskStatusDonut data={data.taskStatus.items} total={data.taskStatus.total} />
-          <TasksByTeamChart data={data.teamTasks} />
+          {isAdmin && <TasksByTeamChart data={data.teamTasks} />}
         </div>
 
         <p className="text-center text-xs text-[#64748B]">

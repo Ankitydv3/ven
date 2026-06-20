@@ -1,6 +1,9 @@
 import type { Response } from "express";
 import Complaint from "../models/Complaint";
 import Order from "../models/Order";
+import type { AuthRequest } from "../middleware/auth";
+import { complaintTeamFilter, orderTeamFilter } from "../utils/teamScope";
+import { getSharedStats } from "../services/statsService";
 
 const teamNames = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -12,13 +15,19 @@ function getMonthRange(monthIndex: number, year: number) {
   };
 }
 
-async function buildSummary() {
+async function buildSummary(teamFilter: Record<string, unknown>) {
+  const orderFilter = { ...teamFilter };
+  const complaintFilter = { ...teamFilter };
+
   const [totalOrders, complaintsReceived, complaintsResolved, complaintsUnresolved, paidServicesDone] = await Promise.all([
-    Order.countDocuments(),
-    Complaint.countDocuments(),
-    Complaint.countDocuments({ status: "Completed" }),
-    Complaint.countDocuments({ status: { $in: ["Pending Assignment", "Assigned", "In Progress"] } }),
-    Order.countDocuments({ paid: true })
+    Order.countDocuments(orderFilter),
+    Complaint.countDocuments(complaintFilter),
+    Complaint.countDocuments({ ...complaintFilter, status: "Completed" }),
+    Complaint.countDocuments({
+      ...complaintFilter,
+      status: { $in: ["Pending Assignment", "Assigned", "In Progress"] }
+    }),
+    Order.countDocuments({ ...orderFilter, paid: true })
   ]);
 
   return {
@@ -30,16 +39,22 @@ async function buildSummary() {
   };
 }
 
-async function buildMonthlyTrend() {
+async function buildMonthlyTrend(teamFilter: Record<string, unknown>) {
   const year = new Date().getFullYear();
+  const orderFilter = { ...teamFilter };
+  const complaintFilter = { ...teamFilter };
 
   return Promise.all(
     months.map(async (month, index) => {
       const { start, end } = getMonthRange(index, year);
       const [orders, complaintsReceived, resolved] = await Promise.all([
-        Order.countDocuments({ createdAt: { $gte: start, $lt: end } }),
-        Complaint.countDocuments({ createdAt: { $gte: start, $lt: end } }),
-        Complaint.countDocuments({ status: "Completed", updatedAt: { $gte: start, $lt: end } })
+        Order.countDocuments({ ...orderFilter, createdAt: { $gte: start, $lt: end } }),
+        Complaint.countDocuments({ ...complaintFilter, createdAt: { $gte: start, $lt: end } }),
+        Complaint.countDocuments({
+          ...complaintFilter,
+          status: "Completed",
+          updatedAt: { $gte: start, $lt: end }
+        })
       ]);
 
       return { month, orders, complaintsReceived, resolved };
@@ -47,20 +62,51 @@ async function buildMonthlyTrend() {
   );
 }
 
-async function buildUnresolvedReasons() {
+async function buildUnresolvedReasons(teamFilter: Record<string, unknown>) {
+  const complaintFilter = { ...teamFilter };
+  const orderFilter = { ...teamFilter };
+
   return [
-    { name: "Delayed", value: await Complaint.countDocuments({ title: /delay|delayed|late/i, status: { $ne: "Completed" } }) },
-    { name: "Material Unavailability", value: await Complaint.countDocuments({ description: /material|parts|inventory/i, status: { $ne: "Completed" } }) },
-    { name: "Payment Pending", value: await Order.countDocuments({ paid: false }) }
+    {
+      name: "Delayed",
+      value: await Complaint.countDocuments({
+        ...complaintFilter,
+        title: /delay|delayed|late/i,
+        status: { $ne: "Completed" }
+      })
+    },
+    {
+      name: "Material Unavailability",
+      value: await Complaint.countDocuments({
+        ...complaintFilter,
+        description: /material|parts|inventory/i,
+        status: { $ne: "Completed" }
+      })
+    },
+    {
+      name: "Payment Pending",
+      value: await Order.countDocuments({ ...orderFilter, paid: false })
+    }
   ];
 }
 
-async function buildComplaintOverview() {
+async function buildComplaintOverview(teamFilter: Record<string, unknown>) {
+  const complaintFilter = { ...teamFilter };
+  const orderFilter = { ...teamFilter };
+
   const [resolved, delayed, material, payment] = await Promise.all([
-    Complaint.countDocuments({ status: "Completed" }),
-    Complaint.countDocuments({ title: /delay|delayed|late/i, status: { $ne: "Completed" } }),
-    Complaint.countDocuments({ description: /material|parts|inventory/i, status: { $ne: "Completed" } }),
-    Order.countDocuments({ paid: false })
+    Complaint.countDocuments({ ...complaintFilter, status: "Completed" }),
+    Complaint.countDocuments({
+      ...complaintFilter,
+      title: /delay|delayed|late/i,
+      status: { $ne: "Completed" }
+    }),
+    Complaint.countDocuments({
+      ...complaintFilter,
+      description: /material|parts|inventory/i,
+      status: { $ne: "Completed" }
+    }),
+    Order.countDocuments({ ...orderFilter, paid: false })
   ]);
 
   return {
@@ -72,27 +118,47 @@ async function buildComplaintOverview() {
   };
 }
 
-async function buildTopCategories() {
+async function buildTopCategories(teamFilter: Record<string, unknown>) {
+  const base = { ...teamFilter };
+
   return [
-    { name: "Product Issue", value: await Complaint.countDocuments({ title: /product|device|equipment/i }) },
-    { name: "Installation Issue", value: await Complaint.countDocuments({ title: /install|installation|setup/i }) },
-    { name: "Service Delay", value: await Complaint.countDocuments({ title: /delay|late/i }) },
-    { name: "Payment Related", value: await Complaint.countDocuments({ title: /payment|billing|invoice/i }) },
-    { name: "Others", value: await Complaint.countDocuments({}) }
+    {
+      name: "Product Issue",
+      value: await Complaint.countDocuments({ ...base, title: /product|device|equipment/i })
+    },
+    {
+      name: "Installation Issue",
+      value: await Complaint.countDocuments({ ...base, title: /install|installation|setup/i })
+    },
+    {
+      name: "Service Delay",
+      value: await Complaint.countDocuments({ ...base, title: /delay|late/i })
+    },
+    {
+      name: "Payment Related",
+      value: await Complaint.countDocuments({ ...base, title: /payment|billing|invoice/i })
+    },
+    { name: "Others", value: await Complaint.countDocuments(base) }
   ];
 }
 
-async function buildRecentOrders() {
-  return Order.find().sort({ createdAt: -1 }).limit(5).lean();
+async function buildRecentOrders(teamFilter: Record<string, unknown>) {
+  return Order.find(teamFilter).sort({ createdAt: -1 }).limit(5).lean();
 }
 
-async function buildRecentComplaints() {
-  return Complaint.find().sort({ updatedAt: -1 }).limit(5).select("complaintId clientName title status updatedAt assignedTeam").lean();
+async function buildRecentComplaints(teamFilter: Record<string, unknown>) {
+  return Complaint.find(teamFilter)
+    .sort({ updatedAt: -1 })
+    .limit(5)
+    .select("complaintId clientName title status updatedAt assignedTeam reason")
+    .lean();
 }
 
-async function buildTeamStats() {
+async function buildTeamStats(scopedTeam?: string) {
+  const teams = scopedTeam ? [scopedTeam] : teamNames;
+
   return Promise.all(
-    teamNames.map(async (team) => ({
+    teams.map(async (team) => ({
       team,
       assigned: await Complaint.countDocuments({ assignedTeam: team }),
       completed: await Complaint.countDocuments({ assignedTeam: team, status: "Completed" })
@@ -100,48 +166,67 @@ async function buildTeamStats() {
   );
 }
 
-export async function getSummary(_req: unknown, res: Response) {
-  res.json(await buildSummary());
+export async function getSummary(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json(await buildSummary(teamFilter));
 }
 
-export async function getMonthlyTrend(_req: unknown, res: Response) {
-  res.json({ monthlyTrend: await buildMonthlyTrend() });
+export async function getMonthlyTrend(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json({ monthlyTrend: await buildMonthlyTrend(teamFilter) });
 }
 
-export async function getUnresolvedReasons(_req: unknown, res: Response) {
-  res.json({ unresolvedReasons: await buildUnresolvedReasons() });
+export async function getUnresolvedReasons(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json({ unresolvedReasons: await buildUnresolvedReasons(teamFilter) });
 }
 
-export async function getComplaintOverview(_req: unknown, res: Response) {
-  res.json(await buildComplaintOverview());
+export async function getComplaintOverview(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json(await buildComplaintOverview(teamFilter));
 }
 
-export async function getTopCategories(_req: unknown, res: Response) {
-  res.json({ categories: await buildTopCategories() });
+export async function getTopCategories(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json({ categories: await buildTopCategories(teamFilter) });
 }
 
-export async function getRecentOrders(_req: unknown, res: Response) {
-  res.json({ recentOrders: await buildRecentOrders() });
+export async function getRecentOrders(req: AuthRequest, res: Response) {
+  const teamFilter = orderTeamFilter(req.user);
+  res.json({ recentOrders: await buildRecentOrders(teamFilter) });
 }
 
-export async function getRecentComplaints(_req: unknown, res: Response) {
-  res.json({ recentComplaints: await buildRecentComplaints() });
+export async function getRecentComplaints(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  res.json({ recentComplaints: await buildRecentComplaints(teamFilter) });
 }
 
-import { getSharedStats } from "../services/statsService";
+export async function getDashboard(req: AuthRequest, res: Response) {
+  const teamFilter = complaintTeamFilter(req.user);
+  const scopedTeam = req.user?.role === "team" ? req.user.team : undefined;
+  const sharedStats = await getSharedStats(scopedTeam);
 
-export async function getDashboard(_req: unknown, res: Response) {
-  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, teamStats, sharedStats] = await Promise.all([
-    buildSummary(),
-    buildMonthlyTrend(),
-    buildUnresolvedReasons(),
-    buildComplaintOverview(),
-    buildTopCategories(),
-    buildRecentOrders(),
-    buildRecentComplaints(),
-    buildTeamStats(),
-    getSharedStats()
+  const [
+    summary,
+    monthlyTrend,
+    unresolvedReasons,
+    complaintOverview,
+    categories,
+    recentOrders,
+    recentComplaints,
+    teamStats
+  ] = await Promise.all([
+    buildSummary(teamFilter),
+    buildMonthlyTrend(teamFilter),
+    buildUnresolvedReasons(teamFilter),
+    buildComplaintOverview(teamFilter),
+    buildTopCategories(teamFilter),
+    buildRecentOrders(orderTeamFilter(req.user)),
+    buildRecentComplaints(teamFilter),
+    buildTeamStats(scopedTeam)
   ]);
+
+  const statusBase = scopedTeam ? { assignedTeam: scopedTeam } : {};
 
   res.json({
     ...summary,
@@ -158,7 +243,10 @@ export async function getDashboard(_req: unknown, res: Response) {
     completed: sharedStats.completed,
     overdue: sharedStats.overdue,
     statusDistribution: [
-      { name: "Pending Assignment", value: await Complaint.countDocuments({ status: "Pending Assignment" }) },
+      {
+        name: "Pending Assignment",
+        value: await Complaint.countDocuments({ ...statusBase, status: "Pending Assignment" })
+      },
       { name: "Assigned", value: sharedStats.pending },
       { name: "In Progress", value: sharedStats.inProgress },
       { name: "Completed", value: sharedStats.completed }

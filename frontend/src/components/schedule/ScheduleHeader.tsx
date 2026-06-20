@@ -15,6 +15,7 @@ interface ScheduleHeaderProps {
   onAssignTask: () => void;
   onToggleFilters: () => void;
   filtersOpen: boolean;
+  showAssignTask?: boolean;
 }
 
 export function ScheduleHeader({
@@ -25,6 +26,7 @@ export function ScheduleHeader({
   onAssignTask,
   onToggleFilters,
   filtersOpen,
+  showAssignTask = true,
 }: ScheduleHeaderProps) {
   return (
     <div className={cn(glassCardClass, "rounded-3xl p-4 sm:p-5 md:p-6")}>
@@ -71,10 +73,12 @@ export function ScheduleHeader({
             Filters
           </Button>
 
-          <Button type="button" onClick={onAssignTask} className={cn("h-11 rounded-xl", primaryButtonClass)}>
-            <Plus className="h-4 w-4" />
-            Assign Task
-          </Button>
+          {showAssignTask && (
+            <Button type="button" onClick={onAssignTask} className={cn("h-11 rounded-xl", primaryButtonClass)}>
+              <Plus className="h-4 w-4" />
+              Assign Task
+            </Button>
+          )}
 
           <Button
             type="button"

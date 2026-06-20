@@ -186,8 +186,9 @@ function AlertsSkeleton() {
   );
 }
 
-export function AlertsPage() {
-  const [activeTab, setActiveTab] = useState<AlertTab>("All Alerts");
+export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
+  const isAdmin = role === "admin";
+  const [activeTab, setActiveTab] = useState<AlertTab>(isAdmin ? "All Alerts" : "Team Reports");
   const [teamFilter, setTeamFilter] = useState("All Teams");
   const [search, setSearch] = useState("");
   const [declineTarget, setDeclineTarget] = useState<Complaint | null>(null);
@@ -207,7 +208,10 @@ export function AlertsPage() {
   const declineMutation = useDeclineComplaint();
 
   const showTeamReports = activeTab === "All Alerts" || activeTab === "Team Reports";
-  const showWebsiteComplaints = activeTab === "All Alerts" || activeTab === "Website Complaints";
+  const showWebsiteComplaints = isAdmin && (activeTab === "All Alerts" || activeTab === "Website Complaints");
+
+  const reportsHref = isAdmin ? "/admin/reports" : "/team/reports";
+  const complaintsHref = isAdmin ? "/admin/complaints" : "/team/complaints";
 
   const handleConfirm = async (complaint: Complaint) => {
     setActionId(complaint._id);
@@ -230,11 +234,21 @@ export function AlertsPage() {
     }
   };
 
-  const tabs: AlertTab[] = ["All Alerts", "Team Reports", "Website Complaints"];
+  const tabs: AlertTab[] = isAdmin
+    ? ["All Alerts", "Team Reports", "Website Complaints"]
+    : ["Team Reports"];
 
   if (isLoading) {
     return (
-      <DashboardShell role="admin" title="Alerts" subtitle="Team task reports and website complaint reviews.">
+      <DashboardShell
+        role={role}
+        title="Alerts"
+        subtitle={
+          isAdmin
+            ? "Team task reports and website complaint reviews."
+            : "Your team's task status and pending work."
+        }
+      >
         <AlertsSkeleton />
       </DashboardShell>
     );
@@ -242,7 +256,15 @@ export function AlertsPage() {
 
   if (isError || !data) {
     return (
-      <DashboardShell role="admin" title="Alerts" subtitle="Team task reports and website complaint reviews.">
+      <DashboardShell
+        role={role}
+        title="Alerts"
+        subtitle={
+          isAdmin
+            ? "Team task reports and website complaint reviews."
+            : "Your team's task status and pending work."
+        }
+      >
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <TriangleAlert className="h-10 w-10 text-[#F87171]" />
           <p className="text-[#94A3B8]">Failed to load alerts</p>
@@ -255,9 +277,18 @@ export function AlertsPage() {
   }
 
   return (
-    <DashboardShell role="admin" title="Alerts" subtitle="Team task reports and website complaint reviews.">
+    <DashboardShell
+      role={role}
+      title="Alerts"
+      subtitle={
+        isAdmin
+          ? "Team task reports and website complaint reviews."
+          : "Your team's task status and pending work."
+      }
+    >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          {isAdmin && (
           <div className="flex items-center gap-1 overflow-x-auto border-b border-[rgba(59,130,246,0.15)] pb-px">
             {tabs.map((tab) => (
               <button
@@ -281,8 +312,10 @@ export function AlertsPage() {
               </button>
             ))}
           </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
+            {isAdmin && (
             <Select value={teamFilter} onValueChange={setTeamFilter}>
               <SelectTrigger className="h-10 w-[160px] rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8]">
                 <SelectValue />
@@ -296,6 +329,7 @@ export function AlertsPage() {
                 ))}
               </SelectContent>
             </Select>
+            )}
 
             <div className="relative min-w-[200px] flex-1 sm:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
@@ -330,7 +364,7 @@ export function AlertsPage() {
               )}
             </div>
 
-            <Link href="/admin/reports" className="inline-block text-sm font-medium text-[#3B82F6] hover:underline">
+            <Link href={reportsHref} className="inline-block text-sm font-medium text-[#3B82F6] hover:underline">
               View detailed reports →
             </Link>
           </section>
@@ -371,7 +405,7 @@ export function AlertsPage() {
 
             <p className="text-xs text-[#64748B]">
               Confirm to move complaints to{" "}
-              <Link href="/admin/complaints" className="text-[#3B82F6] hover:underline">
+              <Link href={complaintsHref} className="text-[#3B82F6] hover:underline">
                 Complaint Management
               </Link>
               . Declined complaints are also recorded there.

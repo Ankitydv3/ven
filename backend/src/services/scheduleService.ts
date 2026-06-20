@@ -313,10 +313,8 @@ export async function getCalendarSchedules(options: CalendarOptions) {
   return items.map((item) => withResolvedStatus(item));
 }
 
-import { getSharedStats } from "./statsService";
-
-export async function getScheduleStats(startDate?: string, endDate?: string) {
-  const stats = await getSharedStats();
+export async function getScheduleStats(startDate?: string, endDate?: string, team?: string) {
+  const stats = await getSharedStats(team);
 
   const now = new Date();
   const weekAgo = new Date(now);
@@ -324,9 +322,11 @@ export async function getScheduleStats(startDate?: string, endDate?: string) {
   const twoWeeksAgo = new Date(now);
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
+  const complaintTeamFilter = team ? { assignedTeam: team } : {};
+
   const [currentWeekTotal, previousWeekTotal] = await Promise.all([
-    Complaint.countDocuments({ createdAt: { $gte: weekAgo } }),
-    Complaint.countDocuments({ createdAt: { $gte: twoWeeksAgo, $lt: weekAgo } })
+    Complaint.countDocuments({ ...complaintTeamFilter, createdAt: { $gte: weekAgo } }),
+    Complaint.countDocuments({ ...complaintTeamFilter, createdAt: { $gte: twoWeeksAgo, $lt: weekAgo } })
   ]);
 
   const percentChange =

@@ -20,8 +20,9 @@ import { addDays, startOfWeek, toDateInputValue } from "@/lib/schedule-constants
 
 const PAGE_SIZE = 8;
 
-export function SchedulePage() {
-  const { ready } = useSession("admin");
+export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
+  const { ready } = useSession(role);
+  const isAdmin = role === "admin";
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState("All");
   const [status, setStatus] = useState("All");
@@ -89,9 +90,13 @@ export function SchedulePage() {
 
   return (
     <DashboardShell
-      role="admin"
+      role={role}
       title="Schedule"
-      subtitle="Plan, assign, and track service tasks across teams"
+      subtitle={
+        isAdmin
+          ? "Plan, assign, and track service tasks across teams"
+          : "View and track your team's scheduled tasks"
+      }
     >
       <div className="space-y-5 rounded-3xl bg-slate-50/50 p-1 dark:bg-[#071A17]">
         <ScheduleHeader
@@ -108,6 +113,7 @@ export function SchedulePage() {
           onAssignTask={() => setAssignOpen(true)}
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           filtersOpen={filtersOpen}
+          showAssignTask={isAdmin}
         />
 
         <ScheduleStats startDate={startDate} endDate={endDate} />
@@ -134,6 +140,7 @@ export function SchedulePage() {
               setPriority(value);
               setPage(1);
             }}
+            showTeamFilter={isAdmin}
           />
         )}
 
@@ -178,12 +185,14 @@ export function SchedulePage() {
         )}
       </div>
 
-      <AssignTaskModal
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        onSubmit={handleAssign}
-        isSaving={createMutation.isPending}
-      />
+      {isAdmin && (
+        <AssignTaskModal
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+          onSubmit={handleAssign}
+          isSaving={createMutation.isPending}
+        />
+      )}
     </DashboardShell>
   );
 }

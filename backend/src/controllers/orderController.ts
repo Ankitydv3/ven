@@ -7,6 +7,7 @@ import {
   getOrders,
   updateOrderById
 } from "../services/orderService";
+import { ApiError } from "../utils/ApiError";
 
 function parseQuery(query: Record<string, string | undefined>) {
   const paidVal = query.paid;
@@ -27,7 +28,11 @@ function parseQuery(query: Record<string, string | undefined>) {
 }
 
 export async function listOrders(req: AuthRequest, res: Response) {
-  const params = parseQuery(req.query as Record<string, string | undefined>);
+  const parsed = parseQuery(req.query as Record<string, string | undefined>);
+  const params = {
+    ...parsed,
+    ...(req.user?.role === "team" && req.user.team ? { assignedTeam: req.user.team } : {})
+  };
   const result = await getOrders(params);
   res.json({
     items: result.items,
@@ -43,6 +48,9 @@ export async function readOrder(req: AuthRequest, res: Response) {
 }
 
 export async function createOrderHandler(req: AuthRequest, res: Response) {
+  if (req.user?.role === "team") {
+    throw new ApiError(403, "Forbidden");
+  }
   const order = await createOrder(req.body);
   res.status(201).json({ message: "Order Created Successfully", order });
 }
@@ -53,6 +61,9 @@ export async function updateOrderHandler(req: AuthRequest, res: Response) {
 }
 
 export async function deleteOrderHandler(req: AuthRequest, res: Response) {
+  if (req.user?.role === "team") {
+    throw new ApiError(403, "Forbidden");
+  }
   await deleteOrderById(req.params.id as string);
   res.json({ message: "Order Deleted Successfully" });
 }
