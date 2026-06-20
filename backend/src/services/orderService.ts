@@ -1,8 +1,10 @@
 import Order from "../models/Order";
 import Counter from "../models/Counter";
 import { ApiError } from "../utils/ApiError";
+import { syncOrderPayment } from "./paymentSyncService";
 
 export interface OrderPayload {
+// ... existing interface ...
   customerName: string;
   phone: string;
   email: string;
@@ -57,7 +59,9 @@ export async function createOrder(payload: OrderPayload) {
     category: payload.category || "General"
   };
 
-  return Order.create(orderData);
+  const order = await Order.create(orderData);
+  await syncOrderPayment(order);
+  return order;
 }
 
 export async function getOrders(options: OrderListOptions) {
@@ -122,6 +126,8 @@ export async function updateOrderById(id: string, payload: Partial<OrderPayload>
   if (!order) {
     throw new ApiError(404, "Order not found");
   }
+
+  await syncOrderPayment(order);
 
   return order;
 }

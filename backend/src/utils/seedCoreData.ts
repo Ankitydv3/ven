@@ -14,67 +14,7 @@ const teamUsers = [
 export async function seedCoreData() {
   // Seed initial orders if empty
   const orderCount = await Order.countDocuments();
-  if (orderCount === 0) {
-    await Order.insertMany([
-      {
-        orderId: "ORD-2026-001",
-        customerName: "Aarav Sharma",
-        phone: "9876543210",
-        email: "aarav@gmail.com",
-        address: "Flat 402, Skyline Residency, MG Road",
-        city: "Mumbai",
-        state: "Maharashtra",
-        pincode: "400001",
-        materialType: "Aluminium",
-        deliveryDate: new Date(),
-        unpaidServiceAvailable: true,
-        serviceType: "General",
-        status: "Completed",
-        amount: 45000,
-        paid: true,
-        category: "General",
-        assignedTeam: "Team Alpha"
-      },
-      {
-        orderId: "ORD-2026-002",
-        customerName: "Ishaan Verma",
-        phone: "9988776655",
-        email: "ishaan@gmail.com",
-        address: "Villa 12, Green Meadows, Gachibowli",
-        city: "Hyderabad",
-        state: "Telangana",
-        pincode: "500032",
-        materialType: "uPVC",
-        deliveryDate: new Date(),
-        unpaidServiceAvailable: false,
-        serviceType: "General",
-        status: "In Progress",
-        amount: 82000,
-        paid: false,
-        category: "General",
-        assignedTeam: "Team Beta"
-      },
-      {
-        orderId: "ORD-2026-003",
-        customerName: "Meera Sen",
-        phone: "9123456789",
-        email: "meera@gmail.com",
-        address: "Apartment 7A, Park Heights, Park Street",
-        city: "Kolkata",
-        state: "West Bengal",
-        pincode: "700016",
-        materialType: "Aluminium",
-        deliveryDate: new Date(),
-        unpaidServiceAvailable: true,
-        serviceType: "General",
-        status: "Pending",
-        amount: 31000,
-        paid: false,
-        category: "General",
-        assignedTeam: ""
-      }
-    ]);
-  }
+  
   const adminPassword = await bcrypt.hash("admin123", 10);
   await User.updateOne(
     { email: "admin@gmail.com" },
@@ -100,51 +40,5 @@ export async function seedCoreData() {
   const complaintId2 = await generateComplaintId();
   const complaintId3 = await generateComplaintId();
 
-  await Complaint.insertMany([
-    {
-      complaintId: complaintId1,
-      clientName: "Blue Ridge Towers",
-      contactPerson: "Amit Shah",
-      mobileNumber: "9876543210",
-      email: "amit@blueridge.com",
-      title: "Power fluctuation in block A",
-      description: "Frequent voltage drops affecting lifts and common area lighting.",
-      priority: "High",
-      location: "Pune",
-      assignedTeam: "Team Alpha",
-      status: "Assigned",
-      assignedBy: "Admin Head",
-      assignedDate: new Date(),
-      history: []
-    },
-    {
-      complaintId: complaintId2,
-      clientName: "Sunrise Retail",
-      contactPerson: "Priya Nair",
-      mobileNumber: "9123456780",
-      email: "priya@sunrise.com",
-      title: "Billing portal timeout",
-      description: "Customer billing portal takes too long to respond during peak hours.",
-      priority: "Medium",
-      location: "Mumbai",
-      assignedTeam: "Team Beta",
-      status: "In Progress",
-      assignedBy: "Admin Head",
-      assignedDate: new Date(),
-      history: []
-    },
-    {
-      complaintId: complaintId3,
-      clientName: "Greenfield Housing",
-      contactPerson: "Rohan Mehta",
-      mobileNumber: "9988776655",
-      email: "rohan@greenfield.com",
-      title: "Water leakage in basement",
-      description: "Leakage spotted in basement wall after heavy rain.",
-      priority: "Low",
-      location: "Bengaluru",
-      status: "Pending Assignment",
-      history: []
-    }
-  ]);
+  
 }

@@ -5,22 +5,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="82a0b508-e3da-4d88-9db9-becd629bd0b9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/backend/src/models/Payment.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/utils/paymentId.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/hooks/usePayments.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/services/payments.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/node_modules/.package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/node_modules/.package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/app.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/models/Complaint.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models/Complaint.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/models/User.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models/User.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/dist/utils/seedCoreData.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/dist/utils/seedCoreData.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/controllers/paymentController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/controllers/paymentController.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/services/orderService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/services/orderService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/services/paymentService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/services/paymentService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/utils/seedCoreData.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/utils/seedCoreData.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/admin/payments/analytics/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/admin/payments/analytics/page.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/app/admin/payments/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/admin/payments/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dashboard/complaints-manager.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/dashboard/complaints-manager.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/layout/dashboard-shell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/layout/dashboard-shell.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/lib/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/constants.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/lib/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/payments/AddPaymentModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/payments/AddPaymentModal.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/payments/PaymentAnalytics.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/payments/PaymentAnalytics.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/payments/PaymentDashboardPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/payments/PaymentDashboardPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/payments/PaymentStatsCards.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/payments/PaymentStatsCards.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/payments/PaymentTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/payments/PaymentTable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/use-orders.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/use-orders.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/usePayments.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/usePayments.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/payments.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/payments.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

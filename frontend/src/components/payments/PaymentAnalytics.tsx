@@ -13,7 +13,7 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 export function PaymentAnalytics() {
   const { data: stats } = useQuery({ queryKey: ["payment-stats"], queryFn: fetchPaymentStats });
-  const { data: payments } = useQuery({ queryKey: ["payments", { limit: 100 }], queryFn: () => fetchPayments({ limit: 100 }) });
+  const { data: payments } = useQuery({ queryKey: ["payments", { limit: 1000, status: "Completed" }], queryFn: () => fetchPayments({ limit: 1000, status: "Completed" }) });
 
   const modeData = [
     { name: "UPI", value: payments?.items.filter(p => p.paymentMode === "UPI").length || 0 },
@@ -22,15 +22,7 @@ export function PaymentAnalytics() {
     { name: "Net Banking", value: payments?.items.filter(p => p.paymentMode === "Net Banking").length || 0 },
   ].filter(d => d.value > 0);
 
-  const trendData = [
-    { name: "Jan", amount: 4000 },
-    { name: "Feb", amount: 3000 },
-    { name: "Mar", amount: 2000 },
-    { name: "Apr", amount: 2780 },
-    { name: "May", amount: 1890 },
-    { name: "Jun", amount: 2390 },
-    { name: "Jul", amount: 3490 },
-  ]; // Mock trend if real historical data isn't available from stats
+  const trendData = (stats as any)?.trend || [];
 
   return (
     <DashboardShell

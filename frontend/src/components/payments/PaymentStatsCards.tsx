@@ -31,8 +31,8 @@ export function PaymentStatsCards() {
     {
       label: "Paid Services",
       value: stats?.paidServicesDone || 0,
-      delta: "+12%", // Mock delta for secondary stats
-      trend: "up",
+      delta: "",
+      trend: "neutral",
       icon: CheckCircle,
       color: "text-blue-500",
       bg: "bg-blue-500/10",
@@ -40,8 +40,8 @@ export function PaymentStatsCards() {
     {
       label: "Average Value",
       value: `₹${Math.round(stats?.averagePaymentValue || 0).toLocaleString()}`,
-      delta: "-2%",
-      trend: "down",
+      delta: "",
+      trend: "neutral",
       icon: BarChart3,
       color: "text-purple-500",
       bg: "bg-purple-500/10",
@@ -49,8 +49,8 @@ export function PaymentStatsCards() {
     {
       label: "Pending",
       value: stats?.pendingPayments || 0,
-      delta: "+5%",
-      trend: "up",
+      delta: "",
+      trend: "neutral",
       icon: Clock,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
@@ -58,7 +58,7 @@ export function PaymentStatsCards() {
     {
       label: "Refunds",
       value: stats?.refunds || 0,
-      delta: "0%",
+      delta: "",
       trend: "neutral",
       icon: RotateCcw,
       color: "text-rose-500",
@@ -82,14 +82,18 @@ export function PaymentStatsCards() {
                   <card.icon className={`h-6 w-6 ${card.color}`} />
                 </div>
                 <div className="flex items-center gap-1 text-xs font-medium">
-                  {card.trend === "up" ? (
-                    <TrendingUp className="h-3 w-3 text-emerald-500" />
-                  ) : card.trend === "down" ? (
-                    <TrendingDown className="h-3 w-3 text-rose-500" />
-                  ) : null}
-                  <span className={card.trend === "up" ? "text-emerald-500" : "text-rose-500"}>
-                    {card.delta}
-                  </span>
+                  {card.delta && (
+                    <>
+                      {card.trend === "up" ? (
+                        <TrendingUp className="h-3 w-3 text-emerald-500" />
+                      ) : card.trend === "down" ? (
+                        <TrendingDown className="h-3 w-3 text-rose-500" />
+                      ) : null}
+                      <span className={card.trend === "up" ? "text-emerald-500" : "text-rose-500"}>
+                        {card.delta}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="mt-4">

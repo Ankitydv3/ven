@@ -30,6 +30,7 @@ export async function listPayments(req: AuthRequest, res: Response) {
   res.json({
     items: result.items,
     total: result.total,
+    totalPages: result.totalPages,
     page: Number(page),
     limit: Number(limit),
   });

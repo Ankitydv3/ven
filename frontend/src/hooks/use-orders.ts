@@ -42,6 +42,8 @@ export function useCreateOrder() {
     mutationFn: (payload: OrderPayload) => createOrder(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+      void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
     }
   });
 }
@@ -55,6 +57,8 @@ export function useUpdateOrder() {
     onSuccess: (data, variables) => {
       void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.id) });
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+      void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
     }
   });
 }

@@ -52,3 +52,30 @@ export const deletePayment = async (id: string): Promise<void> => {
 export const getInvoiceUrl = (id: string) => {
   return `${process.env.NEXT_PUBLIC_API_URL}/payments/${id}/invoice`;
 };
+export const downloadInvoice = async (id: string) => {
+  const token = localStorage.getItem("complaint-system-token");
+
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/payments/${id}/invoice`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to download invoice");
+  }
+
+  return response.blob();
+};
+
+export const exportPaymentsCSV = () => {
+  const token = localStorage.getItem("complaint-system-token");
+
+  window.open(
+    `${process.env.NEXT_PUBLIC_API_URL}/payments/export/csv?token=${token}`,
+    "_blank"
+  );
+};
