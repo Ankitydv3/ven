@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "team" | "customer";
+export type UserRole = "admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
 
 export interface JwtUser {
   id: string;

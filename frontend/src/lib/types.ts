@@ -1,6 +1,50 @@
 export type ComplaintStatus = "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
 export type Priority = "High" | "Medium" | "Low";
-export type UserRole = "admin" | "team" | "customer";
+export type UserRole = "admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+
+export interface Material {
+  materialName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface Payment {
+  _id: string;
+  paymentId: string;
+  complaintId?: string;
+  orderId?: string;
+  customerName: string;
+  mobile: string;
+  serviceType: string;
+  materials: Material[];
+  materialCost: number;
+  serviceCost: number;
+  additionalCost: number;
+  discount: number;
+  tax: number;
+  totalAmount: number;
+  paymentMode: "Cash" | "UPI" | "Card" | "Net Banking";
+  transactionId?: string;
+  status: "Pending" | "Completed" | "Refunded" | "Failed";
+  remarks?: string;
+  receivedBy: string;
+  team?: string;
+  invoiceNumber: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentStats {
+  totalPaymentsReceived: number;
+  paidServicesDone: number;
+  averagePaymentValue: number;
+  pendingPayments: number;
+  refunds: number;
+  monthlyGrowth: number;
+  thisMonthCollection: number;
+  todayCollection: number;
+}
 
 export interface Customer {
   _id: string;

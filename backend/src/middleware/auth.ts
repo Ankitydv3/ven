@@ -7,17 +7,30 @@ export interface AuthRequest extends Request {
   user?: JwtUser;
 }
 
-export function authRequired(req: AuthRequest, _res: Response, next: NextFunction) {
+export function authRequired(
+  req: AuthRequest,
+  _res: Response,
+  next: NextFunction
+) {
+  console.log("AUTH HEADER:", req.headers.authorization);
+
   const authHeader = req.headers.authorization;
+
   if (!authHeader?.startsWith("Bearer ")) {
     return next(new ApiError(401, "Authorization token missing"));
   }
 
   try {
     const token = authHeader.slice(7);
-    req.user = jwt.verify(token, process.env.JWT_SECRET ?? "dev-secret") as JwtUser;
+
+    req.user = jwt.verify(
+      token,
+      process.env.JWT_SECRET ?? "dev-secret"
+    ) as JwtUser;
+
     next();
-  } catch {
+  } catch (err) {
+    console.log("JWT ERROR:", err);
     next(new ApiError(401, "Invalid or expired token"));
   }
 }

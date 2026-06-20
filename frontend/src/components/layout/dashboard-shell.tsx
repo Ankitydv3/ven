@@ -22,7 +22,8 @@ import {
   Clock,
   UserCog,
   ShoppingBag,
-  CalendarDays
+  CalendarDays,
+  CreditCard
 } from "lucide-react";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ const iconMap: Record<string, any> = {
   Customers: Users,
   Schedule: CalendarDays,
   Complaints: FileText,
+  Payments: CreditCard,
   "My Team": Users,
   "Team Members": Users,
   Analytics: BarChart3,

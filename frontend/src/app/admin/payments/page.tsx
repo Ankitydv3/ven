@@ -1,9 +1,5 @@
-import React from 'react'
+import { PaymentDashboardPage } from "@/components/payments/PaymentDashboardPage";
 
-const page = () => {
-  return (
-    <div>page</div>
-  )
+export default function AdminPaymentsPage() {
+  return <PaymentDashboardPage />;
 }
-
-export default page

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban } from "lucide-react";
+import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban, CreditCard } from "lucide-react";
 import { toast } from "sonner";
+import { AddPaymentModal } from "../payments/AddPaymentModal";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
 import { complaintStatuses, teamNames } from "@/lib/constants";
 import type { Complaint } from "@/lib/types";
@@ -49,6 +50,7 @@ export function ComplaintsManager() {
   const [total, setTotal] = useState(0);
   const [limit] = useState(8);
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<Complaint | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string>(teamNames[0]);
   const [pending, startTransition] = useTransition();
 
@@ -183,6 +185,7 @@ export function ComplaintsManager() {
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Priority</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden lg:table-cell">Location</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Status</TH>
+                <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Payment</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Assigned team</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Created</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Actions</TH>
@@ -236,6 +239,14 @@ export function ComplaintsManager() {
                             {item.status}
                           </Badge>
                         </TD>
+                        <TD>
+                          <Badge
+                            variant={(item as any).paymentStatus === "Paid" ? "success" : "warning"}
+                            className="rounded-full border-0 font-normal"
+                          >
+                            {(item as any).paymentStatus || "Pending"}
+                          </Badge>
+                        </TD>
                         <TD className="text-slate-700 dark:text-white/70 hidden xl:table-cell">
                           {item.assignedTeam ?? "—"}
                         </TD>
@@ -243,53 +254,67 @@ export function ComplaintsManager() {
                           {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
                         </TD>
                         <TD>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  <Button
-                                    size="sm"
-                                    type="button"
-                                    variant="outline"
-                                    disabled={!canAssignItem}
-                                    className={`border-slate-200 dark:border-white/[0.1] ${
-                                      canAssignItem 
-                                        ? 'text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]'
-                                        : 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
-                                    }`}
-                                    onClick={() => {
-                                      if (canAssignItem) {
-                                        setAssignTarget(item);
-                                        setSelectedTeam(item.assignedTeam ?? teamNames[0]);
-                                      }
-                                    }}
-                                  >
-                                    {isCompleted ? (
-                                      <>
-                                        <Ban className="h-3.5 w-3.5 mr-1" />
-                                        Locked
-                                      </>
-                                    ) : item.assignedTeam ? (
-                                      <>
-                                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                                        Reassign
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ArrowUpRight className="h-3.5 w-3.5 mr-1" />
-                                        Assign
-                                      </>
-                                    )}
-                                  </Button>
-                                </span>
-                              </TooltipTrigger>
-                              {isCompleted && (
-                                <TooltipContent>
-                                  <p>Cannot assign or reassign completed complaints</p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="flex items-center gap-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      variant="outline"
+                                      disabled={!canAssignItem}
+                                      className={`border-slate-200 dark:border-white/[0.1] ${
+                                        canAssignItem
+                                          ? 'text-[#2F6B63] dark:text-[#7BE3CF] hover:bg-[#4F9B8C]/[0.08] dark:hover:bg-[#7BE3CF]/[0.08]'
+                                          : 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+                                      }`}
+                                      onClick={() => {
+                                        if (canAssignItem) {
+                                          setAssignTarget(item);
+                                          setSelectedTeam(item.assignedTeam ?? teamNames[0]);
+                                        }
+                                      }}
+                                    >
+                                      {isCompleted ? (
+                                        <>
+                                          <Ban className="h-3.5 w-3.5 mr-1" />
+                                          Locked
+                                        </>
+                                      ) : item.assignedTeam ? (
+                                        <>
+                                          <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                          Reassign
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ArrowUpRight className="h-3.5 w-3.5 mr-1" />
+                                          Assign
+                                        </>
+                                      )}
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                {isCompleted && (
+                                  <TooltipContent>
+                                    <p>Cannot assign or reassign completed complaints</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            {isCompleted && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-400"
+                                onClick={() => setPaymentTarget(item)}
+                              >
+                                <CreditCard className="h-3.5 w-3.5 mr-1" />
+                                Pay
+                              </Button>
+                            )}
+                          </div>
                         </TD>
                       </TR>
                     );
@@ -550,6 +575,11 @@ export function ComplaintsManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AddPaymentModal
+        open={Boolean(paymentTarget)}
+        onOpenChange={(open) => !open && setPaymentTarget(null)}
+        complaint={paymentTarget}
+      />
     </div>
   );
 }

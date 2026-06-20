@@ -39,6 +39,7 @@ const complaintSchema = new Schema(
     assignedDate: { type: Date },
     completedDate: { type: Date },
     deadline: { type: Date },
+    paymentStatus: { type: String, enum: ["Pending", "Paid", "Partially Paid"], default: "Pending" },
     history: { type: [historySchema], default: [] }
   },
   { timestamps: true }
