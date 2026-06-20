@@ -16,7 +16,7 @@ export function ScheduleSkeleton() {
           </div>
         ))}
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className={cn(glassCardClass, "h-[520px] p-4")}>
           <Skeleton className="mb-4 h-10 w-full rounded-xl" />
           {Array.from({ length: 6 }).map((_, i) => (

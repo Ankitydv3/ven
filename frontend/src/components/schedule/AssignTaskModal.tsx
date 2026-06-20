@@ -28,13 +28,12 @@ import {
 import { teamNames } from "@/lib/constants";
 import { primaryButtonClass } from "@/lib/schedule-constants";
 import { fetchComplaints } from "@/services/complaints";
-import { fetchOrders } from "@/services/orders";
 import type { SchedulePayload } from "@/lib/schedule.types";
 import { cn } from "@/lib/utils";
 
 const assignSchema = z.object({
   complaintId: z.string().optional(),
-  orderId: z.string().optional(),
+  complaintTitle: z.string().optional(),
   customerName: z.string().trim().min(2, "Customer name is required"),
   serviceType: z.string().trim().min(2, "Service type is required"),
   team: z.string().min(2, "Team is required"),
@@ -59,7 +58,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
     resolver: zodResolver(assignSchema),
     defaultValues: {
       complaintId: "",
-      orderId: "",
+      complaintTitle: "",
       customerName: "",
       serviceType: "",
       team: "",
@@ -77,14 +76,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
     enabled: open,
   });
 
-  const { data: ordersData } = useQuery({
-    queryKey: ["orders", "assign-modal"],
-    queryFn: () => fetchOrders({ limit: 100, page: 1 }),
-    enabled: open,
-  });
-
   const complaints = complaintsData?.items ?? [];
-  const orders = ordersData?.items ?? [];
 
   useEffect(() => {
     if (!open) {
@@ -96,23 +88,16 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
     const complaint = complaints.find((c) => c.complaintId === complaintId);
     if (!complaint) return;
     form.setValue("complaintId", complaint.complaintId);
+    form.setValue("complaintTitle", complaint.title);
     form.setValue("customerName", complaint.clientName);
     form.setValue("serviceType", complaint.title);
-  };
-
-  const handleOrderSelect = (orderId: string) => {
-    const order = orders.find((o) => o.orderId === orderId);
-    if (!order) return;
-    form.setValue("orderId", orderId);
-    form.setValue("customerName", order.customerName);
-    form.setValue("serviceType", order.serviceType);
   };
 
   const submit = form.handleSubmit(async (values) => {
     try {
       await onSubmit({
         complaintId: values.complaintId || undefined,
-        orderId: values.orderId || undefined,
+        complaintTitle: values.complaintTitle || values.serviceType,
         customerName: values.customerName,
         serviceType: values.serviceType,
         team: values.team,
@@ -152,26 +137,20 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
                 <SelectContent className="dark:bg-[#0A1F1A]">
                   {complaints.map((c) => (
                     <SelectItem key={c._id} value={c.complaintId}>
-                      {c.complaintId} — {c.clientName}
+                      {c.complaintId} - {c.clientName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Order</Label>
-              <Select onValueChange={handleOrderSelect}>
-                <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
-                  <SelectValue placeholder="Select order" />
-                </SelectTrigger>
-                <SelectContent className="dark:bg-[#0A1F1A]">
-                  {orders.map((o) => (
-                    <SelectItem key={o._id} value={o.orderId}>
-                      {o.orderId} — {o.customerName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="complaintId">Complaint ID</Label>
+              <Input
+                id="complaintId"
+                {...form.register("complaintId")}
+                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+                placeholder="CMP-1001"
+              />
             </div>
           </div>
 

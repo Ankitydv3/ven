@@ -102,7 +102,7 @@ function StatCard({
   card: (typeof cards)[number];
   value: number;
   index: number;
-  stats: { percentChange: number; trend: "up" | "down" };
+  stats: { total: number; percentChange: number; trend: "up" | "down" };
 }) {
   const animated = useCountUp(value);
   const Icon = card.icon;

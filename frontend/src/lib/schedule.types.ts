@@ -14,6 +14,7 @@ export interface TaskSchedule {
   _id: string;
   taskId: string;
   complaintId?: string;
+  complaintTitle?: string;
   orderId?: string;
   customerName: string;
   serviceType: string;
@@ -69,6 +70,7 @@ export interface ScheduleStats {
 
 export interface SchedulePayload {
   complaintId?: string;
+  complaintTitle?: string;
   orderId?: string;
   customerName: string;
   serviceType: string;

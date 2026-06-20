@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const validateRequest_1 = require("../middleware/validateRequest");
+const asyncHandler_1 = require("../utils/asyncHandler");
+const scheduleValidation_1 = require("../validation/scheduleValidation");
+const scheduleController_1 = require("../controllers/scheduleController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authRequired);
+router.get("/stats", (0, asyncHandler_1.asyncHandler)(scheduleController_1.scheduleStats));
+router.get("/calendar", (0, asyncHandler_1.asyncHandler)(scheduleController_1.calendarSchedules));
+router.get("/", (0, asyncHandler_1.asyncHandler)(scheduleController_1.listSchedules));
+router.get("/:id", (0, asyncHandler_1.asyncHandler)(scheduleController_1.readSchedule));
+router.post("/", (0, auth_1.requireRole)("admin"), (0, validateRequest_1.validateRequest)(scheduleValidation_1.scheduleSchema), (0, asyncHandler_1.asyncHandler)(scheduleController_1.createScheduleHandler));
+router.put("/:id", (0, validateRequest_1.validateRequest)(scheduleValidation_1.scheduleUpdateSchema), (0, asyncHandler_1.asyncHandler)(scheduleController_1.updateScheduleHandler));
+router.delete("/:id", (0, auth_1.requireRole)("admin"), (0, asyncHandler_1.asyncHandler)(scheduleController_1.deleteScheduleHandler));
+exports.default = router;

@@ -140,7 +140,7 @@ export function SchedulePage() {
         {isLoading && !data ? (
           <ScheduleSkeleton />
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] xl:items-start">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] xl:items-start">
             <div className="min-w-0 space-y-4">
               <div>
                 <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">

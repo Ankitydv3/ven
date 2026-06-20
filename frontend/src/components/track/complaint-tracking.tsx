@@ -230,7 +230,6 @@ function Timeline({ complaint }: { complaint: Complaint }) {
               {/* Timeline Node with floating glow */}
               <div className="relative z-10">
                 <motion.div 
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-lg transition-all duration-300"
                   animate={{
                     scale: isActive ? [1, 1.05, 1] : 1,
                     boxShadow: isActive ? [

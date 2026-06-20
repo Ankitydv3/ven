@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createComplaint } from "@/services/complaints";
 import { priorities } from "@/lib/constants";
@@ -143,14 +142,14 @@ export function ComplaintRegistrationForm() {
         <Label className="text-[11px] font-medium tracking-[0.03em] text-slate-500 dark:text-slate-400 uppercase">
           Priority
         </Label>
-        <Select
+        <select
           {...form.register("priority")}
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="h-10 rounded-md border bg-[#F7FAFD] px-3 dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         >
           {priorities.map((p) => (
             <option key={p}>{p}</option>
           ))}
-        </Select>
+        </select>
         <FieldError message={form.formState.errors.priority?.message} />
       </div>
 

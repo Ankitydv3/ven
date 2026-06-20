@@ -58,8 +58,8 @@ export const primaryButtonClass =
 export const accentTextClass = "text-[#2F6B63] dark:text-[#4F9B8C]";
 
 export const HOUR_HEIGHT = 56;
-export const CALENDAR_START_HOUR = 7;
-export const CALENDAR_END_HOUR = 20;
+export const CALENDAR_START_HOUR = 8;
+export const CALENDAR_END_HOUR = 18;
 
 export function formatTime12h(time24: string) {
   const [hours, minutes] = time24.split(":").map(Number);

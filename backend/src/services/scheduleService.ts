@@ -15,6 +15,7 @@ export type SchedulePriority = "Low" | "Medium" | "High" | "Critical";
 
 export interface SchedulePayload {
   complaintId?: string;
+  complaintTitle?: string;
   orderId?: string;
   customerName: string;
   serviceType: string;
@@ -185,17 +186,41 @@ async function syncComplaintAssignment(
 
 export async function createSchedule(payload: SchedulePayload) {
   const taskId = await generateTaskScheduleId();
+  let schedulePayload = { ...payload };
+
+  if (payload.complaintId) {
+    const complaint = payload.complaintId.startsWith("CMP-")
+      ? await Complaint.findOne({ complaintId: payload.complaintId }).lean()
+      : await Complaint.findById(payload.complaintId).lean();
+
+    if (!complaint) {
+      throw new ApiError(404, "Complaint not found");
+    }
+
+    schedulePayload = {
+      ...schedulePayload,
+      complaintId: complaint.complaintId,
+      complaintTitle: payload.complaintTitle || complaint.title,
+      customerName: payload.customerName || complaint.clientName,
+      serviceType: payload.serviceType || complaint.title
+    };
+  }
 
   const schedule = await TaskSchedule.create({
-    ...payload,
+    ...schedulePayload,
     taskId,
-    priority: payload.priority ?? "Medium",
-    status: payload.status ?? "Scheduled",
+    priority: schedulePayload.priority ?? "Medium",
+    status: schedulePayload.status ?? "Scheduled",
     assignedAt: new Date()
   });
 
-  if (payload.complaintId) {
-    await syncComplaintAssignment(payload.complaintId, payload.team, payload.assignedBy, payload.remarks);
+  if (schedulePayload.complaintId) {
+    await syncComplaintAssignment(
+      schedulePayload.complaintId,
+      schedulePayload.team,
+      schedulePayload.assignedBy,
+      schedulePayload.remarks
+    );
   }
 
   return withResolvedStatus(schedule.toObject());
@@ -209,6 +234,8 @@ export async function getSchedules(options: ScheduleListOptions) {
   if (options.q) {
     filter.$or = [
       { taskId: { $regex: options.q, $options: "i" } },
+      { complaintId: { $regex: options.q, $options: "i" } },
+      { complaintTitle: { $regex: options.q, $options: "i" } },
       { orderId: { $regex: options.q, $options: "i" } },
       { customerName: { $regex: options.q, $options: "i" } },
       { serviceType: { $regex: options.q, $options: "i" } },

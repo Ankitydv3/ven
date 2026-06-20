@@ -136,6 +136,7 @@ export interface RecentComplaintItem {
   clientName?: string;
   status: ComplaintStatus | string;
   title?: string;
+  reason?: string;
   assignedTeam?: string;
   updatedAt: string;
 }
@@ -165,6 +166,7 @@ export interface Complaint {
   assignedTeam?: string;
   status: ComplaintStatus;
   remarks?: string;
+  completionRemarks?: string;
   resolutionDetails?: string;
   assignedBy?: string;
   completedBy?: string;

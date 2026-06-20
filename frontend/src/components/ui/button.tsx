@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "default" | "secondary" | "outline" | "ghost" | "destructive";
-  size?: "sm" | "default" | "lg";
+  size?: "sm" | "default" | "lg" | "icon";
 };
 
 export function Button({ className, variant = "default", size = "default", ...props }: ButtonProps) {
@@ -18,7 +18,8 @@ export function Button({ className, variant = "default", size = "default", ...pr
   const sizes = {
     sm: "h-9 px-3 text-sm",
     default: "h-11 px-4",
-    lg: "h-12 px-6 text-base"
+    lg: "h-12 px-6 text-base",
+    icon: "h-10 w-10 p-0"
   };
 
   return (

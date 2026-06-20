@@ -471,7 +471,7 @@ export default function AdminOrdersPage() {
                   <span className="text-xs text-slate-500 dark:text-white/50">Active filters:</span>
                   {appliedSearch && (
                     <Badge 
-                      variant="secondary" 
+                      variant="default" 
                       className="bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-white/80"
                     >
                       Search: {appliedSearch}
@@ -489,7 +489,7 @@ export default function AdminOrdersPage() {
                   )}
                   {materialType !== "All" && (
                     <Badge 
-                      variant="secondary" 
+                      variant="default" 
                       className="bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-white/80"
                     >
                       Material: {materialType}
@@ -503,7 +503,7 @@ export default function AdminOrdersPage() {
                   )}
                   {paymentStatus !== "All" && (
                     <Badge 
-                      variant="secondary" 
+                      variant="default" 
                       className="bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-white/80"
                     >
                       Payment: {paymentStatus}
@@ -517,7 +517,7 @@ export default function AdminOrdersPage() {
                   )}
                   {orderStatus !== "All" && (
                     <Badge 
-                      variant="secondary" 
+                      variant="default" 
                       className="bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-white/80"
                     >
                       Status: {orderStatus}

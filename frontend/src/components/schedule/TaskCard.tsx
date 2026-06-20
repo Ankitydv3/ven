@@ -41,13 +41,13 @@ export function TaskCard({ task }: TaskCardProps) {
 
       <div className="space-y-2 text-sm text-slate-600 dark:text-white/70">
         <p>
-          <span className="text-slate-400">Order:</span> {task.orderId || "—"}
+          <span className="text-slate-400">Complaint:</span> {task.complaintId || "-"}
         </p>
         <p>
           <span className="text-slate-400">Service:</span> {task.serviceType}
         </p>
         <p>
-          <span className="text-slate-400">When:</span> {date} · {formatTime12h(task.startTime)} –{" "}
+          <span className="text-slate-400">When:</span> {date} · {formatTime12h(task.startTime)} -{" "}
           {formatTime12h(task.endTime)}
         </p>
       </div>

@@ -4,6 +4,7 @@ const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export const scheduleSchema = z.object({
   complaintId: z.string().trim().optional(),
+  complaintTitle: z.string().trim().optional(),
   orderId: z.string().trim().optional(),
   customerName: z.string().trim().min(2, "Customer name is required"),
   serviceType: z.string().trim().min(2, "Service type is required"),

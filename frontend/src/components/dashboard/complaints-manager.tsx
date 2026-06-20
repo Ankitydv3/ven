@@ -452,7 +452,7 @@ export function ComplaintsManager() {
               <p className="font-serif text-lg font-medium text-[#04342C] dark:text-white">{assignTarget?.complaintId}</p>
               <p className="text-sm text-slate-500 dark:text-white/50 mt-1">{assignTarget?.title}</p>
               <Badge
-                variant={statusVariant(assignTarget?.status || "Pending")}
+                variant={statusVariant(assignTarget?.status || "Pending Assignment")}
                 className="rounded-full border-0 font-normal mt-2"
               >
                 {assignTarget?.status}

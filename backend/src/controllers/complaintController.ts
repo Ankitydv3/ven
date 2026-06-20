@@ -1,3 +1,5 @@
+import TaskSchedule from "../models/TaskSchedule";
+import { generateTaskScheduleId } from "../utils/taskScheduleId";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
@@ -88,7 +90,50 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
   complaint.history.push(buildHistoryEntry("Complaint Assigned", req.user ?? { name: "Admin", role: "admin" }, { status: "Assigned", details: `Assigned to ${team}` }));
 
   await complaint.save();
-  res.json({ message: "Complaint assigned", complaint });
+
+/**
+ * Auto Create Schedule
+ */
+const existingTask = await TaskSchedule.findOne({
+  complaintId: complaint.complaintId,
+});
+
+if (!existingTask) {
+  const taskId = await generateTaskScheduleId();
+
+  await TaskSchedule.create({
+    taskId,
+    complaintId: complaint.complaintId,
+    complaintTitle: complaint.title,
+
+    customerName: complaint.clientName,
+    serviceType: complaint.title,
+
+    team,
+
+    scheduledDate: new Date(),
+
+    startTime: "09:00",
+    endTime: "18:00",
+
+    priority:
+      complaint.priority === "High"
+        ? "High"
+        : complaint.priority === "Low"
+        ? "Low"
+        : "Medium",
+
+    status: "Scheduled",
+
+    assignedBy: req.user?.name ?? "Admin",
+    remarks: `Auto-created from complaint ${complaint.complaintId}`,
+  });
+}
+
+res.json({
+  message: "Complaint assigned and task scheduled",
+  complaint,
+});
 }
 
 export async function startComplaint(req: AuthRequest, res: Response) {

@@ -57,7 +57,7 @@ export function TaskTable({ tasks, isLoading }: TaskTableProps) {
             <THead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-[#0A1F1A]/95">
               <tr>
                 <TH>Task ID</TH>
-                <TH>Order ID</TH>
+                <TH>Complaint ID</TH>
                 <TH>Customer</TH>
                 <TH>Service Type</TH>
                 <TH>Date & Time</TH>
@@ -84,11 +84,11 @@ export function TaskTable({ tasks, isLoading }: TaskTableProps) {
                     <TD className={cn("font-mono text-sm font-medium", accentTextClass)}>
                       {task.taskId}
                     </TD>
-                    <TD className="font-mono text-sm">{task.orderId || "—"}</TD>
+                    <TD className="font-mono text-sm">{task.complaintId || "-"}</TD>
                     <TD className="font-medium text-slate-900 dark:text-white">{task.customerName}</TD>
                     <TD>{task.serviceType}</TD>
                     <TD className="whitespace-nowrap text-sm">
-                      {date} · {formatTime12h(task.startTime)} – {formatTime12h(task.endTime)}
+                      {date} · {formatTime12h(task.startTime)} - {formatTime12h(task.endTime)}
                     </TD>
                     <TD>
                       <span
