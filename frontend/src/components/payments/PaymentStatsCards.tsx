@@ -2,7 +2,7 @@
 
 import { usePaymentStats } from "@/hooks/usePayments";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, CheckCircle, Clock, RotateCcw, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, CheckCircle, Clock, RotateCcw, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function PaymentStatsCards() {
@@ -24,7 +24,7 @@ export function PaymentStatsCards() {
       value: `₹${stats?.totalPaymentsReceived?.toLocaleString() || 0}`,
       delta: `${stats?.monthlyGrowth || 0}%`,
       trend: stats?.monthlyGrowth >= 0 ? "up" : "down",
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
     },
