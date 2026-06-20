@@ -10,8 +10,8 @@ const taskScheduleSchema = new Schema(
     serviceType: { type: String, required: true, default: "General" },
     team: { type: String, required: true, index: true },
     scheduledDate: { type: Date, required: true, index: true },
-    startTime: { type: String, required: true },
-    endTime: { type: String, required: true },
+    startTime: { type: String },
+    endTime: { type: String },
     priority: {
       type: String,
       enum: ["Low", "Medium", "High", "Critical"],

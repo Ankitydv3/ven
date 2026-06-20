@@ -1,5 +1,6 @@
 import TaskSchedule from "../models/TaskSchedule";
 import { generateTaskScheduleId } from "../utils/taskScheduleId";
+import { syncTaskStatus } from "../services/scheduleService";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
@@ -72,7 +73,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 
 export async function assignComplaint(req: AuthRequest, res: Response) {
   const { id } = req.params;
-  const { team } = req.body as { team?: string };
+  const { team, deadline } = req.body as { team?: string; deadline?: string };
 
   if (!team) {
     throw new ApiError(400, "Team is required");
@@ -83,9 +84,16 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(404, "Complaint not found");
   }
 
+  if (complaint.status === "Completed") {
+    throw new ApiError(400, "Completed complaints cannot be reassigned");
+  }
+
   complaint.assignedTeam = team;
   complaint.assignedBy = req.user?.name ?? "Admin";
   complaint.assignedDate = new Date();
+  if (deadline) {
+    complaint.deadline = new Date(deadline);
+  }
   complaint.status = "Assigned";
   complaint.history.push(buildHistoryEntry("Complaint Assigned", req.user ?? { name: "Admin", role: "admin" }, { status: "Assigned", details: `Assigned to ${team}` }));
 
@@ -111,10 +119,7 @@ if (!existingTask) {
 
     team,
 
-    scheduledDate: new Date(),
-
-    startTime: "09:00",
-    endTime: "18:00",
+    scheduledDate: deadline ? new Date(deadline) : new Date(),
 
     priority:
       complaint.priority === "High"
@@ -123,11 +128,18 @@ if (!existingTask) {
         ? "Low"
         : "Medium",
 
-    status: "Scheduled",
+    status: "Pending",
 
     assignedBy: req.user?.name ?? "Admin",
     remarks: `Auto-created from complaint ${complaint.complaintId}`,
   });
+} else {
+  existingTask.team = team;
+  existingTask.status = "Pending";
+  if (deadline) {
+    existingTask.scheduledDate = new Date(deadline);
+  }
+  await existingTask.save();
 }
 
 res.json({
@@ -142,6 +154,10 @@ export async function startComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(404, "Complaint not found");
   }
 
+  if (complaint.status === "Completed") {
+    throw new ApiError(400, "Completed complaints are read-only");
+  }
+
   if (req.user?.team !== complaint.assignedTeam) {
     throw new ApiError(403, "You can only manage complaints assigned to your team");
   }
@@ -150,6 +166,7 @@ export async function startComplaint(req: AuthRequest, res: Response) {
   complaint.status = "In Progress";
   complaint.history.push(buildHistoryEntry("Task Started", actor, { status: "In Progress" }));
   await complaint.save();
+  await syncTaskStatus(complaint.complaintId, "In Progress");
   res.json({ message: "Work started", complaint });
 }
 
@@ -157,6 +174,10 @@ export async function updateComplaint(req: AuthRequest, res: Response) {
   const complaint = await Complaint.findById(req.params.id);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
+  }
+
+  if (complaint.status === "Completed") {
+    throw new ApiError(400, "Completed complaints are read-only");
   }
 
   if (req.user?.team !== complaint.assignedTeam) {
@@ -178,6 +199,10 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(404, "Complaint not found");
   }
 
+  if (complaint.status === "Completed") {
+    throw new ApiError(400, "Completed complaints are read-only");
+  }
+
   if (req.user?.team !== complaint.assignedTeam) {
     throw new ApiError(403, "You can only manage complaints assigned to your team");
   }
@@ -191,6 +216,7 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
   complaint.remarks = completionRemarks ?? complaint.remarks;
   complaint.history.push(buildHistoryEntry("Task Completed", actor, { status: "Completed", remarks: completionRemarks ?? "", details: resolutionDetails ?? "" }));
   await complaint.save();
+  await syncTaskStatus(complaint.complaintId, "Completed");
 
   res.json({ message: "Complaint completed", complaint });
 }

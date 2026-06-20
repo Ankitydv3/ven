@@ -128,8 +128,10 @@ export async function getRecentComplaints(_req: unknown, res: Response) {
   res.json({ recentComplaints: await buildRecentComplaints() });
 }
 
+import { getSharedStats } from "../services/statsService";
+
 export async function getDashboard(_req: unknown, res: Response) {
-  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, teamStats] = await Promise.all([
+  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, teamStats, sharedStats] = await Promise.all([
     buildSummary(),
     buildMonthlyTrend(),
     buildUnresolvedReasons(),
@@ -137,7 +139,8 @@ export async function getDashboard(_req: unknown, res: Response) {
     buildTopCategories(),
     buildRecentOrders(),
     buildRecentComplaints(),
-    buildTeamStats()
+    buildTeamStats(),
+    getSharedStats()
   ]);
 
   res.json({
@@ -149,16 +152,16 @@ export async function getDashboard(_req: unknown, res: Response) {
     categories,
     recentOrders,
     recentComplaints,
-    totalComplaints: summary.complaintsReceived,
-    pending: summary.complaintsUnresolved,
-    assigned: await Complaint.countDocuments({ status: "Assigned" }),
-    inProgress: await Complaint.countDocuments({ status: "In Progress" }),
-    completed: summary.complaintsResolved,
+    totalComplaints: sharedStats.total,
+    pending: sharedStats.pending,
+    inProgress: sharedStats.inProgress,
+    completed: sharedStats.completed,
+    overdue: sharedStats.overdue,
     statusDistribution: [
       { name: "Pending Assignment", value: await Complaint.countDocuments({ status: "Pending Assignment" }) },
-      { name: "Assigned", value: await Complaint.countDocuments({ status: "Assigned" }) },
-      { name: "In Progress", value: await Complaint.countDocuments({ status: "In Progress" }) },
-      { name: "Completed", value: await Complaint.countDocuments({ status: "Completed" }) }
+      { name: "Assigned", value: sharedStats.pending },
+      { name: "In Progress", value: sharedStats.inProgress },
+      { name: "Completed", value: sharedStats.completed }
     ],
     monthlyComplaints: monthlyTrend.map((item) => ({ month: item.month, complaints: item.complaintsReceived })),
     recentActivity: recentComplaints

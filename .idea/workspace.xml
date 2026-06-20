@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="82a0b508-e3da-4d88-9db9-becd629bd0b9" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/backend/src/controllers/complaintController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/controllers/complaintController.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/controllers/dashboardController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/controllers/dashboardController.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/models/Complaint.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models/Complaint.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/models/TaskSchedule.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models/TaskSchedule.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/services/scheduleService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/services/scheduleService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/services/statsService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/services/statsService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/schedule/AssignTaskModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/schedule/AssignTaskModal.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/schedule/TaskCalendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/schedule/TaskCalendar.tsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="3FO6Nix0LLS2t0gxBeqDzF5xQuZ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "show.migrate.to.gradle.popup": "false"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="82a0b508-e3da-4d88-9db9-becd629bd0b9" name="Changes" comment="" />
+      <created>1781933732064</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1781933732064</updated>
+    </task>
+    <servers />
+  </component>
+</project>

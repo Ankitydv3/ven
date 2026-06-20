@@ -38,8 +38,6 @@ const assignSchema = z.object({
   serviceType: z.string().trim().min(2, "Service type is required"),
   team: z.string().min(2, "Team is required"),
   scheduledDate: z.string().min(1, "Date is required"),
-  startTime: z.string().min(1, "Start time is required"),
-  endTime: z.string().min(1, "End time is required"),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   remarks: z.string().optional(),
 });
@@ -63,8 +61,6 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
       serviceType: "",
       team: "",
       scheduledDate: new Date().toISOString().slice(0, 10),
-      startTime: "10:00",
-      endTime: "12:00",
       priority: "Medium",
       remarks: "",
     },
@@ -95,6 +91,11 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
 
   const submit = form.handleSubmit(async (values) => {
     try {
+      const now = new Date();
+      const startTime = now.toTimeString().slice(0, 5); // HH:mm
+      const end = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+      const endTime = end.toTimeString().slice(0, 5);
+
       await onSubmit({
         complaintId: values.complaintId || undefined,
         complaintTitle: values.complaintTitle || values.serviceType,
@@ -102,8 +103,8 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
         serviceType: values.serviceType,
         team: values.team,
         scheduledDate: values.scheduledDate,
-        startTime: values.startTime,
-        endTime: values.endTime,
+        startTime,
+        endTime,
         priority: values.priority,
         remarks: values.remarks,
       });
@@ -204,7 +205,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-1">
             <div className="space-y-1.5">
               <Label htmlFor="scheduledDate">
                 Schedule Date <span className="text-rose-500">*</span>
@@ -213,28 +214,6 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
                 id="scheduledDate"
                 type="date"
                 {...form.register("scheduledDate")}
-                className="h-11 rounded-xl dark:bg-[#071A17]/60"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="startTime">
-                Start Time <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="startTime"
-                type="time"
-                {...form.register("startTime")}
-                className="h-11 rounded-xl dark:bg-[#071A17]/60"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="endTime">
-                End Time <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="endTime"
-                type="time"
-                {...form.register("endTime")}
                 className="h-11 rounded-xl dark:bg-[#071A17]/60"
               />
             </div>

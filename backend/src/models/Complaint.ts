@@ -38,6 +38,7 @@ const complaintSchema = new Schema(
     completedBy: { type: String, default: "" },
     assignedDate: { type: Date },
     completedDate: { type: Date },
+    deadline: { type: Date },
     history: { type: [historySchema], default: [] }
   },
   { timestamps: true }

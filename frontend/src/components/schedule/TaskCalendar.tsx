@@ -465,7 +465,22 @@ function CalendarEvent({
       )}
       {!isShort && (
         <p className="truncate text-[10px] font-medium text-slate-500 dark:text-white/45">
-          {task.team} · {formatTime12h(task.startTime)} – {formatTime12h(task.endTime)}
+          Team: {task.team}
+        </p>
+      )}
+      {!isShort && (
+        <p className={cn("truncate text-[10px] font-bold", style.text)}>
+          Status: {task.status}
+        </p>
+      )}
+      {!isShort && (
+        <p className="truncate text-[10px] font-medium text-slate-500 dark:text-white/45">
+          Assigned: {task.assignedAt ? new Date(task.assignedAt).toLocaleString() : "N/A"}
+        </p>
+      )}
+      {!isShort && (
+        <p className="truncate text-[10px] font-medium text-slate-500 dark:text-white/45">
+          Slot: {formatTime12h(task.startTime)} – {formatTime12h(task.endTime)}
         </p>
       )}
 

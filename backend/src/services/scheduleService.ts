@@ -2,6 +2,7 @@ import TaskSchedule from "../models/TaskSchedule";
 import Complaint from "../models/Complaint";
 import { generateTaskScheduleId } from "../utils/taskScheduleId";
 import { ApiError } from "../utils/ApiError";
+import { getSharedStats } from "./statsService";
 
 export type ScheduleStatus =
   | "Scheduled"
@@ -152,7 +153,8 @@ async function syncComplaintAssignment(
   complaintRef: string,
   team: string,
   assignedBy: string,
-  remarks?: string
+  remarks?: string,
+  deadline?: Date
 ) {
   const complaint = complaintRef.startsWith("CMP-")
     ? await Complaint.findOne({ complaintId: complaintRef })
@@ -165,6 +167,9 @@ async function syncComplaintAssignment(
   complaint.assignedTeam = team;
   complaint.assignedBy = assignedBy;
   complaint.assignedDate = new Date();
+  if (deadline) {
+    complaint.deadline = deadline;
+  }
   complaint.status = "Assigned";
   if (remarks) {
     complaint.remarks = remarks;
@@ -219,7 +224,8 @@ export async function createSchedule(payload: SchedulePayload) {
       schedulePayload.complaintId,
       schedulePayload.team,
       schedulePayload.assignedBy,
-      schedulePayload.remarks
+      schedulePayload.remarks,
+      new Date(schedulePayload.scheduledDate)
     );
   }
 
@@ -306,40 +312,10 @@ export async function getCalendarSchedules(options: CalendarOptions) {
   return items.map((item) => withResolvedStatus(item));
 }
 
+import { getSharedStats } from "./statsService";
+
 export async function getScheduleStats(startDate?: string, endDate?: string) {
-  await applyAutoStatusUpdates();
-
-  const dateFilter: Record<string, Date> = {};
-  if (startDate) {
-    dateFilter.$gte = startOfDay(new Date(startDate));
-  }
-  if (endDate) {
-    dateFilter.$lte = endOfDay(new Date(endDate));
-  }
-
-  const filter = Object.keys(dateFilter).length ? { scheduledDate: dateFilter } : {};
-
-  const statuses: ScheduleStatus[] = [
-    "Scheduled",
-    "Pending",
-    "In Progress",
-    "Completed",
-    "Cancelled",
-    "Overdue"
-  ];
-
-  const counts = await Promise.all(
-    statuses.map(async (status) => ({
-      status,
-      count: await TaskSchedule.countDocuments({ ...filter, status })
-    }))
-  );
-
-  const total = counts.reduce((sum, item) => sum + item.count, 0);
-  const completed = counts.find((item) => item.status === "Completed")?.count ?? 0;
-  const inProgress = counts.find((item) => item.status === "In Progress")?.count ?? 0;
-  const pending = counts.find((item) => item.status === "Pending")?.count ?? 0;
-  const overdue = counts.find((item) => item.status === "Overdue")?.count ?? 0;
+  const stats = await getSharedStats();
 
   const now = new Date();
   const weekAgo = new Date(now);
@@ -348,8 +324,8 @@ export async function getScheduleStats(startDate?: string, endDate?: string) {
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
   const [currentWeekTotal, previousWeekTotal] = await Promise.all([
-    TaskSchedule.countDocuments({ createdAt: { $gte: weekAgo } }),
-    TaskSchedule.countDocuments({ createdAt: { $gte: twoWeeksAgo, $lt: weekAgo } })
+    Complaint.countDocuments({ createdAt: { $gte: weekAgo } }),
+    Complaint.countDocuments({ createdAt: { $gte: twoWeeksAgo, $lt: weekAgo } })
   ]);
 
   const percentChange =
@@ -360,12 +336,7 @@ export async function getScheduleStats(startDate?: string, endDate?: string) {
       : Math.round(((currentWeekTotal - previousWeekTotal) / previousWeekTotal) * 100);
 
   return {
-    total,
-    completed,
-    inProgress,
-    pending,
-    overdue,
-    scheduled: counts.find((item) => item.status === "Scheduled")?.count ?? 0,
+    ...stats,
     percentChange,
     trend: (percentChange >= 0 ? "up" : "down") as "up" | "down"
   };
@@ -408,4 +379,21 @@ export async function deleteScheduleById(id: string) {
     throw new ApiError(404, "Schedule not found");
   }
   return schedule;
+}
+
+export async function syncTaskStatus(complaintId: string, status: string) {
+  const statusMap: Record<string, ScheduleStatus> = {
+    "Pending Assignment": "Scheduled",
+    "Assigned": "Pending",
+    "In Progress": "In Progress",
+    "Completed": "Completed"
+  };
+
+  const scheduleStatus = statusMap[status] || "Scheduled";
+
+  await TaskSchedule.findOneAndUpdate(
+    { complaintId },
+    { status: scheduleStatus },
+    { runValidators: true }
+  );
 }
