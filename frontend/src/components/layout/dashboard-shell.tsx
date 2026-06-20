@@ -42,6 +42,7 @@ const iconMap: Record<string, any> = {
   Schedule: CalendarDays,
   Complaints: FileText,
   Payments: CreditCard,
+  Reports: FileText,
   "My Team": Users,
   "Team Members": Users,
   Analytics: BarChart3,

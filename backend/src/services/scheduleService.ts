@@ -49,7 +49,8 @@ export interface CalendarOptions {
   team?: string;
 }
 
-function parseTimeToMinutes(time: string) {
+function parseTimeToMinutes(time?: string) {
+  if (!time) return 0;
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
 }
@@ -69,8 +70,8 @@ function endOfDay(date: Date) {
 export function computeAutoStatus(
   schedule: {
     scheduledDate: Date;
-    startTime: string;
-    endTime: string;
+    startTime?: string;
+    endTime?: string;
     status: ScheduleStatus;
   },
   now = new Date()
@@ -82,7 +83,7 @@ export function computeAutoStatus(
   const scheduledDay = startOfDay(new Date(schedule.scheduledDate));
   const today = startOfDay(now);
 
-  if (today.getTime() === scheduledDay.getTime()) {
+  if (today.getTime() === scheduledDay.getTime() && schedule.startTime && schedule.endTime) {
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const startMinutes = parseTimeToMinutes(schedule.startTime);
     const endMinutes = parseTimeToMinutes(schedule.endTime);

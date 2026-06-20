@@ -22,7 +22,6 @@ export const navGroups = {
     { href: "/admin/analytics", label: "Analytics" },
     { href: "/admin/settings", label: "Settings" },
     { href: "/admin/payments", label: "Payments" },
-    { href: "/admin/inventory", label: "Inventory" },
     { href: "/admin/reports", label: "Reports" },
     { href: "/admin/alerts", label: "Alerts" },
 
