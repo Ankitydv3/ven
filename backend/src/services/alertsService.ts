@@ -1,6 +1,8 @@
 import Complaint from "../models/Complaint";
-import TaskSchedule from "../models/TaskSchedule";
+import Task from "../models/Task";
+import TaskAlert from "../models/TaskAlert";
 import { listActiveTeamNames } from "./teamService";
+import { applyOverdueUpdates } from "./taskService";
 
 export interface TeamReport {
   team: string;
@@ -10,6 +12,18 @@ export interface TeamReport {
   status: "all_complete" | "has_pending" | "no_tasks";
   message: string;
   updatedAt: string;
+}
+
+export interface TaskAlertItem {
+  _id: string;
+  type: string;
+  taskId: string;
+  title: string;
+  message: string;
+  teamName?: string;
+  priority?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 function buildTeamMessage(
@@ -27,7 +41,14 @@ function buildTeamMessage(
   return { message: `${team} has pending ${pending}/${total}`, status: "has_pending" };
 }
 
-export async function getAlertsData(filters?: { q?: string; team?: string; teamOnly?: boolean }) {
+export async function getAlertsData(filters?: {
+  q?: string;
+  team?: string;
+  teamOnly?: boolean;
+  scopeFilter?: Record<string, unknown>;
+}) {
+  await applyOverdueUpdates();
+
   const pendingFilter: Record<string, unknown> = { status: "Pending Review" };
   if (filters?.q) {
     pendingFilter.$or = [
@@ -41,16 +62,32 @@ export async function getAlertsData(filters?: { q?: string; team?: string; teamO
   const teamNamesToUse =
     filters?.team && filters.team !== "All Teams" ? [filters.team] : activeTeams;
 
-  const [pendingComplaints, taskAgg] = await Promise.all([
+  const taskMatch: Record<string, unknown> = {
+    status: { $ne: "Cancelled" },
+    ...(filters?.scopeFilter ?? {}),
+  };
+  if (filters?.team && filters.team !== "All Teams") {
+    taskMatch.assignedTeamName = filters.team;
+  }
+
+  const alertFilter: Record<string, unknown> = {};
+  if (filters?.scopeFilter?.assignedTeamName) {
+    alertFilter.teamName = filters.scopeFilter.assignedTeamName;
+  }
+  if (filters?.scopeFilter?.assignedUserId) {
+    alertFilter.userId = filters.scopeFilter.assignedUserId;
+  }
+
+  const [pendingComplaints, taskAgg, taskAlerts] = await Promise.all([
     filters?.teamOnly
       ? Promise.resolve([])
       : Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
     teamNamesToUse.length > 0
-      ? TaskSchedule.aggregate([
-          { $match: { team: { $in: teamNamesToUse } } },
+      ? Task.aggregate([
+          { $match: { ...taskMatch, assignedTeamName: { $in: teamNamesToUse } } },
           {
             $group: {
-              _id: "$team",
+              _id: "$assignedTeamName",
               totalTasks: { $sum: 1 },
               completedTasks: {
                 $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
@@ -60,6 +97,7 @@ export async function getAlertsData(filters?: { q?: string; team?: string; teamO
           },
         ])
       : Promise.resolve([]),
+    TaskAlert.find(alertFilter).sort({ createdAt: -1 }).limit(50).lean(),
   ]);
 
   const taskMap = new Map(taskAgg.map((row) => [row._id as string, row]));
@@ -88,7 +126,9 @@ export async function getAlertsData(filters?: { q?: string; team?: string; teamO
 
   if (filters?.q) {
     const q = filters.q.toLowerCase();
-    teamReports = teamReports.filter((r) => r.team.toLowerCase().includes(q) || r.message.toLowerCase().includes(q));
+    teamReports = teamReports.filter(
+      (r) => r.team.toLowerCase().includes(q) || r.message.toLowerCase().includes(q)
+    );
   }
 
   teamReports.sort((a, b) => {
@@ -97,12 +137,36 @@ export async function getAlertsData(filters?: { q?: string; team?: string; teamO
     return b.pendingTasks - a.pendingTasks;
   });
 
+  let alerts: TaskAlertItem[] = taskAlerts.map((a) => ({
+    _id: String(a._id),
+    type: a.type,
+    taskId: a.taskId,
+    title: a.title,
+    message: a.message,
+    teamName: a.teamName ?? "",
+    priority: a.priority,
+    read: a.read,
+    createdAt: a.createdAt.toISOString(),
+  }));
+
+  if (filters?.q) {
+    const q = filters.q.toLowerCase();
+    alerts = alerts.filter(
+      (a) =>
+        a.taskId.toLowerCase().includes(q) ||
+        a.title.toLowerCase().includes(q) ||
+        a.message.toLowerCase().includes(q)
+    );
+  }
+
   return {
     pendingComplaints,
     teamReports,
+    taskAlerts: alerts,
     counts: {
       pendingReview: pendingComplaints.length,
       teamsWithPending: teamReports.filter((r) => r.status === "has_pending").length,
+      taskAlerts: alerts.length,
     },
   };
 }

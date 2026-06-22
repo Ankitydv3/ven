@@ -83,23 +83,32 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
 
   useEffect(() => {
     if (!open) {
-      form.reset();
-    }
-  }, [open, form]);
-
-  useEffect(() => {
-    if (!open) {
-      form.reset();
+      form.reset({
+        complaintId: "",
+        complaintTitle: "",
+        customerName: "",
+        serviceType: "",
+        assignedUserId: "",
+        scheduledDate: new Date().toISOString().slice(0, 10),
+        priority: "Medium",
+        remarks: "",
+      });
       return;
     }
-
-    if (assignableUsers.length === 0) return;
-
-    const current = form.getValues("assignedUserId");
-    if (!current || !assignableUsers.some((user) => user._id === current)) {
-      form.setValue("assignedUserId", assignableUsers[0]._id, { shouldValidate: true });
+  
+    if (assignableUsers.length > 0) {
+      const current = form.getValues("assignedUserId");
+  
+      if (!current) {
+        form.setValue(
+          "assignedUserId",
+          assignableUsers[0]._id,
+          { shouldValidate: true }
+        );
+      }
     }
-  }, [open, assignableUsers, form]);
+  }, [open, assignableUsers]);
+  
 
   const handleComplaintSelect = (complaintId: string) => {
     const complaint = complaints.find((c) => c.complaintId === complaintId);

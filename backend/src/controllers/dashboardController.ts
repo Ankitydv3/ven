@@ -2,7 +2,7 @@ import type { Response } from "express";
 import Complaint from "../models/Complaint";
 import Order from "../models/Order";
 import type { AuthRequest } from "../middleware/auth";
-import { getSharedStats } from "../services/statsService";
+import { getTaskStats, applyOverdueUpdates } from "../services/taskService";
 import { listActiveTeamNames } from "../services/teamService";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -160,11 +160,14 @@ async function buildTeamStats() {
   const teams = await listActiveTeamNames();
 
   return Promise.all(
-    teams.map(async (team) => ({
-      team,
-      assigned: await Complaint.countDocuments({ assignedTeam: team }),
-      completed: await Complaint.countDocuments({ assignedTeam: team, status: "Completed" })
-    }))
+    teams.map(async (team) => {
+      const stats = await getTaskStats(undefined, team);
+      return {
+        team,
+        assigned: stats.total,
+        completed: stats.completed,
+      };
+    })
   );
 }
 
@@ -197,7 +200,8 @@ export async function getRecentComplaints(_req: AuthRequest, res: Response) {
 }
 
 export async function getDashboard(_req: AuthRequest, res: Response) {
-  const sharedStats = await getSharedStats();
+  await applyOverdueUpdates();
+  const taskStats = await getTaskStats();
 
   const [
     summary,
@@ -228,19 +232,18 @@ export async function getDashboard(_req: AuthRequest, res: Response) {
     categories,
     recentOrders,
     recentComplaints,
-    totalComplaints: sharedStats.total,
-    pending: sharedStats.pending,
-    inProgress: sharedStats.inProgress,
-    completed: sharedStats.completed,
-    overdue: sharedStats.overdue,
+    totalTasks: taskStats.total,
+    pending: taskStats.pending,
+    inProgress: taskStats.inProgress,
+    completed: taskStats.completed,
+    overdue: taskStats.overdue,
+    upcomingTasks: taskStats.upcoming,
+    completionRate: taskStats.completionRate,
     statusDistribution: [
-      {
-        name: "Pending Assignment",
-        value: await Complaint.countDocuments({ status: "Pending Assignment" })
-      },
-      { name: "Assigned", value: sharedStats.pending },
-      { name: "In Progress", value: sharedStats.inProgress },
-      { name: "Completed", value: sharedStats.completed }
+      { name: "Pending", value: taskStats.pending },
+      { name: "In Progress", value: taskStats.inProgress },
+      { name: "Completed", value: taskStats.completed },
+      { name: "Overdue", value: taskStats.overdue },
     ],
     monthlyComplaints: monthlyTrend.map((item) => ({ month: item.month, complaints: item.complaintsReceived })),
     recentActivity: recentComplaints

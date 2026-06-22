@@ -196,9 +196,19 @@ export interface RecentComplaintItem {
   updatedAt: string;
 }
 
+export interface DashboardTaskSummary {
+  totalTasks: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+  completionRate: number;
+}
+
 export interface DashboardPageData {
   summary: DashboardKpiSummary;
   teamStats: Array<{ team: string; assigned: number; completed: number }>;
+  taskStats: DashboardTaskSummary;
   monthlyTrend: DashboardTrendPoint[];
   unresolvedReasons: DashboardReasonPoint[];
   complaintOverview: DashboardOverviewPoint;
@@ -241,6 +251,9 @@ export interface Complaint {
     status: ComplaintStatus;
     createdAt?: string;
   }>;
+  taskScheduleStatus?: string | null;
+  taskScheduleDueDate?: string | null;
+  taskId?: string | null;
 }
 
 export interface TeamReport {
@@ -263,11 +276,14 @@ export interface AlertsResponse {
 }
 
 export interface DashboardResponse {
-  totalComplaints: number;
-  pending: number;
-  assigned: number;
-  inProgress: number;
-  completed: number;
+  totalTasks?: number;
+  pending?: number;
+  inProgress?: number;
+  completed?: number;
+  overdue?: number;
+  completionRate?: number;
+  totalComplaints?: number;
+  assigned?: number;
   teamStats: Array<{ team: string; assigned: number; completed: number }>;
   statusDistribution: Array<{ name: string; value: number }>;
   monthlyComplaints: Array<{ month: string; complaints: number }>;

@@ -241,22 +241,30 @@ export function DashboardShell({
             <div className="flex flex-wrap items-center gap-3">
               <ThemeToggle />
               <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
-                asChild
-              >
-                <Link href={alertsHref}>
-                  <Bell className="h-4 w-4 mr-1.5" />
-                  <span className="hidden sm:inline">Notifications</span>
-                  <span className="sm:hidden">Alerts</span>
-                  {pendingAlerts > 0 && (
-                    <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
-                      {pendingAlerts > 99 ? "99+" : pendingAlerts}
-                    </Badge>
-                  )}
-                </Link>
-              </Button>
+  variant="outline"
+  size="sm"
+  className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+  onClick={() => {
+    const target =
+      user?.role === "admin" || user?.role === "super_admin"
+        ? "/admin/alerts"
+        : "/team/alerts";
+
+    window.location.href = target;
+  }}
+>
+  <Bell className="h-4 w-4 mr-1.5" />
+  <span className="hidden sm:inline">Notifications</span>
+
+  {pendingAlerts > 0 && (
+    <Badge
+      variant="destructive"
+      className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]"
+    >
+      {pendingAlerts > 99 ? "99+" : pendingAlerts}
+    </Badge>
+  )}
+</Button>
               <Button
                 variant="secondary"
                 size="sm"

@@ -1,6 +1,6 @@
 import type { JwtUser, UserRole } from "../types";
 import { isAdminPortalRole } from "./rbac";
-import { isTeamLead, isTeamMember, isTeamRole } from "./teamScope";
+import { isTeamRole } from "./teamScope";
 
 export function canManageComplaints(role?: string) {
   return isAdminPortalRole(role);

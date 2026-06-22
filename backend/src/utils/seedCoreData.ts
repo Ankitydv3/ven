@@ -3,7 +3,9 @@ import Complaint from "../models/Complaint";
 import User from "../models/User";
 import Order from "../models/Order";
 import Team from "../models/Team";
+import Task from "../models/Task";
 import { generateComplaintId } from "./complaintId";
+import { generateTaskId } from "./taskId";
 import { generateEmployeeId, generateUsername, teamNameToSlug } from "./employeeId";
 
 const defaultTeams = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"];
@@ -220,6 +222,40 @@ export async function seedCoreData() {
   }
 
   await backfillTeamUserProfiles();
+
+  const taskCount = await Task.countDocuments();
+  if (taskCount === 0) {
+    const teams = await Team.find().lean();
+    const teamUsersDb = await User.find({ role: { $in: ["team", "team_lead"] } }).limit(4).lean();
+    const now = new Date();
+
+    for (let i = 0; i < Math.min(teamUsersDb.length, 4); i += 1) {
+      const user = teamUsersDb[i];
+      const teamDoc = teams.find((t) => t.teamName === (user.teamName ?? user.team));
+      const due = new Date(now);
+      due.setDate(due.getDate() + i + 1);
+
+      const dueKey = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+
+      await Task.create({
+        taskId: await generateTaskId(),
+        title: `Sample Task ${i + 1}`,
+        description: "Seeded demo task for schedule module",
+        priority: i % 2 === 0 ? "Medium" : "High",
+        status: i === 0 ? "Completed" : "Pending",
+        assignedUserId: user._id,
+        assignedUserName: user.name,
+        assignedTeamId: teamDoc?._id,
+        assignedTeamName: user.teamName ?? user.team ?? "",
+        createdBy: "System",
+        dueDate: due,
+        dueDateKey: dueKey,
+        completedAt: i === 0 ? new Date() : undefined,
+        isLocked: i === 0,
+        remarks: "Auto-seeded",
+      });
+    }
+  }
 
   const count = await Complaint.countDocuments();
   if (count > 0) {

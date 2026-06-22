@@ -102,15 +102,44 @@ export const HOUR_HEIGHT = 56;
 export const CALENDAR_START_HOUR = 8;
 export const CALENDAR_END_HOUR = 18;
 
-export function formatTime12h(time24: string) {
-  const [hours, minutes] = time24.split(":").map(Number);
+export function formatTime12h(time24?: string | null) {
+  if (!time24) {
+    return "--";
+  }
+
+  const parts = time24.split(":");
+
+  if (parts.length < 2) {
+    return "--";
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return "--";
+  }
+
   const period = hours >= 12 ? "PM" : "AM";
   const hour12 = hours % 12 || 12;
+
   return `${hour12}:${String(minutes).padStart(2, "0")} ${period}`;
 }
 
-export function parseTimeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
+export function parseTimeToMinutes(time?: string | null) {
+  if (!time) return 0;
+
+  const parts = time.split(":");
+
+  if (parts.length < 2) return 0;
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return 0;
+  }
+
   return hours * 60 + minutes;
 }
 

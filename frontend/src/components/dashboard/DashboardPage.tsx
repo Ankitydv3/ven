@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Wallet,
+  ListTodo,
   Clock,
   PackageX,
   CreditCard as PaymentIcon,
@@ -520,7 +521,8 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboardPage,
-    staleTime: 60_000,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   });
 
   const summaryCards = useMemo(
@@ -569,6 +571,52 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
     [data]
   );
 
+  const taskCards = useMemo(
+    () => [
+      {
+        label: "Total Tasks",
+        value: data?.taskStats.totalTasks ?? 0,
+        delta: `${data?.taskStats.completionRate ?? 0}% done`,
+        positive: true,
+        icon: ListTodo,
+        color: KPI_COLORS.received,
+      },
+      {
+        label: "Pending Tasks",
+        value: data?.taskStats.pending ?? 0,
+        delta: "Awaiting start",
+        positive: false,
+        icon: Clock,
+        color: KPI_COLORS.unresolved,
+      },
+      {
+        label: "In Progress",
+        value: data?.taskStats.inProgress ?? 0,
+        delta: "Active now",
+        positive: true,
+        icon: ClipboardList,
+        color: KPI_COLORS.orders,
+      },
+      {
+        label: "Completed",
+        value: data?.taskStats.completed ?? 0,
+        delta: "Finished",
+        positive: true,
+        icon: CheckCircle2,
+        color: KPI_COLORS.resolved,
+      },
+      {
+        label: "Overdue",
+        value: data?.taskStats.overdue ?? 0,
+        delta: "Needs attention",
+        positive: false,
+        icon: AlertTriangle,
+        color: KPI_COLORS.unresolved,
+      },
+    ],
+    [data]
+  );
+
   if (!ready) return null;
 
   return (
@@ -592,6 +640,15 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
               className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
             >
               {summaryCards.map((card) => (
+                <KpiCard key={card.label} {...card} />
+              ))}
+            </motion.div>
+
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+              className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+            >
+              {taskCards.map((card) => (
                 <KpiCard key={card.label} {...card} />
               ))}
             </motion.div>

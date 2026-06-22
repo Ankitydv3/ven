@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   PlayCircle, 
   MessageSquareText, 
@@ -29,8 +31,10 @@ import {
   RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
-import { completeComplaint, fetchComplaints, startComplaint, updateComplaint } from "@/services/complaints";
+import { completeComplaint, startComplaint, updateComplaint } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
+import { complaintKeys, useComplaints } from "@/hooks/useComplaints";
+import { taskKeys } from "@/hooks/useTasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,6 +59,21 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDueDate } from "@/lib/task-constants";
+
+function scheduleLabel(item: Complaint) {
+  if (!item.taskScheduleStatus) return "Not Scheduled";
+  return item.taskScheduleStatus;
+}
+
+function effectiveStatus(item: Complaint): Complaint["status"] {
+  if (item.taskScheduleStatus === "Completed") return "Completed";
+  if (item.taskScheduleStatus === "In Progress") return "In Progress";
+  if (item.taskScheduleStatus === "Pending" || item.taskScheduleStatus === "Overdue") {
+    return "Assigned";
+  }
+  return item.status;
+}
 
 // New status configuration with enhanced styling
 function getStatusConfig(status: Complaint["status"]) {
@@ -115,8 +134,9 @@ const tooltipStyle = {
 };
 
 export function TeamWorkspace() {
-  const [items, setItems] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const complaintsQuery = useComplaints({ limit: 50, scope: "reviewed" });
   const [pending, startTransition] = useTransition();
   const [activeComplaint, setActiveComplaint] = useState<Complaint | null>(null);
   const [modalMode, setModalMode] = useState<"update" | "complete" | null>(null);
@@ -131,26 +151,35 @@ export function TeamWorkspace() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const response = await fetchComplaints({ limit: 50, scope: "reviewed" });
-      const assignedTasks = response.items.filter(
-        (item) => item.status === "Assigned" || item.status === "In Progress" || item.status === "Completed"
-      );
-      setItems(assignedTasks);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const items = useMemo(
+    () =>
+      (complaintsQuery.data?.items ?? []).filter((item) => {
+        const status = effectiveStatus(item);
+        return (
+          status === "Assigned" ||
+          status === "In Progress" ||
+          status === "Completed" ||
+          Boolean(item.taskId || item.taskScheduleStatus)
+        );
+      }),
+    [complaintsQuery.data?.items]
+  );
+
+  const loading = complaintsQuery.isLoading;
 
   useEffect(() => {
-    void load();
-    const interval = setInterval(() => void load(), 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!pathname.includes("/complaints")) return;
+    void queryClient.refetchQueries({
+      queryKey: complaintKeys.list({ limit: 50, scope: "reviewed" }),
+    });
+  }, [pathname, queryClient]);
+
+  const refreshComplaintsAndTasks = async () => {
+    await queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+    await queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    await queryClient.refetchQueries({ queryKey: complaintKeys.all });
+    await queryClient.refetchQueries({ queryKey: taskKeys.all });
+  };
 
   // Filter complaints based on search and filters
   const filteredItems = useMemo(() => {
@@ -159,7 +188,8 @@ export function TeamWorkspace() {
                             item.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.description.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const status = effectiveStatus(item);
+      const matchesStatus = statusFilter === "all" || status === statusFilter;
       const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter;
       
       return matchesSearch && matchesStatus && matchesPriority;
@@ -169,8 +199,8 @@ export function TeamWorkspace() {
   const sortedItems = useMemo(() => {
     const statusOrder = { Assigned: 0, "In Progress": 1, Completed: 2 };
     return [...filteredItems].sort((a, b) => {
-      const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 999;
-      const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 999;
+      const orderA = statusOrder[effectiveStatus(a) as keyof typeof statusOrder] ?? 999;
+      const orderB = statusOrder[effectiveStatus(b) as keyof typeof statusOrder] ?? 999;
       return orderA - orderB;
     });
   }, [filteredItems]);
@@ -178,14 +208,14 @@ export function TeamWorkspace() {
   const statusDistribution = useMemo(() => {
     const statusOrder = ["Assigned", "In Progress", "Completed"];
     return statusOrder.map((statusName) => {
-      const count = filteredItems.filter((item) => item.status === statusName).length;
+      const count = filteredItems.filter((item) => effectiveStatus(item) === statusName).length;
       return { name: statusName, value: count };
     });
   }, [filteredItems]);
 
-  const assignedTasks = filteredItems.filter((item) => item.status === "Assigned").length;
-  const inProgressTasks = filteredItems.filter((item) => item.status === "In Progress").length;
-  const completedTasks = filteredItems.filter((item) => item.status === "Completed").length;
+  const assignedTasks = filteredItems.filter((item) => effectiveStatus(item) === "Assigned").length;
+  const inProgressTasks = filteredItems.filter((item) => effectiveStatus(item) === "In Progress").length;
+  const completedTasks = filteredItems.filter((item) => effectiveStatus(item) === "Completed").length;
   const totalTasks = filteredItems.length;
 
   const handleStartWork = (id: string) => {
@@ -196,7 +226,7 @@ export function TeamWorkspace() {
         toast.success("Work started successfully", {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
         });
-        await load();
+        await refreshComplaintsAndTasks();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to start work", {
           icon: <XCircle className="h-4 w-4 text-red-500" />,
@@ -221,7 +251,7 @@ export function TeamWorkspace() {
         setActiveComplaint(null);
         setRemarks("");
         setDetails("");
-        await load();
+        await refreshComplaintsAndTasks();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to update work", {
           icon: <XCircle className="h-4 w-4 text-red-500" />,
@@ -250,7 +280,7 @@ export function TeamWorkspace() {
         setActiveComplaint(null);
         setRemarks("");
         setDetails("");
-        await load();
+        await refreshComplaintsAndTasks();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to complete complaint", {
           icon: <XCircle className="h-4 w-4 text-red-500" />,
@@ -295,7 +325,7 @@ export function TeamWorkspace() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => load()}
+            onClick={() => void refreshComplaintsAndTasks()}
             className="flex items-center gap-2 border-gray-200 dark:border-gray-700"
           >
             <RefreshCw className={`h-4 w-4 ${pending ? 'animate-spin' : ''}`} />
@@ -467,7 +497,8 @@ export function TeamWorkspace() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {sortedItems.map((item, index) => {
-            const statusConfig = getStatusConfig(item.status);
+            const status = effectiveStatus(item);
+            const statusConfig = getStatusConfig(status);
             
             return (
               <motion.div
@@ -484,7 +515,7 @@ export function TeamWorkspace() {
                         <div className="flex items-center gap-2">
                           <Badge className={`rounded-md font-medium ${statusConfig.color}`}>
                             {statusConfig.icon}
-                            <span>{item.status}</span>
+                            <span>{status}</span>
                           </Badge>
                           <Badge className={`rounded-md font-medium ${priorityBadgeClass(item.priority)}`}>
                             {item.priority}
@@ -509,7 +540,7 @@ export function TeamWorkspace() {
                               setRemarks("");
                               setDetails("");
                             }}
-                            disabled={item.status === "Completed"}
+                            disabled={status === "Completed"}
                           >
                             <MessageSquareText className="h-4 w-4" />
                           </Button>
@@ -523,7 +554,7 @@ export function TeamWorkspace() {
                               setRemarks("");
                               setDetails("");
                             }}
-                            disabled={pending || item.status === "Completed"}
+                            disabled={pending || status === "Completed"}
                           >
                             <CircleCheckBig className="h-4 w-4" />
                           </Button>
@@ -544,7 +575,14 @@ export function TeamWorkspace() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         <CalendarClock className="h-4 w-4 flex-shrink-0" />
-                        <span>Assigned {item.assignedDate ? new Date(item.assignedDate).toLocaleDateString() : "-"}</span>
+                        <span>
+                          Schedule: {scheduleLabel(item)}
+                          {item.taskScheduleDueDate
+                            ? ` · Due ${formatDueDate(item.taskScheduleDueDate)}`
+                            : item.assignedDate
+                              ? ` · Assigned ${new Date(item.assignedDate).toLocaleDateString()}`
+                              : ""}
+                        </span>
                       </div>
                     </div>
                     
@@ -553,7 +591,7 @@ export function TeamWorkspace() {
                         size="sm"
                         className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                         onClick={() => handleStartWork(item._id)}
-                        disabled={pending || item.status !== "Assigned"}
+                        disabled={pending || status !== "Assigned"}
                       >
                         {startingId === item._id ? (
                           <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -572,13 +610,13 @@ export function TeamWorkspace() {
                           setRemarks("");
                           setDetails("");
                         }}
-                        disabled={pending || item.status === "Completed"}
+                        disabled={pending || status === "Completed"}
                       >
                         Complete
                       </Button>
                     </div>
                     
-                    {(item.status === "Completed") && (
+                    {(status === "Completed") && (
                       <div className="mt-4 space-y-2">
                         {item.completionRemarks && (
                           <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-200 dark:border-emerald-800/30">

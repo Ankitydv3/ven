@@ -1,12 +1,12 @@
-import TaskSchedule from "../models/TaskSchedule";
-import { applyAutoStatusUpdates } from "./scheduleService";
+import Task from "../models/Task";
+import { applyOverdueUpdates } from "./taskService";
 import { getTeamColorHex, listActiveTeamNames } from "./teamService";
 
 const STATUS_CHART_COLORS: Record<string, string> = {
   Completed: "#22C55E",
   Overdue: "#F59E0B",
-  "In Progress": "#64748B",
-  Pending: "#3B82F6",
+  "In Progress": "#EAB308",
+  Pending: "#EF4444",
 };
 
 export interface ReportsQuery {
@@ -28,12 +28,12 @@ function endOfDay(date: Date) {
   return d;
 }
 
-function buildCreatedAtFilter(startDate?: string, endDate?: string) {
+function buildDueDateFilter(startDate?: string, endDate?: string) {
   if (!startDate && !endDate) return {};
   const range: Record<string, Date> = {};
   if (startDate) range.$gte = startOfDay(new Date(startDate));
   if (endDate) range.$lte = endOfDay(new Date(endDate));
-  return { createdAt: range };
+  return { dueDate: range };
 }
 
 function getDefaultDateRange() {
@@ -87,18 +87,12 @@ function normalizeTeamFilter(team?: string) {
 function buildTaskFilter(query: ReportsQuery) {
   const filter: Record<string, unknown> = {
     status: { $ne: "Cancelled" },
-    ...buildCreatedAtFilter(query.startDate, query.endDate),
+    ...buildDueDateFilter(query.startDate, query.endDate),
   };
   const team = normalizeTeamFilter(query.team);
-  if (team) filter.team = team;
+  if (team) filter.assignedTeamName = team;
   if (query.assignedUserId) filter.assignedUserId = query.assignedUserId;
   return filter;
-}
-
-function mapTaskStatusForChart(status: string) {
-  if (status === "Scheduled") return "Pending";
-  if (["Completed", "Pending", "In Progress", "Overdue"].includes(status)) return status;
-  return null;
 }
 
 async function countTasksByStatus(query: ReportsQuery, status?: string | string[]) {
@@ -106,7 +100,7 @@ async function countTasksByStatus(query: ReportsQuery, status?: string | string[
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  return TaskSchedule.countDocuments(filter);
+  return Task.countDocuments(filter);
 }
 
 async function buildSummary(query: ReportsQuery) {
@@ -147,11 +141,11 @@ async function buildSummary(query: ReportsQuery) {
 async function buildTeamPerformance(query: ReportsQuery) {
   const filter = buildTaskFilter(query);
 
-  const taskAgg = await TaskSchedule.aggregate([
+  const taskAgg = await Task.aggregate([
     { $match: filter },
     {
       $group: {
-        _id: "$team",
+        _id: "$assignedTeamName",
         tasksAssigned: { $sum: 1 },
         completed: {
           $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
@@ -220,7 +214,7 @@ async function buildTeamPerformance(query: ReportsQuery) {
 
 async function buildTaskStatus(query: ReportsQuery) {
   const filter = buildTaskFilter(query);
-  const tasks = await TaskSchedule.find(filter).select("status").lean();
+  const tasks = await Task.find(filter).select("status").lean();
 
   const counts: Record<string, number> = {
     Completed: 0,
@@ -230,9 +224,8 @@ async function buildTaskStatus(query: ReportsQuery) {
   };
 
   for (const task of tasks) {
-    const mapped = mapTaskStatusForChart(task.status);
-    if (mapped && counts[mapped] !== undefined) {
-      counts[mapped] += 1;
+    if (counts[task.status] !== undefined) {
+      counts[task.status] += 1;
     }
   }
 
@@ -251,11 +244,11 @@ async function buildTaskStatus(query: ReportsQuery) {
 
 async function buildTeamTasks(query: ReportsQuery) {
   const filter = buildTaskFilter(query);
-  const agg = await TaskSchedule.aggregate([
+  const agg = await Task.aggregate([
     { $match: filter },
     {
       $group: {
-        _id: "$team",
+        _id: "$assignedTeamName",
         assigned: { $sum: 1 },
         completed: {
           $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
@@ -289,7 +282,7 @@ async function buildTeamTasks(query: ReportsQuery) {
 }
 
 export async function getReports(query: ReportsQuery) {
-  await applyAutoStatusUpdates();
+  await applyOverdueUpdates();
 
   const resolvedQuery = {
     ...query,

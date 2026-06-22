@@ -1,12 +1,11 @@
-import TaskSchedule from "../models/TaskSchedule";
-import { generateTaskScheduleId } from "../utils/taskScheduleId";
-import { syncTaskStatus } from "../services/scheduleService";
+import Task from "../models/Task";
+import { createTask, syncComplaintTaskStatus, updateTaskById, assertComplaintEligibleForTaskAssignment } from "../services/taskService";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
 import { ApiError } from "../utils/ApiError";
 import type { AuthRequest } from "../middleware/auth";
-import { complaintTeamFilter, userTeamName } from "../utils/teamScope";
+import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import * as userService from "../services/userService";
 
 function buildHistoryEntry(action: string, user: { name: string; role: string; team?: string }, extra?: Record<string, string>) {
@@ -66,9 +65,56 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     ];
   }
 
-  if (req.user?.role === "team" || req.user?.role === "team_lead") {
-    Object.assign(filter, complaintTeamFilter(req.user));
-    filter.status = { $in: ["Assigned", "In Progress", "Completed"] };
+  if (req.user && isTeamRole(req.user.role)) {
+    const teamFilter = complaintTeamFilter(req.user);
+    const taskScope = taskVisibilityFilter(req.user);
+    let taskComplaintIds: string[] = [];
+
+    if (Object.keys(taskScope).length > 0) {
+      taskComplaintIds = await Task.find({
+        ...taskScope,
+        complaintId: { $exists: true, $ne: "" },
+      }).distinct("complaintId");
+    }
+
+    const accessOr: Record<string, unknown>[] = [];
+    if (Array.isArray(teamFilter.$or)) {
+      accessOr.push(...(teamFilter.$or as Record<string, unknown>[]));
+    } else if (Object.keys(teamFilter).length > 0) {
+      accessOr.push(teamFilter);
+    }
+    if (taskComplaintIds.length > 0) {
+      accessOr.push({ complaintId: { $in: taskComplaintIds } });
+    }
+
+    const teamAccess =
+      accessOr.length > 0 ? { $or: accessOr } : { assignedTeam: "__none__" };
+
+    const statusFilter =
+      status && status !== "All"
+        ? { status }
+        : { status: { $in: ["Assigned", "In Progress", "Completed"] } };
+
+    const andClauses: Record<string, unknown>[] = [statusFilter, teamAccess];
+
+    if (q) {
+      andClauses.push({
+        $or: [
+          { complaintId: { $regex: q, $options: "i" } },
+          { clientName: { $regex: q, $options: "i" } },
+          { mobileNumber: { $regex: q, $options: "i" } },
+        ],
+      });
+    }
+
+    if (team) {
+      andClauses.push({ assignedTeam: team });
+    }
+
+    for (const key of Object.keys(filter)) {
+      delete filter[key];
+    }
+    filter.$and = andClauses;
   }
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -77,7 +123,25 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     Complaint.countDocuments(filter)
   ]);
 
-  res.json({ items, total, page: Number(page), limit: Number(limit) });
+  const complaintIds = items.map((item) => item.complaintId);
+  const linkedTasks = complaintIds.length
+    ? await Task.find({ complaintId: { $in: complaintIds } })
+        .select("complaintId taskId status dueDate dueDateKey")
+        .lean()
+    : [];
+  const taskByComplaintId = new Map(linkedTasks.map((task) => [task.complaintId, task]));
+
+  const enrichedItems = items.map((item) => {
+    const task = taskByComplaintId.get(item.complaintId);
+    return {
+      ...item.toObject(),
+      taskScheduleStatus: task?.status ?? null,
+      taskScheduleDueDate: task?.dueDateKey ?? task?.dueDate ?? null,
+      taskId: task?.taskId ?? null,
+    };
+  });
+
+  res.json({ items: enrichedItems, total, page: Number(page), limit: Number(limit) });
 }
 
 function canAccessComplaint(
@@ -121,6 +185,10 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Declined complaints cannot be assigned");
   }
 
+  if (complaint.status === "In Progress") {
+    throw new ApiError(400, "Cannot reassign a complaint that is in progress");
+  }
+
   const assignee = assignedUserId
     ? await userService.resolveAssigneeById(assignedUserId)
     : { assignedUserId: undefined, assignedUserName: "", team: legacyTeam! };
@@ -149,38 +217,40 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
 
   await complaint.save();
 
-  const existingTask = await TaskSchedule.findOne({
+  const existingTask = await Task.findOne({
     complaintId: complaint.complaintId,
   });
 
-  if (!existingTask) {
-    const taskId = await generateTaskScheduleId();
+  if (existingTask) {
+    await assertComplaintEligibleForTaskAssignment(complaint.complaintId);
+  }
 
-    await TaskSchedule.create({
-      taskId,
+  if (!existingTask) {
+    await createTask({
       complaintId: complaint.complaintId,
-      complaintTitle: complaint.title,
-      customerName: complaint.clientName,
-      serviceType: complaint.title,
-      team: assignee.team,
-      assignedUserId: assignee.assignedUserId,
-      assignedUserName: assignee.assignedUserName,
-      scheduledDate: deadline ? new Date(deadline) : new Date(),
+      title: complaint.title,
+      description: complaint.description ?? "",
       priority:
         complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
-      status: "Pending",
-      assignedBy: req.user?.name ?? "Admin",
+      assignedUserId: String(assignee.assignedUserId),
+      dueDate: deadline ? new Date(deadline) : new Date(),
       remarks: `Auto-created from complaint ${complaint.complaintId}`,
+      createdBy: req.user?.name ?? "Admin",
     });
   } else {
-    existingTask.team = assignee.team;
-    existingTask.assignedUserId = assignee.assignedUserId;
-    existingTask.assignedUserName = assignee.assignedUserName;
-    existingTask.status = "Pending";
-    if (deadline) {
-      existingTask.scheduledDate = new Date(deadline);
-    }
-    await existingTask.save();
+    await updateTaskById(
+      String(existingTask._id),
+      {
+        assignedUserId: String(assignee.assignedUserId),
+        dueDate: deadline ? new Date(deadline) : existingTask.dueDate,
+        status: "Pending",
+      },
+      {
+        id: req.user?.id ?? "",
+        name: req.user?.name ?? "Admin",
+        role: req.user?.role ?? "admin",
+      }
+    );
   }
 
   res.json({
@@ -207,7 +277,7 @@ export async function startComplaint(req: AuthRequest, res: Response) {
   complaint.status = "In Progress";
   complaint.history.push(buildHistoryEntry("Task Started", actor, { status: "In Progress" }));
   await complaint.save();
-  await syncTaskStatus(complaint.complaintId, "In Progress");
+  await syncComplaintTaskStatus(complaint.complaintId, "In Progress");
   res.json({ message: "Work started", complaint });
 }
 
@@ -257,7 +327,7 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
   complaint.remarks = completionRemarks ?? complaint.remarks;
   complaint.history.push(buildHistoryEntry("Task Completed", actor, { status: "Completed", remarks: completionRemarks ?? "", details: resolutionDetails ?? "" }));
   await complaint.save();
-  await syncTaskStatus(complaint.complaintId, "Completed");
+  await syncComplaintTaskStatus(complaint.complaintId, "Completed");
 
   res.json({ message: "Complaint completed", complaint });
 }

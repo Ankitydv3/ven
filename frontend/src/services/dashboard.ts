@@ -6,6 +6,7 @@ import type {
   DashboardOverviewPoint,
   DashboardPageData,
   DashboardReasonPoint,
+  DashboardTaskSummary,
   DashboardTrendPoint,
   RecentComplaintItem,
   RecentOrder
@@ -17,7 +18,7 @@ export async function fetchDashboard() {
 }
 
 export async function fetchDashboardPage() {
-  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, overview] = await Promise.all([
+  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, dashboardMain] = await Promise.all([
     api.get<DashboardKpiSummary>("/dashboard/summary").then((response) => response.data),
     api.get<{ monthlyTrend: DashboardTrendPoint[] }>("/dashboard/monthly-trend").then((response) => response.data.monthlyTrend),
     api.get<{ unresolvedReasons: DashboardReasonPoint[] }>("/dashboard/unresolved-reasons").then((response) => response.data.unresolvedReasons),
@@ -25,8 +26,17 @@ export async function fetchDashboardPage() {
     api.get<{ categories: DashboardCategoryPoint[] }>("/dashboard/top-categories").then((response) => response.data.categories),
     api.get<{ recentOrders: RecentOrder[] }>("/orders/recent").then((response) => response.data.recentOrders),
     api.get<{ recentComplaints: RecentComplaintItem[] }>("/complaints/recent").then((response) => response.data.recentComplaints),
-    api.get<{ teamStats: Array<{ team: string; assigned: number; completed: number }> }>("/dashboard").then((response) => response.data.teamStats)
+    api.get<DashboardResponse>("/dashboard").then((response) => response.data),
   ]);
+
+  const taskStats: DashboardTaskSummary = {
+    totalTasks: dashboardMain.totalTasks ?? 0,
+    pending: dashboardMain.pending ?? 0,
+    inProgress: dashboardMain.inProgress ?? 0,
+    completed: dashboardMain.completed ?? 0,
+    overdue: dashboardMain.overdue ?? 0,
+    completionRate: dashboardMain.completionRate ?? 0,
+  };
 
   return {
     summary,
@@ -36,6 +46,7 @@ export async function fetchDashboardPage() {
     categories,
     recentOrders,
     recentComplaints,
-    teamStats: overview
+    teamStats: dashboardMain.teamStats ?? [],
+    taskStats,
   } satisfies DashboardPageData;
 }

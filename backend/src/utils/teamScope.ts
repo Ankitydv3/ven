@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import type { JwtUser } from "../types";
 
 const NO_TEAM_MATCH = { assignedTeam: "__unassigned_team__" };
@@ -5,6 +6,11 @@ const NO_TEAM_MATCH = { assignedTeam: "__unassigned_team__" };
 function resolveTeamUserTeam(user?: JwtUser): string | undefined {
   if (user?.role !== "team" && user?.role !== "team_lead") return undefined;
   return user.team ?? user.teamName;
+}
+
+function userObjectId(userId?: string) {
+  if (!userId || !Types.ObjectId.isValid(userId)) return userId;
+  return new Types.ObjectId(userId);
 }
 
 /** Complaint / order filter for team users */
@@ -64,18 +70,35 @@ export function isTeamRole(role?: string) {
   return role === "team" || role === "team_lead";
 }
 
-/** Task schedule filter for team portal users (user-assigned + team-level tasks). */
+/** Task visibility filter — team members see own tasks; team leads see team tasks. */
+export function taskVisibilityFilter(user?: JwtUser): Record<string, unknown> {
+  if (!user || isAdminRole(user.role)) return {};
+
+  if (user.role === "team_lead") {
+    const team = resolveTeamUserTeam(user);
+    return team ? { assignedTeamName: team } : { assignedTeamName: "__none__" };
+  }
+
+  if (user.role === "team") {
+    return user.id ? { assignedUserId: userObjectId(user.id) } : { assignedUserId: "__none__" };
+  }
+
+  return {};
+}
+
+/** @deprecated Use taskVisibilityFilter */
 export function scheduleTeamFilter(user?: JwtUser): Record<string, unknown> {
   if (!isTeamRole(user?.role)) return {};
 
   const team = resolveTeamUserTeam(user);
   if (user?.id && team) {
+    const assigneeId = userObjectId(user.id);
     return {
       $or: [
-        { assignedUserId: user.id },
+        { assignedUserId: assigneeId },
         {
           $and: [
-            { team },
+            { assignedTeamName: team },
             { $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }] },
           ],
         },
@@ -84,12 +107,12 @@ export function scheduleTeamFilter(user?: JwtUser): Record<string, unknown> {
   }
 
   if (user?.id) {
-    return { assignedUserId: user.id };
+    return { assignedUserId: userObjectId(user.id) };
   }
 
   if (team) {
-    return { team };
+    return { assignedTeamName: team };
   }
 
-  return { team: "__unassigned_team__" };
+  return { assignedTeamName: "__none__" };
 }

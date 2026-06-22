@@ -1,10 +1,10 @@
 import Counter from "../models/Counter";
 
-export async function generateTaskScheduleId() {
+export async function generateTaskId() {
   const year = new Date().getFullYear();
   const counter = await Counter.findOneAndUpdate(
-    { key: `task-schedule-${year}` },
-    { $inc: { value: 1 }, $setOnInsert: { key: `task-schedule-${year}` } },
+    { key: `task-${year}` },
+    { $inc: { value: 1 }, $setOnInsert: { key: `task-${year}` } },
     { new: true, upsert: true }
   );
 
