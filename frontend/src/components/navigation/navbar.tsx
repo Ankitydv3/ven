@@ -93,12 +93,12 @@ export function Navbar() {
 
   return (
     <header
-      className={cn(
-        "sticky top-0 z-40 w-full border-b backdrop-blur-xl transition-all duration-300",
-        scrolled
-          ? "border-slate-200/70 bg-white/80 shadow-[0_4px_24px_-12px_rgba(4,52,44,0.12)] dark:border-white/[0.06] dark:bg-[#04140F]/90"
-          : "border-transparent bg-white/50 dark:border-transparent dark:bg-[#04140F]/60",
-      )}
+    className={cn(
+      "sticky top-0 z-40 w-full border-b backdrop-blur-xl transition-all duration-300",
+      scrolled
+        ? "border-slate-200/70 bg-black shadow-[0_4px_24px_-12px_rgba(4,52,44,0.12)] dark:border-white/[0.06] dark:bg-black"
+        : "border-transparent bg-black dark:border-transparent dark:bg-black",
+    )}
     >
       <div className="mx-auto flex max-w-7xl items-center  justify-between gap-4 px-6 py-3.5 lg:px-8">
         {/* Brand */}
@@ -123,7 +123,7 @@ export function Navbar() {
                 className={cn(
                   "relative rounded-full px-4 py-2 text-sm font-medium transition-all duration-300",
                   active
-                    ? "bg-[#2F6B63] text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
+                    ? "bg-[#081024] text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
                     : "text-slate-600 hover:bg-slate-100 hover:text-[#2F6B63] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#7BE3CF]",
                 )}
               >
