@@ -6,6 +6,8 @@ import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
 import { ApiError } from "../utils/ApiError";
 import type { AuthRequest } from "../middleware/auth";
+import { complaintTeamFilter, userTeamName } from "../utils/teamScope";
+import * as userService from "../services/userService";
 
 function buildHistoryEntry(action: string, user: { name: string; role: string; team?: string }, extra?: Record<string, string>) {
   return {
@@ -64,8 +66,8 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     ];
   }
 
-  if (req.user?.role === "team" && req.user.team) {
-    filter.assignedTeam = req.user.team;
+  if (req.user?.role === "team" || req.user?.role === "team_lead") {
+    Object.assign(filter, complaintTeamFilter(req.user));
     filter.status = { $in: ["Assigned", "In Progress", "Completed"] };
   }
 
@@ -78,12 +80,28 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   res.json({ items, total, page: Number(page), limit: Number(limit) });
 }
 
+function canAccessComplaint(
+  user: { id: string; team?: string; teamName?: string },
+  complaint: { assignedUserId?: { toString(): string } | string | null; assignedTeam?: string | null }
+) {
+  if (complaint.assignedUserId && String(complaint.assignedUserId) === user.id) {
+    return true;
+  }
+
+  const team = user.team ?? user.teamName;
+  return Boolean(team && complaint.assignedTeam === team);
+}
+
 export async function assignComplaint(req: AuthRequest, res: Response) {
   const { id } = req.params;
-  const { team, deadline } = req.body as { team?: string; deadline?: string };
+  const { assignedUserId, team: legacyTeam, deadline } = req.body as {
+    assignedUserId?: string;
+    team?: string;
+    deadline?: string;
+  };
 
-  if (!team) {
-    throw new ApiError(400, "Team is required");
+  if (!assignedUserId && !legacyTeam) {
+    throw new ApiError(400, "Assignee is required");
   }
 
   const complaint = await Complaint.findById(id);
@@ -103,64 +121,72 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Declined complaints cannot be assigned");
   }
 
-  complaint.assignedTeam = team;
+  const assignee = assignedUserId
+    ? await userService.resolveAssigneeById(assignedUserId)
+    : { assignedUserId: undefined, assignedUserName: "", team: legacyTeam! };
+
+  complaint.assignedTeam = assignee.team;
+  complaint.assignedUserId = assignee.assignedUserId;
+  complaint.assignedUserName = assignee.assignedUserName;
   complaint.assignedBy = req.user?.name ?? "Admin";
   complaint.assignedDate = new Date();
   if (deadline) {
     complaint.deadline = new Date(deadline);
   }
   complaint.status = "Assigned";
-  complaint.history.push(buildHistoryEntry("Complaint Assigned", req.user ?? { name: "Admin", role: "admin" }, { status: "Assigned", details: `Assigned to ${team}` }));
+  complaint.history.push(
+    buildHistoryEntry(
+      "Complaint Assigned",
+      req.user ?? { name: "Admin", role: "admin", team: assignee.team },
+      {
+        status: "Assigned",
+        details: assignee.assignedUserName
+          ? `Assigned to ${assignee.assignedUserName} (${assignee.team})`
+          : `Assigned to ${assignee.team}`,
+      }
+    )
+  );
 
   await complaint.save();
 
-/**
- * Auto Create Schedule
- */
-const existingTask = await TaskSchedule.findOne({
-  complaintId: complaint.complaintId,
-});
-
-if (!existingTask) {
-  const taskId = await generateTaskScheduleId();
-
-  await TaskSchedule.create({
-    taskId,
+  const existingTask = await TaskSchedule.findOne({
     complaintId: complaint.complaintId,
-    complaintTitle: complaint.title,
-
-    customerName: complaint.clientName,
-    serviceType: complaint.title,
-
-    team,
-
-    scheduledDate: deadline ? new Date(deadline) : new Date(),
-
-    priority:
-      complaint.priority === "High"
-        ? "High"
-        : complaint.priority === "Low"
-        ? "Low"
-        : "Medium",
-
-    status: "Pending",
-
-    assignedBy: req.user?.name ?? "Admin",
-    remarks: `Auto-created from complaint ${complaint.complaintId}`,
   });
-} else {
-  existingTask.team = team;
-  existingTask.status = "Pending";
-  if (deadline) {
-    existingTask.scheduledDate = new Date(deadline);
-  }
-  await existingTask.save();
-}
 
-res.json({
-  message: "Complaint assigned and task scheduled",
-  complaint,
-});
+  if (!existingTask) {
+    const taskId = await generateTaskScheduleId();
+
+    await TaskSchedule.create({
+      taskId,
+      complaintId: complaint.complaintId,
+      complaintTitle: complaint.title,
+      customerName: complaint.clientName,
+      serviceType: complaint.title,
+      team: assignee.team,
+      assignedUserId: assignee.assignedUserId,
+      assignedUserName: assignee.assignedUserName,
+      scheduledDate: deadline ? new Date(deadline) : new Date(),
+      priority:
+        complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+      status: "Pending",
+      assignedBy: req.user?.name ?? "Admin",
+      remarks: `Auto-created from complaint ${complaint.complaintId}`,
+    });
+  } else {
+    existingTask.team = assignee.team;
+    existingTask.assignedUserId = assignee.assignedUserId;
+    existingTask.assignedUserName = assignee.assignedUserName;
+    existingTask.status = "Pending";
+    if (deadline) {
+      existingTask.scheduledDate = new Date(deadline);
+    }
+    await existingTask.save();
+  }
+
+  res.json({
+    message: "Complaint assigned and task scheduled",
+    complaint,
+  });
 }
 
 export async function startComplaint(req: AuthRequest, res: Response) {
@@ -173,8 +199,8 @@ export async function startComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Completed complaints are read-only");
   }
 
-  if (req.user?.team !== complaint.assignedTeam) {
-    throw new ApiError(403, "You can only manage complaints assigned to your team");
+  if (!req.user || !canAccessComplaint(req.user, complaint)) {
+    throw new ApiError(403, "You can only manage complaints assigned to you");
   }
 
   const actor = req.user ?? { name: "Team", role: "team" as const, team: complaint.assignedTeam };
@@ -195,8 +221,8 @@ export async function updateComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Completed complaints are read-only");
   }
 
-  if (req.user?.team !== complaint.assignedTeam) {
-    throw new ApiError(403, "You can only manage complaints assigned to your team");
+  if (!req.user || !canAccessComplaint(req.user, complaint)) {
+    throw new ApiError(403, "You can only manage complaints assigned to you");
   }
 
   const { remarks, details } = req.body as { remarks?: string; details?: string };
@@ -218,8 +244,8 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Completed complaints are read-only");
   }
 
-  if (req.user?.team !== complaint.assignedTeam) {
-    throw new ApiError(403, "You can only manage complaints assigned to your team");
+  if (!req.user || !canAccessComplaint(req.user, complaint)) {
+    throw new ApiError(403, "You can only manage complaints assigned to you");
   }
 
   const { completionRemarks, resolutionDetails } = req.body as { completionRemarks?: string; resolutionDetails?: string };

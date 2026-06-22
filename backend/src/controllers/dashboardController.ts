@@ -203,7 +203,10 @@ export async function getRecentComplaints(req: AuthRequest, res: Response) {
 
 export async function getDashboard(req: AuthRequest, res: Response) {
   const teamFilter = complaintTeamFilter(req.user);
-  const scopedTeam = req.user?.role === "team" ? req.user.team : undefined;
+  const scopedTeam =
+    req.user?.role === "team" || req.user?.role === "team_lead"
+      ? req.user.team ?? req.user.teamName
+      : undefined;
   const sharedStats = await getSharedStats(scopedTeam);
 
   const [

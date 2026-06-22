@@ -9,6 +9,8 @@ const taskScheduleSchema = new Schema(
     customerName: { type: String, required: true },
     serviceType: { type: String, required: true, default: "General" },
     team: { type: String, required: true, index: true },
+    assignedUserId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assignedUserName: { type: String, default: "", index: true },
     scheduledDate: { type: Date, required: true, index: true },
     startTime: { type: String },
     endTime: { type: String },

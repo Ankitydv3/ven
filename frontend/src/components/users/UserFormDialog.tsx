@@ -18,6 +18,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ManagedUser, UserRole } from "@/lib/types";
 import { CREATE_USER_ROLES, getCreatableRoles, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
+import { useTeams } from "@/hooks/use-teams";
 
 const createSchema = z
   .object({
@@ -27,24 +28,36 @@ const createSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(1, "Confirm password is required"),
     role: z.string().min(1, "Role is required"),
+    teamName: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .refine((data) => data.role !== "team" || Boolean(data.teamName), {
+    message: "Team assignment is required for team users",
+    path: ["teamName"],
   });
 
-const editSchema = z.object({
-  name: z.string().min(2, "Full name is required"),
-  email: z.string().email("Valid email is required"),
-  mobile: z.string().min(10, "Valid phone number is required"),
-  role: z.string().min(1, "Role is required"),
-});
+const editSchema = z
+  .object({
+    name: z.string().min(2, "Full name is required"),
+    email: z.string().email("Valid email is required"),
+    mobile: z.string().min(10, "Valid phone number is required"),
+    role: z.string().min(1, "Role is required"),
+    teamName: z.string().optional(),
+  })
+  .refine((data) => data.role !== "team" || Boolean(data.teamName), {
+    message: "Team assignment is required for team users",
+    path: ["teamName"],
+  });
 
 export type UserFormValues = {
   name: string;
   email: string;
   mobile: string;
   role: string;
+  teamName?: string;
   password?: string;
   confirmPassword?: string;
 };
@@ -79,6 +92,15 @@ export function UserFormDialog({
     return creatable;
   }, [actorRole, initialUser, mode]);
 
+  const { data: teams = [] } = useTeams();
+  const teamOptions = useMemo(() => teams.map((team) => team.teamName), [teams]);
+
+  const resolveTeamName = (user?: ManagedUser | null) => {
+    const current = user?.teamName ?? user?.team;
+    if (current && teamOptions.includes(current)) return current;
+    return teamOptions[0] ?? "";
+  };
+
   const form = useForm<UserFormValues>({
     resolver: zodResolver(mode === "create" ? createSchema : editSchema) as Resolver<UserFormValues>,
     defaultValues: {
@@ -88,21 +110,26 @@ export function UserFormDialog({
       password: "",
       confirmPassword: "",
       role: "team",
+      teamName: "",
     },
   });
 
   useEffect(() => {
-    if (open) {
-      form.reset({
-        name: initialUser?.name ?? "",
-        email: initialUser?.email ?? "",
-        mobile: initialUser?.mobile ?? "",
-        password: "",
-        confirmPassword: "",
-        role: initialUser?.role ?? availableRoles[0]?.value ?? "team",
-      });
-    }
-  }, [open, initialUser, form, availableRoles]);
+    if (!open) return;
+
+    form.reset({
+      name: initialUser?.name ?? "",
+      email: initialUser?.email ?? "",
+      mobile: initialUser?.mobile ?? "",
+      password: "",
+      confirmPassword: "",
+      role: initialUser?.role ?? availableRoles[0]?.value ?? "team",
+      teamName: resolveTeamName(initialUser),
+    });
+  }, [open, initialUser, form, availableRoles, teamOptions]);
+
+  const selectedRole = form.watch("role");
+  const showTeamField = selectedRole === "team";
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values);
@@ -169,6 +196,34 @@ export function UserFormDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {showTeamField && (
+            <div className="space-y-2">
+              <Label>Team *</Label>
+              {teamOptions.length === 0 ? (
+                <p className="text-sm text-amber-400">Create a team first in the Teams section above.</p>
+              ) : (
+                <Select
+                  value={teamOptions.includes(form.watch("teamName") ?? "") ? form.watch("teamName") : teamOptions[0]}
+                  onValueChange={(value) => form.setValue("teamName", value, { shouldValidate: true })}
+                >
+                  <SelectTrigger className={inputClass}>
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent className="border-white/10 bg-[#0B1120] text-white">
+                    {teamOptions.map((teamName) => (
+                      <SelectItem key={teamName} value={teamName}>
+                        {teamName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {form.formState.errors.teamName && (
+                <p className="text-sm text-red-400">{form.formState.errors.teamName.message}</p>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button

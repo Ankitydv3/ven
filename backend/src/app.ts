@@ -12,6 +12,7 @@ import paymentRoutes from "./routes/paymentRoutes";
 import reportsRoutes from "./routes/reportsRoutes";
 import alertsRoutes from "./routes/alertsRoutes";
 import userRoutes from "./routes/userRoutes";
+import teamRoutes from "./routes/teamRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/alerts", alertsRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/teams", teamRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

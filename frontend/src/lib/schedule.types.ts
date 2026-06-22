@@ -19,6 +19,8 @@ export interface TaskSchedule {
   customerName: string;
   serviceType: string;
   team: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
   scheduledDate: string;
   startTime: string;
   endTime: string;
@@ -74,7 +76,8 @@ export interface SchedulePayload {
   orderId?: string;
   customerName: string;
   serviceType: string;
-  team: string;
+  team?: string;
+  assignedUserId: string;
   scheduledDate: string;
   startTime: string;
   endTime: string;

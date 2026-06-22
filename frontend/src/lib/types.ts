@@ -4,6 +4,15 @@ export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "custome
 export type SubAdminType = "accountant" | "plant_head";
 export type UserStatus = "active" | "disabled";
 
+export interface Team {
+  _id: string;
+  teamName: string;
+  description?: string;
+  status: "active" | "disabled";
+  createdBy?: string;
+  createdAt?: string;
+}
+
 export interface Material {
   materialName: string;
   quantity: number;
@@ -210,6 +219,8 @@ export interface Complaint {
   priority: Priority;
   location: string;
   assignedTeam?: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
   status: ComplaintStatus;
   remarks?: string;
   completionRemarks?: string;

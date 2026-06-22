@@ -69,6 +69,15 @@ export async function listUsers(req: AuthRequest, res: Response) {
   res.json({ ...result, page: options.page, limit: options.limit });
 }
 
+export async function listAssignableUsers(req: AuthRequest, res: Response) {
+  if (!req.user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const users = await userService.getAssignableUsers(req.user);
+  res.json({ items: users });
+}
+
 export async function readUser(req: AuthRequest, res: Response) {
   if (!req.user) {
     throw new ApiError(401, "Unauthorized");

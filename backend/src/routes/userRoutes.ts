@@ -8,6 +8,7 @@ import {
   deleteUserHandler,
   downloadCredentialsPdfHandler,
   exportUsersCSVHandler,
+  listAssignableUsers,
   listUsers,
   readUser,
   resetPasswordHandler,
@@ -19,6 +20,7 @@ const router = Router();
 router.use(authRequired);
 
 router.get("/export/csv", requireRole("super_admin", "admin", "sub_admin"), asyncHandler(exportUsersCSVHandler));
+router.get("/assignable", requireRole("super_admin", "admin", "sub_admin"), asyncHandler(listAssignableUsers));
 router.post(
   "/reset-password",
   requireRole("super_admin", "admin"),

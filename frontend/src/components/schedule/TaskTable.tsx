@@ -61,6 +61,7 @@ export function TaskTable({ tasks, isLoading }: TaskTableProps) {
                 <TH>Customer</TH>
                 <TH>Service Type</TH>
                 <TH>Date & Time</TH>
+                <TH>Assigned To</TH>
                 <TH>Team</TH>
                 <TH>Status</TH>
               </tr>
@@ -89,6 +90,9 @@ export function TaskTable({ tasks, isLoading }: TaskTableProps) {
                     <TD>{task.serviceType}</TD>
                     <TD className="whitespace-nowrap text-sm">
                       {date} · {formatTime12h(task.startTime)} - {formatTime12h(task.endTime)}
+                    </TD>
+                    <TD className="font-medium text-slate-900 dark:text-white">
+                      {task.assignedUserName || "—"}
                     </TD>
                     <TD>
                       <span

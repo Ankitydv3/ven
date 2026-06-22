@@ -3,9 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban, CreditCard } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { AddPaymentModal } from "../payments/AddPaymentModal";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
-import { complaintStatuses, teamNames } from "@/lib/constants";
+import { fetchAssignableUsers } from "@/services/users";
+import { getApiErrorMessage } from "@/lib/api";
+import { complaintStatuses } from "@/lib/constants";
 import type { Complaint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,13 +55,30 @@ export function ComplaintsManager() {
   const [limit] = useState(8);
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<Complaint | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+
+  const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: fetchAssignableUsers,
+    enabled: Boolean(assignTarget),
+  });
 
   useEffect(() => {
-    if (teamNames.length > 0 && !selectedTeam) {
-      setSelectedTeam(teamNames[0]);
+    if (!assignTarget) return;
+
+    if (assignTarget.assignedUserId && assignableUsers.some((user) => user._id === assignTarget.assignedUserId)) {
+      setSelectedUserId(assignTarget.assignedUserId);
+      return;
     }
-  }, [teamNames, selectedTeam]);
+
+    if (assignableUsers.length > 0) {
+      setSelectedUserId(assignableUsers[0]._id);
+    } else {
+      setSelectedUserId("");
+    }
+  }, [assignTarget, assignableUsers]);
+
+  const selectedUser = assignableUsers.find((user) => user._id === selectedUserId);
   const [pending, startTransition] = useTransition();
 
   const load = async () => {
@@ -98,19 +118,25 @@ export function ComplaintsManager() {
 
     startTransition(async () => {
       try {
-        const isReassign = Boolean(assignTarget.assignedTeam);
-        await assignComplaint(assignTarget._id, selectedTeam);
-        
+        if (!selectedUserId) {
+          toast.error("Please select a user to assign");
+          return;
+        }
+
+        const isReassign = Boolean(assignTarget.assignedUserId || assignTarget.assignedTeam);
+        await assignComplaint(assignTarget._id, selectedUserId);
+
         toast.success(
-          isReassign 
-            ? `Complaint reassigned from ${assignTarget.assignedTeam} to ${selectedTeam} team` 
-            : `Complaint assigned to ${selectedTeam} team`
+          isReassign
+            ? `Complaint reassigned to ${selectedUser?.name ?? "selected user"}`
+            : `Complaint assigned to ${selectedUser?.name ?? "selected user"}`
         );
-        
+
         setAssignTarget(null);
+        setSelectedUserId("");
         await load();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Assignment failed");
+        toast.error(getApiErrorMessage(error, "Assignment failed"));
       }
     });
   };
@@ -193,7 +219,7 @@ export function ComplaintsManager() {
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden lg:table-cell">Location</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Status</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Payment</TH>
-                <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Assigned team</TH>
+                <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Assigned to</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Created</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Actions</TH>
               </tr>
@@ -255,7 +281,9 @@ export function ComplaintsManager() {
                           </Badge>
                         </TD>
                         <TD className="text-slate-700 dark:text-white/70 hidden xl:table-cell">
-                          {item.assignedTeam ?? "—"}
+                          {item.assignedUserName
+                            ? `${item.assignedUserName}${item.assignedTeam ? ` (${item.assignedTeam})` : ""}`
+                            : item.assignedTeam ?? "—"}
                         </TD>
                         <TD className="text-slate-500 dark:text-white/50 hidden xl:table-cell">
                           {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
@@ -279,7 +307,7 @@ export function ComplaintsManager() {
                                       onClick={() => {
                                         if (canAssignItem) {
                                           setAssignTarget(item);
-                                          setSelectedTeam(item.assignedTeam ?? teamNames[0]);
+                                          setSelectedUserId(item.assignedUserId ?? "");
                                         }
                                       }}
                                     >
@@ -375,7 +403,12 @@ export function ComplaintsManager() {
                       {item.priority}
                     </p>
                     <p>{item.location}</p>
-                    <p>Team: {item.assignedTeam ?? "—"}</p>
+                    <p>
+                      Assigned:{" "}
+                      {item.assignedUserName
+                        ? `${item.assignedUserName}${item.assignedTeam ? ` (${item.assignedTeam})` : ""}`
+                        : item.assignedTeam ?? "—"}
+                    </p>
                     <p>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}</p>
                   </div>
                   
@@ -396,7 +429,7 @@ export function ComplaintsManager() {
                             onClick={() => {
                               if (canAssignItem) {
                                 setAssignTarget(item);
-                                setSelectedTeam(item.assignedTeam ?? teamNames[0]);
+                                setSelectedUserId(item.assignedUserId ?? "");
                               }
                             }}
                           >
@@ -465,17 +498,20 @@ export function ComplaintsManager() {
 
       {/* Assign Dialog with current team display */}
       <Dialog open={Boolean(assignTarget)} onOpenChange={(open) => {
-        if (!open) setAssignTarget(null);
+        if (!open) {
+          setAssignTarget(null);
+          setSelectedUserId("");
+        }
       }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {assignTarget?.assignedTeam ? 'Reassign complaint' : 'Assign complaint to team'}
+              {assignTarget?.assignedUserId || assignTarget?.assignedTeam ? "Reassign complaint" : "Assign complaint to user"}
             </DialogTitle>
             <DialogDescription>
-              {assignTarget?.assignedTeam 
-                ? `This complaint is currently assigned to the "${assignTarget.assignedTeam}" team. Select a new team to reassign it.`
-                : 'Select a team to handle this complaint.'}
+              {assignTarget?.assignedUserName || assignTarget?.assignedTeam
+                ? `Currently assigned to ${assignTarget.assignedUserName ?? assignTarget.assignedTeam}. Select a user to reassign.`
+                : "Select a team member to handle this complaint."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
@@ -507,7 +543,7 @@ export function ComplaintsManager() {
             )}
 
             {/* Current team display */}
-            {assignTarget?.assignedTeam && assignTarget?.status !== "Completed" && (
+            {(assignTarget?.assignedUserName || assignTarget?.assignedTeam) && assignTarget?.status !== "Completed" && (
               <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="warning" className="rounded-full border-0 font-normal">
@@ -515,45 +551,60 @@ export function ComplaintsManager() {
                   </Badge>
                 </div>
                 <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mt-1">
-                  Team: {assignTarget.assignedTeam}
+                  {assignTarget.assignedUserName
+                    ? `${assignTarget.assignedUserName} · ${assignTarget.assignedTeam ?? "No team"}`
+                    : `Team: ${assignTarget.assignedTeam}`}
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-500/70 mt-0.5">
-                  Reassigning will move this complaint to a new team
+                  Reassigning will move this complaint to a different user
                 </p>
               </div>
             )}
 
             {assignTarget?.status !== "Completed" && (
               <>
+                {assignableUsers.length === 0 && !usersLoading && (
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    No team users are ready for assignment. Edit the user in User Management and set a team.
+                  </p>
+                )}
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">
-                    {assignTarget?.assignedTeam ? 'Select new team' : 'Select team'}
+                    {assignTarget?.assignedUserId || assignTarget?.assignedTeam ? "Select new user" : "Select user"}
                   </label>
                   <select
-  value={selectedTeam}
-  onChange={(event) => setSelectedTeam(event.target.value)}
-  className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-             bg-[#08111f] text-white
-             px-3 py-2 text-sm"
->
-  {teamNames.map((team) => (
-    <option
-      key={team}
-      value={team}
-      className="bg-[#1b3a6b] text-white"
-    >
-      {team} {assignTarget?.assignedTeam === team ? "(Current)" : ""}
-    </option>
-  ))}
-</select>
+                    value={selectedUserId}
+                    onChange={(event) => setSelectedUserId(event.target.value)}
+                    disabled={usersLoading || assignableUsers.length === 0}
+                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                               bg-[#08111f] text-white
+                               px-3 py-2 text-sm"
+                  >
+                    {usersLoading ? (
+                      <option value="">Loading users...</option>
+                    ) : assignableUsers.length === 0 ? (
+                      <option value="">No users with a team assigned</option>
+                    ) : (
+                      assignableUsers.map((user) => (
+                        <option
+                          key={user._id}
+                          value={user._id}
+                          className="bg-[#1b3a6b] text-white"
+                        >
+                          {user.name}
+                          {assignTarget?.assignedUserId === user._id ? " (Current)" : ""}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
 
-                {/* Reassignment confirmation */}
-                {assignTarget?.assignedTeam && selectedTeam !== assignTarget.assignedTeam && (
+                {selectedUser && selectedUserId !== assignTarget?.assignedUserId && (
                   <div className="rounded-xl border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 px-4 py-3">
                     <p className="text-sm text-blue-700 dark:text-blue-400">
                       <RefreshCw className="inline h-4 w-4 mr-1.5" />
-                      Reassigning from <strong>{assignTarget.assignedTeam}</strong> to <strong>{selectedTeam}</strong>
+                      Assigning to <strong>{selectedUser.name}</strong>
                     </p>
                   </div>
                 )}
@@ -572,7 +623,13 @@ export function ComplaintsManager() {
               <Button
                 className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
                 onClick={handleAssign}
-                disabled={pending || selectedTeam === assignTarget?.assignedTeam}
+                disabled={
+                  pending ||
+                  !selectedUserId ||
+                  usersLoading ||
+                  assignableUsers.length === 0 ||
+                  selectedUserId === assignTarget?.assignedUserId
+                }
                 type="button"
               >
                 {pending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

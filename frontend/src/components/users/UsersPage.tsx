@@ -30,10 +30,12 @@ import { UserTable } from "@/components/users/UserTable";
 import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UserViewDialog } from "@/components/users/UserViewDialog";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
+import { TeamsPanel } from "@/components/teams/TeamsPanel";
 import type { ManagedUser } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 import { canManageUsers } from "@/lib/rbac";
 import { downloadBlob, exportUsersToExcel } from "@/lib/user-export";
+import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 
 const PAGE_SIZE = 10;
@@ -97,7 +99,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       toast.success("User created successfully");
       setFormOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create user");
+      toast.error(getApiErrorMessage(error, "Failed to create user"));
       throw error;
     }
   };
@@ -113,7 +115,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       setEditUser(null);
       setFormOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update user");
+      toast.error(getApiErrorMessage(error, "Failed to update user"));
       throw error;
     }
   };
@@ -195,6 +197,8 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       subtitle={isAdmin ? "Manage users, roles, and access permissions" : "View members assigned to your team"}
     >
       <div className="space-y-6">
+        {isAdmin && canManage && <TeamsPanel canManage />}
+
         <div className={`${glassCardClass} space-y-4 p-5`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>

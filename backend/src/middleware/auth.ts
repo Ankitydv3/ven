@@ -48,3 +48,9 @@ export function requireRole(...roles: UserRole[]) {
     next();
   };
 }
+
+const ADMIN_PORTAL_ROLES: UserRole[] = ["super_admin", "admin", "sub_admin"];
+
+export function requireAdminPortalRole() {
+  return requireRole(...ADMIN_PORTAL_ROLES);
+}

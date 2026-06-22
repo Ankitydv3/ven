@@ -32,7 +32,7 @@ export function canResetOthersPassword(role?: UserRole) {
 }
 
 export function canManageUsers(role?: UserRole) {
-  return role === "super_admin" || role === "admin" || role === "sub_admin";
+  return role === "super_admin" || role === "admin";
 }
 
 export function canDeleteUsers(role?: UserRole) {

@@ -11,8 +11,10 @@ export async function fetchComplaints(params: { q?: string; status?: string; pag
   return data;
 }
 
-export async function assignComplaint(complaintId: string, team: string) {
-  const { data } = await api.patch<{ complaint: Complaint }>(`/complaints/${complaintId}/assign`, { team });
+export async function assignComplaint(complaintId: string, assignedUserId: string) {
+  const { data } = await api.patch<{ complaint: Complaint }>(`/complaints/${complaintId}/assign`, {
+    assignedUserId,
+  });
   return data;
 }
 

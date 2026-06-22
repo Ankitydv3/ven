@@ -1,5 +1,6 @@
 import TaskSchedule from "../models/TaskSchedule";
 import Complaint from "../models/Complaint";
+import User from "../models/User";
 import { generateTaskScheduleId } from "../utils/taskScheduleId";
 import { ApiError } from "../utils/ApiError";
 import { getSharedStats } from "./statsService";
@@ -21,6 +22,8 @@ export interface SchedulePayload {
   customerName: string;
   serviceType: string;
   team: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
   scheduledDate: Date;
   startTime: string;
   endTime: string;
@@ -33,6 +36,7 @@ export interface SchedulePayload {
 export interface ScheduleListOptions {
   q?: string;
   team?: string;
+  assignedUserId?: string;
   status?: string;
   priority?: string;
   startDate?: string;
@@ -47,6 +51,7 @@ export interface CalendarOptions {
   startDate: string;
   endDate: string;
   team?: string;
+  assignedUserId?: string;
 }
 
 function parseTimeToMinutes(time?: string) {
@@ -190,9 +195,46 @@ async function syncComplaintAssignment(
   return complaint;
 }
 
+const NOT_DELETED_FILTER = {
+  $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }],
+};
+
+async function resolveAssignee(payload: SchedulePayload) {
+  if (!payload.assignedUserId) {
+    throw new ApiError(400, "Assignee is required");
+  }
+
+  const assignee = await User.findOne({
+    $and: [{ _id: payload.assignedUserId }, NOT_DELETED_FILTER, { status: "active" }],
+  });
+
+  if (!assignee) {
+    throw new ApiError(404, "Assigned user not found or inactive");
+  }
+
+  if (!["team", "team_lead"].includes(assignee.role)) {
+    throw new ApiError(400, "Tasks can only be assigned to team users");
+  }
+
+  const team = assignee.teamName ?? assignee.team;
+  if (!team) {
+    throw new ApiError(
+      400,
+      "This user has no team. Edit them in User Management and assign a team first."
+    );
+  }
+
+  return {
+    assignedUserId: assignee._id,
+    assignedUserName: assignee.name,
+    team,
+  };
+}
+
 export async function createSchedule(payload: SchedulePayload) {
   const taskId = await generateTaskScheduleId();
-  let schedulePayload = { ...payload };
+  const assignee = await resolveAssignee(payload);
+  let schedulePayload = { ...payload, ...assignee };
 
   if (payload.complaintId) {
     const complaint = payload.complaintId.startsWith("CMP-")
@@ -246,8 +288,13 @@ export async function getSchedules(options: ScheduleListOptions) {
       { orderId: { $regex: options.q, $options: "i" } },
       { customerName: { $regex: options.q, $options: "i" } },
       { serviceType: { $regex: options.q, $options: "i" } },
-      { team: { $regex: options.q, $options: "i" } }
+      { team: { $regex: options.q, $options: "i" } },
+      { assignedUserName: { $regex: options.q, $options: "i" } }
     ];
+  }
+
+  if (options.assignedUserId) {
+    filter.assignedUserId = options.assignedUserId;
   }
 
   if (options.team && options.team !== "All") {
@@ -305,7 +352,9 @@ export async function getCalendarSchedules(options: CalendarOptions) {
     }
   };
 
-  if (options.team && options.team !== "All") {
+  if (options.assignedUserId) {
+    filter.assignedUserId = options.assignedUserId;
+  } else if (options.team && options.team !== "All") {
     filter.team = options.team;
   }
 
@@ -313,7 +362,45 @@ export async function getCalendarSchedules(options: CalendarOptions) {
   return items.map((item) => withResolvedStatus(item));
 }
 
-export async function getScheduleStats(startDate?: string, endDate?: string, team?: string) {
+export async function getScheduleStats(
+  startDate?: string,
+  endDate?: string,
+  team?: string,
+  assignedUserId?: string
+) {
+  if (assignedUserId) {
+    const filter: Record<string, unknown> = { assignedUserId };
+    if (startDate || endDate) {
+      filter.scheduledDate = {};
+      if (startDate) {
+        (filter.scheduledDate as Record<string, Date>).$gte = startOfDay(new Date(startDate));
+      }
+      if (endDate) {
+        (filter.scheduledDate as Record<string, Date>).$lte = endOfDay(new Date(endDate));
+      }
+    }
+
+    const [total, completed, inProgress, pending, overdue, scheduled] = await Promise.all([
+      TaskSchedule.countDocuments(filter),
+      TaskSchedule.countDocuments({ ...filter, status: "Completed" }),
+      TaskSchedule.countDocuments({ ...filter, status: "In Progress" }),
+      TaskSchedule.countDocuments({ ...filter, status: { $in: ["Pending", "Scheduled"] } }),
+      TaskSchedule.countDocuments({ ...filter, status: "Overdue" }),
+      TaskSchedule.countDocuments({ ...filter, status: "Scheduled" }),
+    ]);
+
+    return {
+      total,
+      completed,
+      inProgress,
+      pending,
+      overdue,
+      scheduled,
+      percentChange: 0,
+      trend: "up" as const,
+    };
+  }
+
   const stats = await getSharedStats(team);
 
   const now = new Date();

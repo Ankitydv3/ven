@@ -26,6 +26,8 @@ const complaintSchema = new Schema(
     priority: { type: String, enum: ["High", "Medium", "Low"], required: true },
     location: { type: String, required: true },
     assignedTeam: { type: String },
+    assignedUserId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assignedUserName: { type: String, default: "", index: true },
     status: {
       type: String,
       enum: ["Pending Review", "Declined", "Pending Assignment", "Assigned", "In Progress", "Completed"],

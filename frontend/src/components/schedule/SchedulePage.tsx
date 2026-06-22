@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { useSession } from "@/hooks/use-session";
+import { isAdminPortalRole, useSession } from "@/hooks/use-session";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useCalendarSchedules } from "@/hooks/useCalendarSchedules";
 import { useCreateSchedule } from "@/hooks/useCreateSchedule";
@@ -21,8 +21,8 @@ import { addDays, startOfWeek, toDateInputValue } from "@/lib/schedule-constants
 const PAGE_SIZE = 8;
 
 export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
-  const { ready } = useSession(role);
-  const isAdmin = role === "admin";
+  const { ready, user } = useSession(role);
+  const canAssignTasks = role === "admin" && isAdminPortalRole(user?.role);
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState("All");
   const [status, setStatus] = useState("All");
@@ -93,9 +93,9 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
       role={role}
       title="Schedule"
       subtitle={
-        isAdmin
+        canAssignTasks
           ? "Plan, assign, and track service tasks across teams"
-          : "View and track your team's scheduled tasks"
+          : "View and track your assigned tasks"
       }
     >
       <div className="space-y-5 rounded-3xl bg-slate-50/50 p-1 dark:bg-[#071A17]">
@@ -113,7 +113,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
           onAssignTask={() => setAssignOpen(true)}
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           filtersOpen={filtersOpen}
-          showAssignTask={isAdmin}
+          showAssignTask={canAssignTasks}
         />
 
         <ScheduleStats startDate={startDate} endDate={endDate} />
@@ -140,7 +140,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
               setPriority(value);
               setPage(1);
             }}
-            showTeamFilter={isAdmin}
+            showTeamFilter={canAssignTasks}
           />
         )}
 
@@ -185,7 +185,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
         )}
       </div>
 
-      {isAdmin && (
+      {canAssignTasks && (
         <AssignTaskModal
           open={assignOpen}
           onOpenChange={setAssignOpen}

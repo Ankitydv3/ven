@@ -19,6 +19,7 @@ export interface UserPayload {
   password?: string;
   confirmPassword?: string;
   role: string;
+  teamName?: string;
 }
 
 export interface ResetPasswordPayload {
@@ -63,6 +64,11 @@ export async function exportUsersCsv(params: UserFilters) {
     responseType: "blob",
   });
   return response.data as Blob;
+}
+
+export async function fetchAssignableUsers() {
+  const { data } = await api.get<{ items: ManagedUser[] }>("/users/assignable");
+  return data.items;
 }
 
 export async function downloadCredentialsPdf(payload: {

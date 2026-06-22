@@ -26,8 +26,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { primaryButtonClass } from "@/lib/schedule-constants";
-import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
 import { fetchComplaints } from "@/services/complaints";
+import { fetchAssignableUsers } from "@/services/users";
+import { getApiErrorMessage } from "@/lib/api";
 import type { SchedulePayload } from "@/lib/schedule.types";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +37,7 @@ const assignSchema = z.object({
   complaintTitle: z.string().optional(),
   customerName: z.string().trim().min(2, "Customer name is required"),
   serviceType: z.string().trim().min(2, "Service type is required"),
-  team: z.string().min(2, "Team is required"),
+  assignedUserId: z.string().min(1, "Assignee is required"),
   scheduledDate: z.string().min(1, "Date is required"),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   remarks: z.string().optional(),
@@ -59,7 +60,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
       complaintTitle: "",
       customerName: "",
       serviceType: "",
-      team: "",
+      assignedUserId: "",
       scheduledDate: new Date().toISOString().slice(0, 10),
       priority: "Medium",
       remarks: "",
@@ -72,6 +73,12 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
     enabled: open,
   });
 
+  const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: fetchAssignableUsers,
+    enabled: open,
+  });
+
   const complaints = complaintsData?.items ?? [];
 
   useEffect(() => {
@@ -79,6 +86,20 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
       form.reset();
     }
   }, [open, form]);
+
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+      return;
+    }
+
+    if (assignableUsers.length === 0) return;
+
+    const current = form.getValues("assignedUserId");
+    if (!current || !assignableUsers.some((user) => user._id === current)) {
+      form.setValue("assignedUserId", assignableUsers[0]._id, { shouldValidate: true });
+    }
+  }, [open, assignableUsers, form]);
 
   const handleComplaintSelect = (complaintId: string) => {
     const complaint = complaints.find((c) => c.complaintId === complaintId);
@@ -101,7 +122,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
         complaintTitle: values.complaintTitle || values.serviceType,
         customerName: values.customerName,
         serviceType: values.serviceType,
-        team: values.team,
+        assignedUserId: values.assignedUserId,
         scheduledDate: values.scheduledDate,
         startTime,
         endTime,
@@ -111,7 +132,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
       onOpenChange(false);
       form.reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to assign task");
+      toast.error(getApiErrorMessage(error, "Failed to assign task"));
     }
   });
 
@@ -123,7 +144,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
         <DialogHeader>
           <DialogTitle className="text-xl text-slate-900 dark:text-white">Assign Task</DialogTitle>
           <DialogDescription className="text-slate-500 dark:text-white/50">
-            Schedule a service task and assign it to a team.
+            Schedule a service task and assign it to a team member.
           </DialogDescription>
         </DialogHeader>
 
@@ -183,22 +204,35 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
 
           <div className="space-y-1.5">
             <Label>
-              Assign To Team <span className="text-rose-500">*</span>
+              Assign To User <span className="text-rose-500">*</span>
             </Label>
             <Controller
               control={form.control}
-              name="team"
+              name="assignedUserId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={usersLoading}>
                   <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
-                    <SelectValue placeholder="Select team" />
+                    <SelectValue placeholder={usersLoading ? "Loading users..." : "Select user"} />
                   </SelectTrigger>
                   <SelectContent className="dark:bg-[#0A1F1A]">
-                    <TeamSelectItems />
+                    {assignableUsers.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No users with a team assigned
+                      </SelectItem>
+                    ) : (
+                      assignableUsers.map((user) => (
+                        <SelectItem key={user._id} value={user._id}>
+                          {user.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               )}
             />
+            {errors.assignedUserId && (
+              <p className="text-xs text-rose-500">{errors.assignedUserId.message}</p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-1">

@@ -1,34 +1,59 @@
 import type { JwtUser } from "../types";
 
+const NO_TEAM_MATCH = { assignedTeam: "__unassigned_team__" };
+
+function resolveTeamUserTeam(user?: JwtUser): string | undefined {
+  if (user?.role !== "team" && user?.role !== "team_lead") return undefined;
+  return user.team ?? user.teamName;
+}
+
 /** Complaint / order filter for team users */
 export function complaintTeamFilter(user?: JwtUser): Record<string, unknown> {
-  if (user?.role === "team" && user.team) {
-    return { assignedTeam: user.team };
-  }
-  if (user?.role === "team" && user.teamName) {
-    return { assignedTeam: user.teamName };
+  if (user?.role === "team" || user?.role === "team_lead") {
+    const team = resolveTeamUserTeam(user);
+    if (user.id) {
+      const legacyTeamFilter = team
+        ? {
+            $and: [
+              { $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }] },
+              { assignedTeam: team },
+            ],
+          }
+        : { assignedUserId: "__unassigned_user__" };
+
+      return {
+        $or: [{ assignedUserId: user.id }, legacyTeamFilter],
+      };
+    }
+    if (team) {
+      return { assignedTeam: team };
+    }
+    return NO_TEAM_MATCH;
   }
   return {};
 }
 
 export function orderTeamFilter(user?: JwtUser): Record<string, unknown> {
-  if (user?.role === "team" && user.team) {
-    return { assignedTeam: user.team };
+  const team = resolveTeamUserTeam(user);
+  if (team) {
+    return { assignedTeam: team };
   }
-  if (user?.role === "team" && user.teamName) {
-    return { assignedTeam: user.teamName };
+  if (user?.role === "team" || user?.role === "team_lead") {
+    return NO_TEAM_MATCH;
   }
   return {};
 }
 
 export function resolveTeamQuery(user?: JwtUser, queryTeam?: string): string | undefined {
-  if (user?.role === "team" && user.team) {
-    return user.team;
-  }
-  if (user?.role === "team" && user.teamName) {
-    return user.teamName;
+  const team = resolveTeamUserTeam(user);
+  if (team) {
+    return team;
   }
   return queryTeam;
+}
+
+export function userTeamName(user?: JwtUser): string | undefined {
+  return resolveTeamUserTeam(user);
 }
 
 export function isAdminRole(role?: string) {

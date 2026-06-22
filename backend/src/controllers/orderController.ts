@@ -8,6 +8,7 @@ import {
   updateOrderById
 } from "../services/orderService";
 import { ApiError } from "../utils/ApiError";
+import { orderTeamFilter } from "../utils/teamScope";
 
 function parseQuery(query: Record<string, string | undefined>) {
   const paidVal = query.paid;
@@ -29,9 +30,10 @@ function parseQuery(query: Record<string, string | undefined>) {
 
 export async function listOrders(req: AuthRequest, res: Response) {
   const parsed = parseQuery(req.query as Record<string, string | undefined>);
+  const teamFilter = orderTeamFilter(req.user);
   const params = {
     ...parsed,
-    ...(req.user?.role === "team" && req.user.team ? { assignedTeam: req.user.team } : {})
+    ...(teamFilter.assignedTeam ? { assignedTeam: String(teamFilter.assignedTeam) } : {}),
   };
   const result = await getOrders(params);
   res.json({

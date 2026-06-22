@@ -1,15 +1,17 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User";
 import { ApiError } from "../utils/ApiError";
-import { generateEmployeeId, generateUsername } from "../utils/employeeId";
+import { generateEmployeeId, generateUsername, teamNameToSlug } from "../utils/employeeId";
 import {
   canManageRole,
   getAssignableRoles,
+  isAdminPortalRole,
   isProtectedFromDeletion,
   SUB_ADMIN_DEPARTMENT,
   type SubAdminType,
 } from "../utils/rbac";
 import { logAuditEvent } from "./auditService";
+import { getTeamFields } from "./teamService";
 import type { JwtUser, UserRole } from "../types";
 
 export interface UserCreatePayload {
@@ -18,6 +20,7 @@ export interface UserCreatePayload {
   mobile: string;
   password: string;
   role: string;
+  teamName?: string;
 }
 
 export interface UserUpdatePayload {
@@ -26,6 +29,7 @@ export interface UserUpdatePayload {
   mobile?: string;
   role?: string;
   status?: "active" | "disabled";
+  teamName?: string;
 }
 
 export interface UserListOptions {
@@ -38,6 +42,7 @@ export interface UserListOptions {
   sortBy: string;
   sortOrder: 1 | -1;
   scopedTeamId?: string;
+  scopedTeamName?: string;
   scopedDepartment?: string;
   selfOnly?: boolean;
   actorId?: string;
@@ -62,6 +67,10 @@ function buildUserFilter(options: UserListOptions) {
 
   if (options.scopedTeamId) {
     and.push({ teamId: options.scopedTeamId });
+  } else if (options.scopedTeamName) {
+    and.push({
+      $or: [{ teamName: options.scopedTeamName }, { team: options.scopedTeamName }],
+    });
   } else if (options.teamId && options.teamId !== "all") {
     and.push({ teamId: options.teamId });
   }
@@ -110,16 +119,14 @@ export function resolveUserListScope(user?: JwtUser) {
     return {};
   }
 
-  if (user.role === "team_lead") {
+  if (user.role === "team_lead" || user.role === "team") {
+    const teamName = user.teamName ?? user.team;
+    if (teamName) return { scopedTeamName: teamName };
     if (user.teamId) return { scopedTeamId: user.teamId };
-    return {};
-  }
-
-  if (user.role === "team") {
     return { selfOnly: true, actorId: user.id };
   }
 
-  return { selfOnly: true, actorId: user.id };
+  return {};
 }
 
 export function resolveUserTeamScope(user?: JwtUser): string | undefined {
@@ -165,14 +172,37 @@ async function assertUniqueContact(email?: string, mobile?: string, excludeId?: 
   }
 }
 
+function assertTeamAssignment(role: string, teamName?: string) {
+  if (role === "team" && !teamName?.trim()) {
+    throw new ApiError(400, "Team assignment is required for team users");
+  }
+}
+
+function teamFields(teamName?: string) {
+  const normalized = teamName?.trim();
+  if (!normalized) return {};
+  return {
+    teamName: normalized,
+    team: normalized,
+  };
+}
+
+async function teamFieldsFromDb(teamName?: string) {
+  if (!teamName?.trim()) return {};
+  return getTeamFields(teamName);
+}
+
 export async function createUser(payload: UserCreatePayload, actor: JwtUser) {
   assertCanManageUser(actor, payload.role);
+  assertTeamAssignment(payload.role, payload.teamName);
 
   await assertUniqueContact(payload.email, payload.mobile);
 
   const employeeId = await generateEmployeeId();
-  const username = generateUsername("general", employeeId);
+  const teamSlug = payload.teamName ? teamNameToSlug(payload.teamName) : "general";
+  const username = generateUsername(teamSlug, employeeId);
   const hashedPassword = await bcrypt.hash(payload.password, 10);
+  const teamAssignment = await teamFieldsFromDb(payload.teamName);
 
   const user = await User.create({
     employeeId,
@@ -186,6 +216,7 @@ export async function createUser(payload: UserCreatePayload, actor: JwtUser) {
     department: "",
     status: "active",
     createdBy: actor.name ?? "Admin",
+    ...teamAssignment,
   });
 
   return {
@@ -206,6 +237,54 @@ export async function getUsers(options: UserListOptions) {
   return { items, total };
 }
 
+export async function getAssignableUsers(actor: JwtUser) {
+  if (!isAdminPortalRole(actor.role)) {
+    throw new ApiError(403, "You do not have permission to assign tasks");
+  }
+
+  const items = await User.find({
+    ...NOT_DELETED_FILTER,
+    status: "active",
+    role: { $in: ["team", "team_lead"] },
+    $or: [
+      { teamName: { $exists: true, $nin: [null, ""] } },
+      { team: { $exists: true, $nin: [null, ""] } },
+    ],
+  })
+    .select("-password")
+    .sort({ name: 1 });
+
+  return items;
+}
+
+export async function resolveAssigneeById(userId: string) {
+  const assignee = await User.findOne({
+    $and: [{ _id: userId }, NOT_DELETED_FILTER, { status: "active" }],
+  });
+
+  if (!assignee) {
+    throw new ApiError(404, "Assigned user not found or inactive");
+  }
+
+  if (!["team", "team_lead"].includes(assignee.role)) {
+    throw new ApiError(400, "Complaints can only be assigned to team users");
+  }
+
+  const team = assignee.teamName ?? assignee.team;
+  if (!team) {
+    throw new ApiError(
+      400,
+      "This user has no team. Edit them in User Management and assign a team first."
+    );
+  }
+
+  return {
+    assignedUserId: assignee._id,
+    assignedUserName: assignee.name,
+    team,
+  };
+}
+
 export async function getUserById(id: string, actor: JwtUser) {
   const user = await User.findOne({ $and: [{ _id: id }, NOT_DELETED_FILTER] }).select("-password");
   if (!user) {
@@ -219,11 +298,21 @@ export async function getUserById(id: string, actor: JwtUser) {
   if (scope.scopedTeamId && String(user.teamId) !== scope.scopedTeamId) {
     throw new ApiError(403, "User not in your team scope");
   }
+  if (scope.scopedTeamName) {
+    const userTeam = user.teamName ?? user.team;
+    if (userTeam !== scope.scopedTeamName) {
+      throw new ApiError(403, "User not in your team scope");
+    }
+  }
   if (scope.scopedDepartment && user.department !== scope.scopedDepartment) {
     throw new ApiError(403, "User not in your department scope");
   }
 
   return user;
+}
+
+function optionalString(value?: string | null) {
+  return value ?? undefined;
 }
 
 export async function updateUserById(id: string, payload: UserUpdatePayload, actor: JwtUser) {
@@ -238,6 +327,12 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
   }
   if (scope.scopedTeamId && String(existing.teamId) !== scope.scopedTeamId) {
     throw new ApiError(403, "User not in your team scope");
+  }
+  if (scope.scopedTeamName) {
+    const existingTeam = existing.teamName ?? existing.team;
+    if (existingTeam !== scope.scopedTeamName) {
+      throw new ApiError(403, "User not in your team scope");
+    }
   }
   if (scope.scopedDepartment && existing.department !== scope.scopedDepartment) {
     throw new ApiError(403, "User not in your department scope");
@@ -256,6 +351,13 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
 
   if (payload.role) {
     assertCanManageUser(actor, payload.role);
+    assertTeamAssignment(payload.role, payload.teamName ?? optionalString(existing.teamName) ?? optionalString(existing.team));
+  }
+
+  const effectiveRole = payload.role ?? existing.role;
+  const effectiveTeamName = payload.teamName ?? optionalString(existing.teamName) ?? optionalString(existing.team);
+  if (effectiveRole === "team") {
+    assertTeamAssignment(effectiveRole, effectiveTeamName);
   }
 
   const update: Record<string, unknown> = {
@@ -264,6 +366,7 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
     ...(payload.mobile ? { mobile: payload.mobile.trim() } : {}),
     ...(payload.role ? { role: payload.role } : {}),
     ...(payload.status ? { status: payload.status } : {}),
+    ...(payload.teamName ? await teamFieldsFromDb(payload.teamName) : {}),
   };
 
   const user = await User.findByIdAndUpdate(id, update, { new: true, runValidators: true }).select("-password");
@@ -290,6 +393,12 @@ export async function deleteUserById(id: string, actor: JwtUser) {
   const scope = resolveUserListScope(actor);
   if (scope.scopedTeamId && String(user.teamId) !== scope.scopedTeamId) {
     throw new ApiError(403, "User not in your team scope");
+  }
+  if (scope.scopedTeamName) {
+    const userTeam = user.teamName ?? user.team;
+    if (userTeam !== scope.scopedTeamName) {
+      throw new ApiError(403, "User not in your team scope");
+    }
   }
   if (scope.scopedDepartment && user.department !== scope.scopedDepartment) {
     throw new ApiError(403, "User not in your department scope");

@@ -9,6 +9,7 @@ import {
   getScheduleStats,
   updateScheduleById
 } from "../services/scheduleService";
+import { userTeamName } from "../utils/teamScope";
 
 function parseListQuery(query: Record<string, string | undefined>) {
   return {
@@ -27,9 +28,15 @@ function parseListQuery(query: Record<string, string | undefined>) {
 
 export async function listSchedules(req: AuthRequest, res: Response) {
   const parsed = parseListQuery(req.query as Record<string, string | undefined>);
+  const scopedTeam = userTeamName(req.user);
+  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
   const params = {
     ...parsed,
-    ...(req.user?.role === "team" && req.user.team ? { team: req.user.team } : {})
+    ...(isTeamPortalUser && req.user?.id
+      ? { assignedUserId: req.user.id }
+      : scopedTeam
+        ? { team: scopedTeam }
+        : {}),
   };
 
   const result = await getSchedules(params);
@@ -72,10 +79,14 @@ export async function calendarSchedules(req: AuthRequest, res: Response) {
     return;
   }
 
+  const scopedTeam = userTeamName(req.user);
+  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
   const items = await getCalendarSchedules({
     startDate,
     endDate,
-    team: req.user?.role === "team" ? req.user.team : team
+    ...(isTeamPortalUser && req.user?.id
+      ? { assignedUserId: req.user.id }
+      : { team: isTeamPortalUser ? scopedTeam ?? "__unassigned_team__" : team }),
   });
 
   res.json({ items });
@@ -83,7 +94,13 @@ export async function calendarSchedules(req: AuthRequest, res: Response) {
 
 export async function scheduleStats(req: AuthRequest, res: Response) {
   const { startDate, endDate } = req.query as Record<string, string | undefined>;
-  const team = req.user?.role === "team" ? req.user.team : undefined;
-  const stats = await getScheduleStats(startDate, endDate, team);
+  const scopedTeam = userTeamName(req.user);
+  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
+  const stats = await getScheduleStats(
+    startDate,
+    endDate,
+    isTeamPortalUser && req.user?.id ? undefined : scopedTeam ?? undefined,
+    isTeamPortalUser ? req.user?.id : undefined
+  );
   res.json(stats);
 }
