@@ -27,6 +27,8 @@ import { TeamPerformanceTable } from "./TeamPerformanceTable";
 import { useReports, useExportReports } from "@/hooks/useReports";
 import { ReportsPageSkeleton } from "./ReportsSkeleton";
 import { ReportsErrorState } from "./ReportsStates";
+import { readUser } from "@/lib/storage";
+import { canViewOrgReports } from "@/lib/permissions";
 import type { ReportsFilters } from "@/services/reportService";
 
 const TaskStatusDonut = dynamic(
@@ -53,7 +55,8 @@ function formatDateRangeLabel(startDate: string, endDate: string) {
 }
 
 export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
-  const isAdmin = role === "admin";
+  const sessionUser = readUser();
+  const showOrgReports = canViewOrgReports(sessionUser?.role);
   const defaults = getDefaultDateRange();
   const [activeTab, setActiveTab] = useState("All Teams");
   const [teamDropdown, setTeamDropdown] = useState("All Teams");
@@ -125,7 +128,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
       <DashboardShell
         role={role}
         title="Reports"
-        subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
+        subtitle={showOrgReports ? "Performance overview of all service teams" : "Your team's performance overview"}
       >
         <ReportsPageSkeleton />
       </DashboardShell>
@@ -137,7 +140,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
       <DashboardShell
         role={role}
         title="Reports"
-        subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
+        subtitle={showOrgReports ? "Performance overview of all service teams" : "Your team's performance overview"}
       >
         <ReportsErrorState onRetry={() => refetch()} />
       </DashboardShell>
@@ -148,7 +151,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
     <DashboardShell
       role={role}
       title="Reports"
-      subtitle={isAdmin ? "Performance overview of all service teams" : "Your team's performance overview"}
+      subtitle={showOrgReports ? "Performance overview of all service teams" : "Your team's performance overview"}
     >
       <div className="space-y-6">
         {/* Toolbar */}
@@ -167,7 +170,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
               <span className="text-sm">{dateLabel}</span>
             </Button>
 
-            {isAdmin && (
+            {showOrgReports && (
               <Button
                 className="h-10 rounded-xl bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25 hover:bg-[#2563EB]"
                 onClick={handleExport}
@@ -178,7 +181,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
               </Button>
             )}
 
-            {isAdmin && (
+            {showOrgReports && (
               <Button
                 variant="outline"
                 size="icon"
@@ -208,7 +211,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
         </div>
 
         {/* Team Tabs */}
-        {isAdmin && (
+        {showOrgReports && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1 overflow-x-auto border-b border-[rgba(59,130,246,0.15)] pb-px">
             {teamTabs.map((tab) => (
@@ -255,14 +258,14 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
         <div
           className={cn(
             "grid grid-cols-1 gap-4 md:grid-cols-2",
-            isAdmin ? "xl:grid-cols-3" : "xl:grid-cols-2"
+            showOrgReports ? "xl:grid-cols-3" : "xl:grid-cols-2"
           )}
         >
           <div className="md:col-span-2 xl:col-span-1">
             <TeamPerformanceTable data={data.teamPerformance} />
           </div>
           <TaskStatusDonut data={data.taskStatus.items} total={data.taskStatus.total} />
-          {isAdmin && <TasksByTeamChart data={data.teamTasks} />}
+          {showOrgReports && <TasksByTeamChart data={data.teamTasks} />}
         </div>
 
         <p className="text-center text-xs text-[#64748B]">

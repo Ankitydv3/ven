@@ -108,6 +108,22 @@ function buildUserFilter(options: UserListOptions) {
 export function resolveUserListScope(user?: JwtUser) {
   if (!user) return {};
 
+  if (user.role === "sub_admin") {
+    const subAdminType = (user as JwtUser & { subAdminType?: SubAdminType }).subAdminType;
+    if (subAdminType && SUB_ADMIN_DEPARTMENT[subAdminType]) {
+      return { scopedDepartment: SUB_ADMIN_DEPARTMENT[subAdminType] };
+    }
+    return {};
+  }
+
+  // All users can browse the full user directory (manage actions are RBAC-gated separately).
+  return {};
+}
+
+/** Scope for modifying another user's record (not self-service profile updates). */
+export function resolveUserManageScope(user?: JwtUser) {
+  if (!user) return {};
+
   if (user.role === "super_admin" || user.role === "admin") {
     return {};
   }
@@ -120,14 +136,7 @@ export function resolveUserListScope(user?: JwtUser) {
     return {};
   }
 
-  if (user.role === "team_lead" || user.role === "team") {
-    const teamName = user.teamName ?? user.team;
-    if (teamName) return { scopedTeamName: teamName };
-    if (user.teamId) return { scopedTeamId: user.teamId };
-    return { selfOnly: true, actorId: user.id };
-  }
-
-  return {};
+  return { selfOnly: true, actorId: user.id };
 }
 
 export function resolveUserTeamScope(user?: JwtUser): string | undefined {
@@ -299,27 +308,10 @@ export async function resolveAssigneeById(userId: string) {
   };
 }
 
-export async function getUserById(id: string, actor: JwtUser) {
+export async function getUserById(id: string, _actor: JwtUser) {
   const user = await User.findOne({ $and: [{ _id: id }, NOT_DELETED_FILTER] }).select("-password");
   if (!user) {
     throw new ApiError(404, "User not found");
-  }
-
-  const scope = resolveUserListScope(actor);
-  if (scope.selfOnly && actor.id !== id) {
-    throw new ApiError(403, "You can only view your own profile");
-  }
-  if (scope.scopedTeamId && String(user.teamId) !== scope.scopedTeamId) {
-    throw new ApiError(403, "User not in your team scope");
-  }
-  if (scope.scopedTeamName) {
-    const userTeam = user.teamName ?? user.team;
-    if (userTeam !== scope.scopedTeamName) {
-      throw new ApiError(403, "User not in your team scope");
-    }
-  }
-  if (scope.scopedDepartment && user.department !== scope.scopedDepartment) {
-    throw new ApiError(403, "User not in your department scope");
   }
 
   return user;
@@ -335,28 +327,24 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
     throw new ApiError(404, "User not found");
   }
 
-  const scope = resolveUserListScope(actor);
-  if (scope.selfOnly && actor.id !== id) {
-    throw new ApiError(403, "You can only update your own profile");
-  }
-  if (scope.scopedTeamId && String(existing.teamId) !== scope.scopedTeamId) {
-    throw new ApiError(403, "User not in your team scope");
-  }
-  if (scope.scopedTeamName) {
-    const existingTeam = existing.teamName ?? existing.team;
-    if (existingTeam !== scope.scopedTeamName) {
-      throw new ApiError(403, "User not in your team scope");
+  const isSelfUpdate = actor.id === id;
+
+  if (!isSelfUpdate) {
+    const scope = resolveUserManageScope(actor);
+    if (scope.selfOnly) {
+      throw new ApiError(403, "You can only update your own profile");
     }
-  }
-  if (scope.scopedDepartment && existing.department !== scope.scopedDepartment) {
-    throw new ApiError(403, "User not in your department scope");
+    if (scope.scopedDepartment && existing.department !== scope.scopedDepartment) {
+      throw new ApiError(403, "User not in your department scope");
+    }
+
+    if (!canManageRole(actor.role, existing.role)) {
+      throw new ApiError(403, "You cannot modify this user");
+    }
   }
 
   if (payload.role && !canManageRole(actor.role, payload.role)) {
     throw new ApiError(403, "You cannot assign this role");
-  }
-  if (!canManageRole(actor.role, existing.role)) {
-    throw new ApiError(403, "You cannot modify this user");
   }
 
   if (payload.email || payload.mobile) {
@@ -378,9 +366,9 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
     ...(payload.name ? { name: payload.name.trim() } : {}),
     ...(payload.email ? { email: payload.email.toLowerCase().trim() } : {}),
     ...(payload.mobile ? { mobile: payload.mobile.trim() } : {}),
-    ...(payload.role ? { role: payload.role } : {}),
-    ...(payload.status ? { status: payload.status } : {}),
-    ...(payload.teamName ? await teamFieldsFromDb(payload.teamName) : {}),
+    ...(!isSelfUpdate && payload.role ? { role: payload.role } : {}),
+    ...(!isSelfUpdate && payload.status ? { status: payload.status } : {}),
+    ...(!isSelfUpdate && payload.teamName ? await teamFieldsFromDb(payload.teamName) : {}),
   };
 
   const user = await User.findByIdAndUpdate(id, update, { new: true, runValidators: true }).select("-password");
@@ -404,16 +392,7 @@ export async function deleteUserById(id: string, actor: JwtUser) {
     throw new ApiError(403, "You cannot delete this user");
   }
 
-  const scope = resolveUserListScope(actor);
-  if (scope.scopedTeamId && String(user.teamId) !== scope.scopedTeamId) {
-    throw new ApiError(403, "User not in your team scope");
-  }
-  if (scope.scopedTeamName) {
-    const userTeam = user.teamName ?? user.team;
-    if (userTeam !== scope.scopedTeamName) {
-      throw new ApiError(403, "User not in your team scope");
-    }
-  }
+  const scope = resolveUserManageScope(actor);
   if (scope.scopedDepartment && user.department !== scope.scopedDepartment) {
     throw new ApiError(403, "User not in your department scope");
   }
@@ -447,7 +426,7 @@ export async function resetUserPassword(
     throw new ApiError(403, "You cannot reset password for this user");
   }
 
-  const scope = resolveUserListScope(actor);
+  const scope = resolveUserManageScope(actor);
   if (scope.scopedDepartment && user.department !== scope.scopedDepartment) {
     throw new ApiError(403, "User not in your department scope");
   }

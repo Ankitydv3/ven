@@ -13,6 +13,7 @@ export interface ReportsQuery {
   startDate?: string;
   endDate?: string;
   team?: string;
+  assignedUserId?: string;
 }
 
 function startOfDay(date: Date) {
@@ -90,6 +91,7 @@ function buildTaskFilter(query: ReportsQuery) {
   };
   const team = normalizeTeamFilter(query.team);
   if (team) filter.team = team;
+  if (query.assignedUserId) filter.assignedUserId = query.assignedUserId;
   return filter;
 }
 
@@ -111,7 +113,9 @@ async function buildSummary(query: ReportsQuery) {
   const [totalAssigned, completed, activeTeams] = await Promise.all([
     countTasksByStatus(query),
     countTasksByStatus(query, "Completed"),
-    listActiveTeamNames(),
+    query.assignedUserId
+      ? Promise.resolve(query.team ? [query.team] : ["My Tasks"])
+      : listActiveTeamNames(),
   ]);
 
   const defaults = getDefaultDateRange();
@@ -159,20 +163,38 @@ async function buildTeamPerformance(query: ReportsQuery) {
   const taskMap = new Map(taskAgg.map((row) => [row._id, row]));
 
   const teamFilter = normalizeTeamFilter(query.team);
-  const teams = teamFilter ? [teamFilter] : await listActiveTeamNames();
+  const teams = query.assignedUserId
+    ? ["My Tasks"]
+    : teamFilter
+      ? [teamFilter]
+      : await listActiveTeamNames();
 
-  const rows = teams.map((team) => {
-    const tasks = taskMap.get(team) || { tasksAssigned: 0, completed: 0 };
-    const completionRate = formatPercent(tasks.completed, tasks.tasksAssigned);
+  const rows = query.assignedUserId
+    ? (() => {
+        const assigned = taskAgg.reduce((sum, row) => sum + row.tasksAssigned, 0);
+        const completed = taskAgg.reduce((sum, row) => sum + row.completed, 0);
+        return [
+          {
+            team: "My Tasks",
+            teamColor: getTeamColorHex("My Tasks"),
+            tasksAssigned: assigned,
+            completed,
+            completionRate: formatPercent(completed, assigned),
+          },
+        ];
+      })()
+    : teams.map((team) => {
+        const tasks = taskMap.get(team) || { tasksAssigned: 0, completed: 0 };
+        const completionRate = formatPercent(tasks.completed, tasks.tasksAssigned);
 
-    return {
-      team,
-      teamColor: getTeamColorHex(team),
-      tasksAssigned: tasks.tasksAssigned,
-      completed: tasks.completed,
-      completionRate,
-    };
-  });
+        return {
+          team,
+          teamColor: getTeamColorHex(team),
+          tasksAssigned: tasks.tasksAssigned,
+          completed: tasks.completed,
+          completionRate,
+        };
+      });
 
   const totals = rows.reduce(
     (acc, row) => ({
@@ -182,7 +204,7 @@ async function buildTeamPerformance(query: ReportsQuery) {
     { tasksAssigned: 0, completed: 0 }
   );
 
-  if (!normalizeTeamFilter(query.team)) {
+  if (!normalizeTeamFilter(query.team) && !query.assignedUserId) {
     rows.push({
       team: "Total",
       teamColor: "#FFFFFF",
@@ -244,7 +266,17 @@ async function buildTeamTasks(query: ReportsQuery) {
   ]);
 
   const teamFilter = normalizeTeamFilter(query.team);
-  const teams = teamFilter ? [teamFilter] : await listActiveTeamNames();
+  const teams = query.assignedUserId
+    ? ["My Tasks"]
+    : teamFilter
+      ? [teamFilter]
+      : await listActiveTeamNames();
+
+  if (query.assignedUserId) {
+    const assigned = agg.reduce((sum, row) => sum + row.assigned, 0);
+    const completed = agg.reduce((sum, row) => sum + row.completed, 0);
+    return [{ team: "My Tasks", assigned, completed }];
+  }
 
   return teams.map((team) => {
     const row = agg.find((item) => item._id === team);

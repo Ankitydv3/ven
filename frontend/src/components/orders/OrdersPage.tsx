@@ -49,11 +49,14 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import type { Order, OrderFilters } from "@/lib/types";
+import { readUser } from "@/lib/storage";
+import { canManageOrders } from "@/lib/permissions";
 
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
   const router = useRouter();
-  const isAdmin = role === "admin";
+  const sessionUser = readUser();
+  const canManage = canManageOrders(sessionUser?.role);
   const { data: teams = [] } = useTeams();
   const teamOptions = teams.map((team) => team.teamName);
 
@@ -348,9 +351,9 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   return (
     <DashboardShell
       role={role}
-      title={isAdmin ? "Orders Management" : "Team Orders"}
+      title={canManage ? "Orders Management" : "Team Orders"}
       subtitle={
-        isAdmin
+        canManage
           ? "Track material types, client orders, service availability, and workflow lifecycles."
           : "View orders assigned to your team."
       }
@@ -369,7 +372,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              {isAdmin && (
+              {canManage && (
                 <>
                   <Button
                     onClick={handleExportCSV}
@@ -694,7 +697,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {isAdmin && (
+                          {canManage && (
                             <>
                               <Button
                                 size="sm"
@@ -818,7 +821,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     >
                       <Eye className="h-3.5 w-3.5 mr-1" /> View
                     </Button>
-                    {isAdmin && (
+                    {canManage && (
                       <>
                         <Button
                           size="sm"

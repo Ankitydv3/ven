@@ -518,7 +518,7 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
 export function DashboardPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
   const { data, isLoading } = useQuery({
-    queryKey: ["dashboard", role],
+    queryKey: ["dashboard"],
     queryFn: fetchDashboardPage,
     staleTime: 60_000,
   });
@@ -574,12 +574,8 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
   return (
     <DashboardShell
       role={role}
-      title={role === "admin" ? "Admin Dashboard" : "Team Dashboard"}
-      subtitle={
-        role === "admin"
-          ? "Overview of service operations and performance."
-          : "Overview of your team's operations and performance."
-      }
+      title="Dashboard"
+      subtitle="Overview of service operations and performance."
     >
       <div className="min-h-screen rounded-2xl bg-gray-50 dark:bg-slate-950 p-4 lg:p-6">
         {isLoading || !data ? (

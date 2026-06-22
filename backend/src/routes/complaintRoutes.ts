@@ -13,8 +13,8 @@ router.get("/:complaintId/track", asyncHandler(trackComplaint));
 router.patch("/:id/assign", authRequired, requireAdminPortalRole(), asyncHandler(assignComplaint));
 router.patch("/:id/confirm", authRequired, requireAdminPortalRole(), asyncHandler(confirmComplaint));
 router.patch("/:id/decline", authRequired, requireAdminPortalRole(), asyncHandler(declineComplaint));
-router.patch("/:id/start", authRequired, requireRole("team"), asyncHandler(startComplaint));
-router.patch("/:id/update", authRequired, requireRole("team"), asyncHandler(updateComplaint));
-router.patch("/:id/complete", authRequired, requireRole("team"), asyncHandler(completeComplaint));
+router.patch("/:id/start", authRequired, requireRole("team", "team_lead"), asyncHandler(startComplaint));
+router.patch("/:id/update", authRequired, requireRole("team", "team_lead"), asyncHandler(updateComplaint));
+router.patch("/:id/complete", authRequired, requireRole("team", "team_lead"), asyncHandler(completeComplaint));
 
 export default router;

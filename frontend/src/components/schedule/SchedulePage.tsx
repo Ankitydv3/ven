@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { isAdminPortalRole, useSession } from "@/hooks/use-session";
+import { useSession } from "@/hooks/use-session";
+import { canManageSchedules } from "@/lib/permissions";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useCalendarSchedules } from "@/hooks/useCalendarSchedules";
 import { useCreateSchedule } from "@/hooks/useCreateSchedule";
@@ -22,7 +23,7 @@ const PAGE_SIZE = 8;
 
 export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
   const { ready, user } = useSession(role);
-  const canAssignTasks = role === "admin" && isAdminPortalRole(user?.role);
+  const canAssignTasks = canManageSchedules(user?.role);
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState("All");
   const [status, setStatus] = useState("All");

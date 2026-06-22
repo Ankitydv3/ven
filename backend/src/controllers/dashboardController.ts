@@ -2,11 +2,13 @@ import type { Response } from "express";
 import Complaint from "../models/Complaint";
 import Order from "../models/Order";
 import type { AuthRequest } from "../middleware/auth";
-import { complaintTeamFilter, orderTeamFilter } from "../utils/teamScope";
 import { getSharedStats } from "../services/statsService";
 import { listActiveTeamNames } from "../services/teamService";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Dashboard shows the same organization-wide metrics for every authenticated user. */
+const ORG_WIDE_FILTER = {};
 
 function getMonthRange(monthIndex: number, year: number) {
   return {
@@ -15,9 +17,9 @@ function getMonthRange(monthIndex: number, year: number) {
   };
 }
 
-async function buildSummary(teamFilter: Record<string, unknown>) {
-  const orderFilter = { ...teamFilter };
-  const complaintFilter = { ...teamFilter };
+async function buildSummary() {
+  const orderFilter = ORG_WIDE_FILTER;
+  const complaintFilter = ORG_WIDE_FILTER;
 
   const [totalOrders, complaintsReceived, complaintsResolved, complaintsUnresolved, paidServicesDone] = await Promise.all([
     Order.countDocuments(orderFilter),
@@ -39,10 +41,10 @@ async function buildSummary(teamFilter: Record<string, unknown>) {
   };
 }
 
-async function buildMonthlyTrend(teamFilter: Record<string, unknown>) {
+async function buildMonthlyTrend() {
   const year = new Date().getFullYear();
-  const orderFilter = { ...teamFilter };
-  const complaintFilter = { ...teamFilter };
+  const orderFilter = ORG_WIDE_FILTER;
+  const complaintFilter = ORG_WIDE_FILTER;
 
   return Promise.all(
     months.map(async (month, index) => {
@@ -62,9 +64,9 @@ async function buildMonthlyTrend(teamFilter: Record<string, unknown>) {
   );
 }
 
-async function buildUnresolvedReasons(teamFilter: Record<string, unknown>) {
-  const complaintFilter = { ...teamFilter };
-  const orderFilter = { ...teamFilter };
+async function buildUnresolvedReasons() {
+  const complaintFilter = ORG_WIDE_FILTER;
+  const orderFilter = ORG_WIDE_FILTER;
 
   return [
     {
@@ -90,9 +92,9 @@ async function buildUnresolvedReasons(teamFilter: Record<string, unknown>) {
   ];
 }
 
-async function buildComplaintOverview(teamFilter: Record<string, unknown>) {
-  const complaintFilter = { ...teamFilter };
-  const orderFilter = { ...teamFilter };
+async function buildComplaintOverview() {
+  const complaintFilter = ORG_WIDE_FILTER;
+  const orderFilter = ORG_WIDE_FILTER;
 
   const [resolved, delayed, material, payment] = await Promise.all([
     Complaint.countDocuments({ ...complaintFilter, status: "Completed" }),
@@ -118,8 +120,8 @@ async function buildComplaintOverview(teamFilter: Record<string, unknown>) {
   };
 }
 
-async function buildTopCategories(teamFilter: Record<string, unknown>) {
-  const base = { ...teamFilter };
+async function buildTopCategories() {
+  const base = ORG_WIDE_FILTER;
 
   return [
     {
@@ -142,20 +144,20 @@ async function buildTopCategories(teamFilter: Record<string, unknown>) {
   ];
 }
 
-async function buildRecentOrders(teamFilter: Record<string, unknown>) {
-  return Order.find(teamFilter).sort({ createdAt: -1 }).limit(5).lean();
+async function buildRecentOrders() {
+  return Order.find(ORG_WIDE_FILTER).sort({ createdAt: -1 }).limit(5).lean();
 }
 
-async function buildRecentComplaints(teamFilter: Record<string, unknown>) {
-  return Complaint.find(teamFilter)
+async function buildRecentComplaints() {
+  return Complaint.find(ORG_WIDE_FILTER)
     .sort({ updatedAt: -1 })
     .limit(5)
     .select("complaintId clientName title status updatedAt assignedTeam reason")
     .lean();
 }
 
-async function buildTeamStats(scopedTeam?: string) {
-  const teams = scopedTeam ? [scopedTeam] : await listActiveTeamNames();
+async function buildTeamStats() {
+  const teams = await listActiveTeamNames();
 
   return Promise.all(
     teams.map(async (team) => ({
@@ -166,48 +168,36 @@ async function buildTeamStats(scopedTeam?: string) {
   );
 }
 
-export async function getSummary(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json(await buildSummary(teamFilter));
+export async function getSummary(_req: AuthRequest, res: Response) {
+  res.json(await buildSummary());
 }
 
-export async function getMonthlyTrend(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json({ monthlyTrend: await buildMonthlyTrend(teamFilter) });
+export async function getMonthlyTrend(_req: AuthRequest, res: Response) {
+  res.json({ monthlyTrend: await buildMonthlyTrend() });
 }
 
-export async function getUnresolvedReasons(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json({ unresolvedReasons: await buildUnresolvedReasons(teamFilter) });
+export async function getUnresolvedReasons(_req: AuthRequest, res: Response) {
+  res.json({ unresolvedReasons: await buildUnresolvedReasons() });
 }
 
-export async function getComplaintOverview(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json(await buildComplaintOverview(teamFilter));
+export async function getComplaintOverview(_req: AuthRequest, res: Response) {
+  res.json(await buildComplaintOverview());
 }
 
-export async function getTopCategories(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json({ categories: await buildTopCategories(teamFilter) });
+export async function getTopCategories(_req: AuthRequest, res: Response) {
+  res.json({ categories: await buildTopCategories() });
 }
 
-export async function getRecentOrders(req: AuthRequest, res: Response) {
-  const teamFilter = orderTeamFilter(req.user);
-  res.json({ recentOrders: await buildRecentOrders(teamFilter) });
+export async function getRecentOrders(_req: AuthRequest, res: Response) {
+  res.json({ recentOrders: await buildRecentOrders() });
 }
 
-export async function getRecentComplaints(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  res.json({ recentComplaints: await buildRecentComplaints(teamFilter) });
+export async function getRecentComplaints(_req: AuthRequest, res: Response) {
+  res.json({ recentComplaints: await buildRecentComplaints() });
 }
 
-export async function getDashboard(req: AuthRequest, res: Response) {
-  const teamFilter = complaintTeamFilter(req.user);
-  const scopedTeam =
-    req.user?.role === "team" || req.user?.role === "team_lead"
-      ? req.user.team ?? req.user.teamName
-      : undefined;
-  const sharedStats = await getSharedStats(scopedTeam);
+export async function getDashboard(_req: AuthRequest, res: Response) {
+  const sharedStats = await getSharedStats();
 
   const [
     summary,
@@ -219,17 +209,15 @@ export async function getDashboard(req: AuthRequest, res: Response) {
     recentComplaints,
     teamStats
   ] = await Promise.all([
-    buildSummary(teamFilter),
-    buildMonthlyTrend(teamFilter),
-    buildUnresolvedReasons(teamFilter),
-    buildComplaintOverview(teamFilter),
-    buildTopCategories(teamFilter),
-    buildRecentOrders(orderTeamFilter(req.user)),
-    buildRecentComplaints(teamFilter),
-    buildTeamStats(scopedTeam)
+    buildSummary(),
+    buildMonthlyTrend(),
+    buildUnresolvedReasons(),
+    buildComplaintOverview(),
+    buildTopCategories(),
+    buildRecentOrders(),
+    buildRecentComplaints(),
+    buildTeamStats()
   ]);
-
-  const statusBase = scopedTeam ? { assignedTeam: scopedTeam } : {};
 
   res.json({
     ...summary,
@@ -248,7 +236,7 @@ export async function getDashboard(req: AuthRequest, res: Response) {
     statusDistribution: [
       {
         name: "Pending Assignment",
-        value: await Complaint.countDocuments({ ...statusBase, status: "Pending Assignment" })
+        value: await Complaint.countDocuments({ status: "Pending Assignment" })
       },
       { name: "Assigned", value: sharedStats.pending },
       { name: "In Progress", value: sharedStats.inProgress },

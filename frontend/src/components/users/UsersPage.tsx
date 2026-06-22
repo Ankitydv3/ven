@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, FileSpreadsheet, Loader2, Plus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { isAdminPortalRole, useSession } from "@/hooks/use-session";
+import { useSession } from "@/hooks/use-session";
 import {
   useCreateUser,
   useDeleteUser,
@@ -34,7 +34,7 @@ import { TeamsPanel } from "@/components/teams/TeamsPanel";
 import { UserCredentialsDialog } from "@/components/users/UserCredentialsDialog";
 import type { ManagedUser, UserCredentials } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
-import { canManageUsers } from "@/lib/rbac";
+import { canManageUsers } from "@/lib/permissions";
 import { downloadBlob, exportUsersToExcel } from "@/lib/user-export";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
@@ -48,9 +48,9 @@ interface UsersPageProps {
 export function UsersPage({ role = "admin" }: UsersPageProps) {
   const { ready } = useSession(role);
   const sessionUser = readUser();
-  const isAdmin = role === "admin" && isAdminPortalRole(sessionUser?.role);
   const canManage = canManageUsers(sessionUser?.role);
   const canCreate = canManage;
+  const showTeamsPanel = canManage;
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -205,18 +205,22 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   return (
     <DashboardShell
       role={role}
-      title={isAdmin ? "User Management" : "My Team"}
-      subtitle={isAdmin ? "Manage users, roles, and access permissions" : "View members assigned to your team"}
+      title="User Management"
+      subtitle={
+        canManage
+          ? "Manage users, roles, and access permissions"
+          : "View the organization user directory"
+      }
     >
       <div className="space-y-6">
-        {isAdmin && canManage && <TeamsPanel canManage />}
+        {showTeamsPanel && <TeamsPanel canManage />}
 
         <div className={`${glassCardClass} space-y-4 p-5`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-[#60A5FA]" />
-                <h2 className="text-lg font-semibold text-white">{isAdmin ? "All Users" : "Team Members"}</h2>
+                <h2 className="text-lg font-semibold text-white">All Users</h2>
               </div>
               <p className="text-sm text-[#94A3B8]">{total} user{total === 1 ? "" : "s"} found</p>
             </div>

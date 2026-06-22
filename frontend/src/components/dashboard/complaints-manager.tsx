@@ -30,6 +30,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { readUser } from "@/lib/storage";
+import { canManageComplaints } from "@/lib/permissions";
 
 function statusVariant(status: Complaint["status"]) {
   if (status === "Completed") return "success";
@@ -46,6 +48,8 @@ function priorityDotClass(priority: Complaint["priority"]) {
 }
 
 export function ComplaintsManager() {
+  const sessionUser = readUser();
+  const canManage = canManageComplaints(sessionUser?.role);
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -145,7 +149,12 @@ export function ComplaintsManager() {
 
   // Check if complaint can be assigned/reassigned
   const canAssign = (complaint: Complaint) => {
-    return complaint.status !== "Completed" && complaint.status !== "Declined" && complaint.status !== "Pending Review";
+    return (
+      canManage &&
+      complaint.status !== "Completed" &&
+      complaint.status !== "Declined" &&
+      complaint.status !== "Pending Review"
+    );
   };
 
   return (

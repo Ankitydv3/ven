@@ -22,7 +22,7 @@ router.get("/calendar", asyncHandler(calendarSchedules));
 router.get("/", asyncHandler(listSchedules));
 router.get("/:id", asyncHandler(readSchedule));
 router.post("/", requireAdminPortalRole(), validateRequest(scheduleSchema), asyncHandler(createScheduleHandler));
-router.put("/:id", validateRequest(scheduleUpdateSchema), asyncHandler(updateScheduleHandler));
+router.put("/:id", requireAdminPortalRole(), validateRequest(scheduleUpdateSchema), asyncHandler(updateScheduleHandler));
 router.delete("/:id", requireAdminPortalRole(), asyncHandler(deleteScheduleHandler));
 
 export default router;

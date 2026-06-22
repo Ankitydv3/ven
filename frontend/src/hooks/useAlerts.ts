@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchAlerts, confirmComplaint, declineComplaint, type AlertsFilters } from "@/services/alerts";
+import { readUser } from "@/lib/storage";
+import { isAdminPortalRole } from "@/lib/rbac";
 import { toast } from "sonner";
 
 export function useAlerts(filters?: AlertsFilters) {
@@ -42,11 +44,12 @@ export function useDeclineComplaint() {
 }
 
 export function usePendingAlertsCount(role: "admin" | "team" = "admin") {
+  const sessionUser = readUser();
+  const isAdmin = isAdminPortalRole(sessionUser?.role);
   return useQuery({
-    queryKey: ["alerts", "count", role],
+    queryKey: ["alerts", "count", role, sessionUser?.id],
     queryFn: () => fetchAlerts(),
     staleTime: 60 * 1000,
-    select: (data) =>
-      role === "team" ? data.counts.teamsWithPending : data.counts.pendingReview,
+    select: (data) => (isAdmin ? data.counts.pendingReview : data.counts.teamsWithPending),
   });
 }

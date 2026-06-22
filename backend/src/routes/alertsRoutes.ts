@@ -5,6 +5,6 @@ import { authRequired, requireRole } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/", authRequired, requireRole("admin", "team"), asyncHandler(getAlerts));
+router.get("/", authRequired, asyncHandler(getAlerts));
 
 export default router;

@@ -34,7 +34,7 @@ export const navGroups = {
     { href: "/team/analytics", label: "Analytics" },
     { href: "/team/reports", label: "Reports" },
     { href: "/team/alerts", label: "Alerts" },
-    { href: "/team/members", label: "Team Members" },
+    { href: "/team/users", label: "User Management" },
     { href: "/team/settings", label: "Settings" },
   ]
 } as const;

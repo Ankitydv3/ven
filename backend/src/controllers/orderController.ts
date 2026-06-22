@@ -46,13 +46,14 @@ export async function listOrders(req: AuthRequest, res: Response) {
 
 export async function readOrder(req: AuthRequest, res: Response) {
   const order = await getOrderById(req.params.id as string);
+  const teamFilter = orderTeamFilter(req.user);
+  if (teamFilter.assignedTeam && order.assignedTeam !== teamFilter.assignedTeam) {
+    throw new ApiError(403, "You do not have access to this order");
+  }
   res.json({ order });
 }
 
 export async function createOrderHandler(req: AuthRequest, res: Response) {
-  if (req.user?.role === "team") {
-    throw new ApiError(403, "Forbidden");
-  }
   const order = await createOrder(req.body);
   res.status(201).json({ message: "Order Created Successfully", order });
 }
@@ -63,9 +64,6 @@ export async function updateOrderHandler(req: AuthRequest, res: Response) {
 }
 
 export async function deleteOrderHandler(req: AuthRequest, res: Response) {
-  if (req.user?.role === "team") {
-    throw new ApiError(403, "Forbidden");
-  }
   await deleteOrderById(req.params.id as string);
   res.json({ message: "Order Deleted Successfully" });
 }

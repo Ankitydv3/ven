@@ -1,10 +1,5 @@
-import { UsersPage } from "@/components/users/UsersPage";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "My Team",
-  description: "View team members assigned to your team.",
-};
-
-export default function TeamMembersPage() {
-  return <UsersPage role="team" />;
+export default function TeamMembersRedirectPage() {
+  redirect("/team/users");
 }
