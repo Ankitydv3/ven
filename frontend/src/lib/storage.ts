@@ -3,7 +3,21 @@ import type { UserRole } from "./types";
 const TOKEN_KEY = "complaint-system-token";
 const USER_KEY = "complaint-system-user";
 
-export function saveSession(token: string, user: { id: string; name: string; email: string; role: UserRole; team?: string }) {
+export interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  team?: string;
+  teamId?: string;
+  teamName?: string;
+  employeeId?: string;
+  designation?: string;
+  department?: string;
+  subAdminType?: string;
+}
+
+export function saveSession(token: string, user: SessionUser) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
@@ -18,7 +32,7 @@ export function readUser() {
   }
 
   const raw = localStorage.getItem(USER_KEY);
-  return raw ? (JSON.parse(raw) as { id: string; name: string; email: string; role: UserRole; team?: string }) : null;
+  return raw ? (JSON.parse(raw) as SessionUser) : null;
 }
 
 export function clearSession() {

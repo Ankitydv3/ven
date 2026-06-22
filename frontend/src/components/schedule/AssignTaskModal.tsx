@@ -25,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { teamNames } from "@/lib/constants";
 import { primaryButtonClass } from "@/lib/schedule-constants";
+import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
 import { fetchComplaints } from "@/services/complaints";
 import type { SchedulePayload } from "@/lib/schedule.types";
 import { cn } from "@/lib/utils";
@@ -194,11 +194,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
                     <SelectValue placeholder="Select team" />
                   </SelectTrigger>
                   <SelectContent className="dark:bg-[#0A1F1A]">
-                    {teamNames.map((team) => (
-                      <SelectItem key={team} value={team}>
-                        {team}
-                      </SelectItem>
-                    ))}
+                    <TeamSelectItems />
                   </SelectContent>
                 </Select>
               )}

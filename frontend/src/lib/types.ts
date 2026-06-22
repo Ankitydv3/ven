@@ -1,6 +1,8 @@
 export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
 export type Priority = "High" | "Medium" | "Low";
-export type UserRole = "admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type SubAdminType = "accountant" | "plant_head";
+export type UserStatus = "active" | "disabled";
 
 export interface Material {
   materialName: string;
@@ -275,5 +277,66 @@ export interface AuthResponse {
     email: string;
     role: UserRole;
     team?: string;
+    teamId?: string;
+    teamName?: string;
+    employeeId?: string;
+    designation?: string;
+    department?: string;
+    subAdminType?: SubAdminType;
   };
+}
+
+export interface Team {
+  _id: string;
+  teamName: string;
+  description?: string;
+  status: "active" | "inactive";
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TeamListResponse {
+  items: Team[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ManagedUser {
+  _id: string;
+  employeeId?: string;
+  username?: string;
+  name: string;
+  email: string;
+  mobile: string;
+  role: UserRole;
+  subAdminType?: SubAdminType;
+  designation: string;
+  department: string;
+  teamId?: string;
+  teamName?: string;
+  team?: string;
+  status: UserStatus;
+  createdBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserListResponse {
+  items: ManagedUser[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UserCredentials {
+  employeeId: string;
+  username: string;
+  temporaryPassword: string;
+}
+
+export interface CreateUserResponse {
+  message: string;
+  user: ManagedUser;
 }

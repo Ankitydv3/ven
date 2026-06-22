@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { teamNames } from "@/lib/constants";
+import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
 import type { Complaint, Priority, TeamReport } from "@/lib/types";
 import { useAlerts, useConfirmComplaint, useDeclineComplaint } from "@/hooks/useAlerts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -322,11 +322,7 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All Teams">All Teams</SelectItem>
-                {teamNames.map((team) => (
-                  <SelectItem key={team} value={team}>
-                    {team}
-                  </SelectItem>
-                ))}
+                <TeamSelectItems />
               </SelectContent>
             </Select>
             )}

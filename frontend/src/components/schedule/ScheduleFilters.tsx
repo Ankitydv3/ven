@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { teamNames } from "@/lib/constants";
 import { schedulePriorities, scheduleStatuses, glassCardClass } from "@/lib/schedule-constants";
+import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
 import { cn } from "@/lib/utils";
 
 interface ScheduleFiltersProps {
@@ -56,11 +56,7 @@ export function ScheduleFilters({
           </SelectTrigger>
           <SelectContent className="dark:bg-[#0A1F1A]">
             <SelectItem value="All">All Teams</SelectItem>
-            {teamNames.map((name) => (
-              <SelectItem key={name} value={name}>
-                {name}
-              </SelectItem>
-            ))}
+            <TeamSelectItems />
           </SelectContent>
         </Select>
       )}

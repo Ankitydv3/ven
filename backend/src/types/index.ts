@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type SubAdminType = "accountant" | "plant_head";
 
 export interface JwtUser {
   id: string;
@@ -6,4 +7,8 @@ export interface JwtUser {
   name: string;
   role: UserRole;
   team?: string;
+  teamId?: string;
+  teamName?: string;
+  employeeId?: string;
+  subAdminType?: SubAdminType;
 }

@@ -62,8 +62,16 @@ export function LoginForm({ role, demoHint, redirectTo }: { role: "admin" | "tea
     startTransition(async () => {
       try {
         const response = await loginUser(values.email, values.password);
-        if (response.user.role !== role) {
-          toast.error(`This login is for ${role} users only.`);
+        const adminRoles = ["super_admin", "admin", "sub_admin"];
+        const teamRoles = ["team", "team_lead", "manager", "accountant"];
+
+        if (role === "admin" && !adminRoles.includes(response.user.role)) {
+          toast.error("This login is for admin users only.");
+          return;
+        }
+
+        if (role === "team" && !teamRoles.includes(response.user.role)) {
+          toast.error("This login is for team users only.");
           return;
         }
 
