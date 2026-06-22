@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isAdminPortalRole as checkAdminPortalRole } from "@/lib/rbac";
+import { getDashboardPathForRole, LOGIN_PATH } from "@/lib/auth-routes";
 import { readUser } from "@/lib/storage";
 import type { UserRole } from "@/lib/types";
 
@@ -20,14 +21,15 @@ export function useSession(portal?: "admin" | "team") {
   useEffect(() => {
     if (!ready || !portal || !user) {
       if (ready && portal && !user) {
-        window.location.href = portal === "admin" ? "/admin/login" : "/team/login";
+        window.location.href = LOGIN_PATH;
       }
       return;
     }
 
     const allowedRoles = portal === "admin" ? ADMIN_PORTAL_ROLES : TEAM_PORTAL_ROLES;
     if (!allowedRoles.includes(user.role)) {
-      window.location.href = portal === "admin" ? "/admin/login" : "/team/login";
+      const redirectTo = getDashboardPathForRole(user.role);
+      window.location.href = redirectTo ?? LOGIN_PATH;
     }
   }, [ready, portal, user]);
 

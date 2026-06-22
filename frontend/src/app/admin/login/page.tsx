@@ -1,13 +1,6 @@
-import { LoginForm } from "@/components/forms/login-form";
+import { redirect } from "next/navigation";
+import { LOGIN_PATH } from "@/lib/auth-routes";
 
 export default function AdminLoginPage() {
-  return (
-    <main className="">
-      <LoginForm
-        role="admin"
-        redirectTo="/admin/dashboard"
-        demoHint="Demo credentials: admin@gmail.com / admin123"
-      />
-    </main>
-  );
+  redirect(LOGIN_PATH);
 }

@@ -73,8 +73,7 @@ export function Navbar() {
     if (!isAuthenticated) {
       return [
         ...publicLinks,
-        { href: "/admin/login", label: "Admin login" },
-        { href: "/team/login", label: "Team login" },
+        { href: "/login", label: "Login" },
       ];
     }
 

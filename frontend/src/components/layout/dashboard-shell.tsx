@@ -271,7 +271,7 @@ export function DashboardShell({
                 className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
                 onClick={() => {
                   clearSession();
-                  window.location.href = role === "admin" ? "/admin/login" : "/team/login";
+                  window.location.href = "/login";
                 }}
               >
                 <LogOut className="h-4 w-4 mr-1.5" /> 

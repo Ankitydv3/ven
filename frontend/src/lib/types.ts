@@ -276,6 +276,7 @@ export interface AlertsResponse {
 }
 
 export interface DashboardResponse {
+  scope?: { kind: "org" | "team" | "personal"; label: string };
   totalTasks?: number;
   pending?: number;
   inProgress?: number;

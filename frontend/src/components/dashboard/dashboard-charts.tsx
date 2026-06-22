@@ -35,11 +35,32 @@ const tooltipStyle = {
 };
 
 export function DashboardCharts({ data }: { data: DashboardResponse }) {
-  const statusOrder = ["Pending Assignment", "Assigned", "In Progress", "Completed"];
-  const statusData = statusOrder.map((statusName) => {
-    const found = data.statusDistribution.find((item) => item.name === statusName);
-    return found || { name: statusName, value: 0 };
-  });
+  const scope = data.scope;
+  const statusData = data.statusDistribution ?? [];
+
+  const teamChartTitle =
+    scope?.kind === "personal"
+      ? "My completed tasks"
+      : scope?.kind === "team"
+        ? `${scope.label} completed tasks`
+        : "Complaints resolved by team";
+
+  const teamChartDescription =
+    scope?.kind === "personal"
+      ? "Tasks you have completed."
+      : scope?.kind === "team"
+        ? "Completed tasks for your team."
+        : "Resolved count across support teams.";
+
+  const statusChartTitle =
+    scope?.kind === "personal" ? "My task status mix" : "Task status distribution";
+
+  const trendChartTitle =
+    scope?.kind === "personal"
+      ? "My complaint activity"
+      : scope?.kind === "team"
+        ? "Team complaint trends"
+        : "Monthly complaint trends";
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
@@ -48,10 +69,10 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">team performance</p>
             <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
-              Complaints Resolved By Team
+              {teamChartTitle}
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-white/50">
-              Resolved count across the four support teams.
+              {teamChartDescription}
             </CardDescription>
           </div>
         </CardHeader>
@@ -73,10 +94,10 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">distribution</p>
             <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
-              Complaint Status Distribution
+              {statusChartTitle}
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-white/50">
-              Share of complaints by current status.
+              Share of tasks by current status.
             </CardDescription>
           </div>
         </CardHeader>
@@ -111,10 +132,10 @@ export function DashboardCharts({ data }: { data: DashboardResponse }) {
           <div>
             <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">trends</p>
             <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
-              Monthly Complaint Trends
+              {trendChartTitle}
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-white/50">
-              Complaints received from January to June.
+              Complaints received month by month.
             </CardDescription>
           </div>
         </CardHeader>
