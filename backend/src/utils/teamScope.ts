@@ -63,3 +63,33 @@ export function isAdminRole(role?: string) {
 export function isTeamRole(role?: string) {
   return role === "team" || role === "team_lead";
 }
+
+/** Task schedule filter for team portal users (user-assigned + team-level tasks). */
+export function scheduleTeamFilter(user?: JwtUser): Record<string, unknown> {
+  if (!isTeamRole(user?.role)) return {};
+
+  const team = resolveTeamUserTeam(user);
+  if (user?.id && team) {
+    return {
+      $or: [
+        { assignedUserId: user.id },
+        {
+          $and: [
+            { team },
+            { $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }] },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (user?.id) {
+    return { assignedUserId: user.id };
+  }
+
+  if (team) {
+    return { team };
+  }
+
+  return { team: "__unassigned_team__" };
+}

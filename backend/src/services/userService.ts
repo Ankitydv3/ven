@@ -21,6 +21,7 @@ export interface UserCreatePayload {
   password: string;
   role: string;
   teamName?: string;
+  subAdminType?: SubAdminType;
 }
 
 export interface UserUpdatePayload {
@@ -178,18 +179,30 @@ function assertTeamAssignment(role: string, teamName?: string) {
   }
 }
 
-function teamFields(teamName?: string) {
-  const normalized = teamName?.trim();
-  if (!normalized) return {};
-  return {
-    teamName: normalized,
-    team: normalized,
-  };
-}
-
 async function teamFieldsFromDb(teamName?: string) {
   if (!teamName?.trim()) return {};
   return getTeamFields(teamName);
+}
+
+function roleProfileDefaults(role: string, subAdminType?: SubAdminType) {
+  switch (role) {
+    case "team":
+      return { designation: "Team Lead", department: "Operations" };
+    case "admin":
+      return { designation: "System Administrator", department: "Director" };
+    case "sub_admin":
+      return {
+        designation:
+          subAdminType === "accountant"
+            ? "Accountant"
+            : subAdminType === "plant_head"
+              ? "Plant Head"
+              : "Sub Administrator",
+        department: subAdminType ? SUB_ADMIN_DEPARTMENT[subAdminType] : "",
+      };
+    default:
+      return { designation: "", department: "" };
+  }
 }
 
 export async function createUser(payload: UserCreatePayload, actor: JwtUser) {
@@ -203,6 +216,7 @@ export async function createUser(payload: UserCreatePayload, actor: JwtUser) {
   const username = generateUsername(teamSlug, employeeId);
   const hashedPassword = await bcrypt.hash(payload.password, 10);
   const teamAssignment = await teamFieldsFromDb(payload.teamName);
+  const profileDefaults = roleProfileDefaults(payload.role, payload.subAdminType);
 
   const user = await User.create({
     employeeId,
@@ -212,10 +226,10 @@ export async function createUser(payload: UserCreatePayload, actor: JwtUser) {
     mobile: payload.mobile.trim(),
     password: hashedPassword,
     role: payload.role,
-    designation: "",
-    department: "",
     status: "active",
     createdBy: actor.name ?? "Admin",
+    ...(payload.subAdminType ? { subAdminType: payload.subAdminType } : {}),
+    ...profileDefaults,
     ...teamAssignment,
   });
 

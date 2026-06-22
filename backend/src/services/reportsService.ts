@@ -1,14 +1,6 @@
 import TaskSchedule from "../models/TaskSchedule";
 import { applyAutoStatusUpdates } from "./scheduleService";
-
-export const TEAM_NAMES = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"] as const;
-
-export const TEAM_COLORS: Record<string, string> = {
-  "Team Alpha": "#A855F7",
-  "Team Beta": "#3B82F6",
-  "Team Gamma": "#22C55E",
-  "Team Delta": "#F59E0B",
-};
+import { getTeamColorHex, listActiveTeamNames } from "./teamService";
 
 const STATUS_CHART_COLORS: Record<string, string> = {
   Completed: "#22C55E",
@@ -116,9 +108,10 @@ async function countTasksByStatus(query: ReportsQuery, status?: string | string[
 }
 
 async function buildSummary(query: ReportsQuery) {
-  const [totalAssigned, completed] = await Promise.all([
+  const [totalAssigned, completed, activeTeams] = await Promise.all([
     countTasksByStatus(query),
     countTasksByStatus(query, "Completed"),
+    listActiveTeamNames(),
   ]);
 
   const defaults = getDefaultDateRange();
@@ -143,7 +136,7 @@ async function buildSummary(query: ReportsQuery) {
       completedTasks: completedGrowth,
     },
     dateRange: { startDate, endDate },
-    teams: [...TEAM_NAMES],
+    teams: activeTeams,
   };
 }
 
@@ -165,7 +158,8 @@ async function buildTeamPerformance(query: ReportsQuery) {
 
   const taskMap = new Map(taskAgg.map((row) => [row._id, row]));
 
-  const teams = normalizeTeamFilter(query.team) ? [normalizeTeamFilter(query.team)!] : [...TEAM_NAMES];
+  const teamFilter = normalizeTeamFilter(query.team);
+  const teams = teamFilter ? [teamFilter] : await listActiveTeamNames();
 
   const rows = teams.map((team) => {
     const tasks = taskMap.get(team) || { tasksAssigned: 0, completed: 0 };
@@ -173,7 +167,7 @@ async function buildTeamPerformance(query: ReportsQuery) {
 
     return {
       team,
-      teamColor: TEAM_COLORS[team] || "#94A3B8",
+      teamColor: getTeamColorHex(team),
       tasksAssigned: tasks.tasksAssigned,
       completed: tasks.completed,
       completionRate,
@@ -249,7 +243,8 @@ async function buildTeamTasks(query: ReportsQuery) {
     { $sort: { _id: 1 } },
   ]);
 
-  const teams = normalizeTeamFilter(query.team) ? [normalizeTeamFilter(query.team)!] : [...TEAM_NAMES];
+  const teamFilter = normalizeTeamFilter(query.team);
+  const teams = teamFilter ? [teamFilter] : await listActiveTeamNames();
 
   return teams.map((team) => {
     const row = agg.find((item) => item._id === team);

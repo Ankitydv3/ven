@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   accentTextClass,
   formatTime12h,
+  getTeamColorStyle,
   glassCardClass,
   statusBadgeVariant,
-  teamColors,
 } from "@/lib/schedule-constants";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  const teamStyle = teamColors[task.team] ?? teamColors["Team Alpha"];
+  const teamStyle = getTeamColorStyle(task.team);
   const date = new Date(task.scheduledDate).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

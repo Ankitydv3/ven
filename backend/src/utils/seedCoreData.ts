@@ -4,15 +4,95 @@ import User from "../models/User";
 import Order from "../models/Order";
 import Team from "../models/Team";
 import { generateComplaintId } from "./complaintId";
+import { generateEmployeeId, generateUsername, teamNameToSlug } from "./employeeId";
 
 const defaultTeams = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"];
 
 const teamUsers = [
-  { name: "Team Alpha Lead", email: "teamalpha@gmail.com", team: "Team Alpha" },
-  { name: "Team Beta Lead", email: "teambeta@gmail.com", team: "Team Beta" },
-  { name: "Team Gamma Lead", email: "teamgamma@gmail.com", team: "Team Gamma" },
-  { name: "Team Delta Lead", email: "teamdelta@gmail.com", team: "Team Delta" },
+  {
+    name: "Team Alpha Lead",
+    email: "teamalpha@gmail.com",
+    team: "Team Alpha",
+    employeeId: "EMP0101",
+    username: "teamalpha.emp0101",
+    mobile: "9000000001",
+  },
+  {
+    name: "Team Beta Lead",
+    email: "teambeta@gmail.com",
+    team: "Team Beta",
+    employeeId: "EMP0102",
+    username: "teambeta.emp0102",
+    mobile: "9000000002",
+  },
+  {
+    name: "Team Gamma Lead",
+    email: "teamgamma@gmail.com",
+    team: "Team Gamma",
+    employeeId: "EMP0103",
+    username: "teamgamma.emp0103",
+    mobile: "9000000003",
+  },
+  {
+    name: "Team Delta Lead",
+    email: "teamdelta@gmail.com",
+    team: "Team Delta",
+    employeeId: "EMP0104",
+    username: "teamdelta.emp0104",
+    mobile: "9000000004",
+  },
 ];
+
+async function backfillTeamUserProfiles() {
+  const teamRoleUsers = await User.find({
+    role: { $in: ["team", "team_lead"] },
+    $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }],
+  });
+
+  let mobileCounter = 9000000100;
+
+  for (const user of teamRoleUsers) {
+    const updates: Record<string, unknown> = {};
+    const teamName = user.teamName ?? user.team;
+
+    if (teamName) {
+      const teamDoc = await Team.findOne({
+        teamName: new RegExp(`^${teamName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      });
+      if (teamDoc) {
+        if (!user.teamId) updates.teamId = teamDoc._id;
+        if (!user.teamName) updates.teamName = teamDoc.teamName;
+        if (!user.team) updates.team = teamDoc.teamName;
+      }
+    }
+
+    if (!user.designation) updates.designation = "Team Lead";
+    if (!user.department) updates.department = "Operations";
+
+    let employeeId = user.employeeId;
+    if (!employeeId) {
+      employeeId = await generateEmployeeId();
+      updates.employeeId = employeeId;
+    }
+
+    if (!user.username && employeeId) {
+      const slug = teamName ? teamNameToSlug(teamName) : "general";
+      updates.username = generateUsername(slug, employeeId);
+    }
+
+    if (!user.mobile) {
+      let mobile = String(mobileCounter++);
+      while (await User.findOne({ mobile, _id: { $ne: user._id } })) {
+        mobile = String(mobileCounter++);
+      }
+      updates.mobile = mobile;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await User.updateOne({ _id: user._id }, { $set: updates });
+    }
+  }
+}
 
 async function normalizeTeamsCollection() {
   const legacyDocs = await Team.find({ name: { $exists: true } }).lean();
@@ -118,7 +198,11 @@ export async function seedCoreData() {
       { email: teamUser.email },
       {
         $set: {
-          ...teamUser,
+          employeeId: teamUser.employeeId,
+          username: teamUser.username,
+          mobile: teamUser.mobile,
+          name: teamUser.name,
+          email: teamUser.email,
           password,
           role: "team",
           teamName: teamUser.team,
@@ -134,6 +218,8 @@ export async function seedCoreData() {
       { upsert: true }
     );
   }
+
+  await backfillTeamUserProfiles();
 
   const count = await Complaint.countDocuments();
   if (count > 0) {

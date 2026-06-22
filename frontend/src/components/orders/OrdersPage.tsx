@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useOrders, useUpdateOrder, useDeleteOrder } from "@/hooks/use-orders";
+import { useTeams } from "@/hooks/use-teams";
 import { useSession } from "@/hooks/use-session";
 import { fetchOrders } from "@/services/orders";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -53,6 +54,8 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
   const router = useRouter();
   const isAdmin = role === "admin";
+  const { data: teams = [] } = useTeams();
+  const teamOptions = teams.map((team) => team.teamName);
 
   // Search & filter states
   const [search, setSearch] = useState("");
@@ -1211,10 +1214,11 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
                   >
                     <option value="" className="bg-[#132f29] text-white">Unassigned</option>
-                    <option value="Team Alpha" className="bg-[#132f29] text-white">Team Alpha</option>
-                    <option value="Team Beta" className="bg-[#132f29] text-white">Team Beta</option>
-                    <option value="Team Gamma" className="bg-[#132f29] text-white">Team Gamma</option>
-                    <option value="Team Delta" className="bg-[#132f29] text-white">Team Delta</option>
+                    {teamOptions.map((teamName) => (
+                      <option key={teamName} value={teamName} className="bg-[#132f29] text-white">
+                        {teamName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -9,9 +9,9 @@ import { TaskCard } from "@/components/schedule/TaskCard";
 import {
   accentTextClass,
   formatTime12h,
+  getTeamColorStyle,
   glassCardClass,
   statusBadgeVariant,
-  teamColors,
 } from "@/lib/schedule-constants";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +68,7 @@ export function TaskTable({ tasks, isLoading }: TaskTableProps) {
             </THead>
             <tbody>
               {tasks.map((task, index) => {
-                const teamStyle = teamColors[task.team] ?? teamColors["Team Alpha"];
+                const teamStyle = getTeamColorStyle(task.team);
                 const date = new Date(task.scheduledDate).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",

@@ -4,8 +4,8 @@ import Order from "../models/Order";
 import type { AuthRequest } from "../middleware/auth";
 import { complaintTeamFilter, orderTeamFilter } from "../utils/teamScope";
 import { getSharedStats } from "../services/statsService";
+import { listActiveTeamNames } from "../services/teamService";
 
-const teamNames = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"];
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function getMonthRange(monthIndex: number, year: number) {
@@ -155,7 +155,7 @@ async function buildRecentComplaints(teamFilter: Record<string, unknown>) {
 }
 
 async function buildTeamStats(scopedTeam?: string) {
-  const teams = scopedTeam ? [scopedTeam] : teamNames;
+  const teams = scopedTeam ? [scopedTeam] : await listActiveTeamNames();
 
   return Promise.all(
     teams.map(async (team) => ({

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import User from "../models/User";
 import type { JwtUser, UserRole } from "../types";
 import { ApiError } from "../utils/ApiError";
 
@@ -7,13 +8,41 @@ export interface AuthRequest extends Request {
   user?: JwtUser;
 }
 
-export function authRequired(
+const NOT_DELETED_FILTER = {
+  $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }],
+};
+
+async function hydrateUser(decoded: JwtUser): Promise<JwtUser> {
+  const user = await User.findOne({
+    $and: [{ _id: decoded.id }, NOT_DELETED_FILTER],
+  });
+
+  if (!user) {
+    throw new ApiError(401, "Invalid or expired token");
+  }
+
+  if (user.status === "disabled") {
+    throw new ApiError(403, "Account is disabled. Contact administrator.");
+  }
+
+  return {
+    id: String(user._id),
+    email: user.email,
+    name: user.name,
+    role: user.role as UserRole,
+    team: user.team ?? user.teamName ?? undefined,
+    teamId: user.teamId ? String(user.teamId) : undefined,
+    teamName: user.teamName ?? user.team ?? undefined,
+    employeeId: user.employeeId ?? undefined,
+    subAdminType: user.subAdminType ?? undefined,
+  };
+}
+
+export async function authRequired(
   req: AuthRequest,
   _res: Response,
   next: NextFunction
 ) {
-  console.log("AUTH HEADER:", req.headers.authorization);
-
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -22,15 +51,13 @@ export function authRequired(
 
   try {
     const token = authHeader.slice(7);
-
-    req.user = jwt.verify(
-      token,
-      process.env.JWT_SECRET ?? "dev-secret"
-    ) as JwtUser;
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET ?? "dev-secret") as JwtUser;
+    req.user = await hydrateUser(decoded);
     next();
   } catch (err) {
-    console.log("JWT ERROR:", err);
+    if (err instanceof ApiError) {
+      return next(err);
+    }
     next(new ApiError(401, "Invalid or expired token"));
   }
 }

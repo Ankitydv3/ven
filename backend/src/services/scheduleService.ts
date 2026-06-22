@@ -37,6 +37,7 @@ export interface ScheduleListOptions {
   q?: string;
   team?: string;
   assignedUserId?: string;
+  scopeFilter?: Record<string, unknown>;
   status?: string;
   priority?: string;
   startDate?: string;
@@ -52,6 +53,7 @@ export interface CalendarOptions {
   endDate: string;
   team?: string;
   assignedUserId?: string;
+  scopeFilter?: Record<string, unknown>;
 }
 
 function parseTimeToMinutes(time?: string) {
@@ -293,11 +295,13 @@ export async function getSchedules(options: ScheduleListOptions) {
     ];
   }
 
-  if (options.assignedUserId) {
+  if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
+    Object.assign(filter, options.scopeFilter);
+  } else if (options.assignedUserId) {
     filter.assignedUserId = options.assignedUserId;
   }
 
-  if (options.team && options.team !== "All") {
+  if (!options.scopeFilter && options.team && options.team !== "All") {
     filter.team = options.team;
   }
 
@@ -352,7 +356,9 @@ export async function getCalendarSchedules(options: CalendarOptions) {
     }
   };
 
-  if (options.assignedUserId) {
+  if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
+    Object.assign(filter, options.scopeFilter);
+  } else if (options.assignedUserId) {
     filter.assignedUserId = options.assignedUserId;
   } else if (options.team && options.team !== "All") {
     filter.team = options.team;
@@ -366,10 +372,10 @@ export async function getScheduleStats(
   startDate?: string,
   endDate?: string,
   team?: string,
-  assignedUserId?: string
+  scopeFilter?: Record<string, unknown>
 ) {
-  if (assignedUserId) {
-    const filter: Record<string, unknown> = { assignedUserId };
+  if (scopeFilter && Object.keys(scopeFilter).length > 0) {
+    const filter: Record<string, unknown> = { ...scopeFilter };
     if (startDate || endDate) {
       filter.scheduledDate = {};
       if (startDate) {

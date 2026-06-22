@@ -31,7 +31,8 @@ import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UserViewDialog } from "@/components/users/UserViewDialog";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
 import { TeamsPanel } from "@/components/teams/TeamsPanel";
-import type { ManagedUser } from "@/lib/types";
+import { UserCredentialsDialog } from "@/components/users/UserCredentialsDialog";
+import type { ManagedUser, UserCredentials } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 import { canManageUsers } from "@/lib/rbac";
 import { downloadBlob, exportUsersToExcel } from "@/lib/user-export";
@@ -64,6 +65,8 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [resetConfirmUser, setResetConfirmUser] = useState<ManagedUser | null>(null);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<UserCredentials | null>(null);
+  const [createdUserName, setCreatedUserName] = useState("");
 
   const filters = useMemo(
     () => ({
@@ -95,9 +98,18 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
 
   const handleCreate = async (values: Parameters<typeof createMutation.mutateAsync>[0]) => {
     try {
-      await createMutation.mutateAsync(values);
+      const result = await createMutation.mutateAsync(values);
       toast.success("User created successfully");
       setFormOpen(false);
+
+      if (result.user.employeeId && result.user.username && values.password) {
+        setCreatedUserName(result.user.name);
+        setCreatedCredentials({
+          employeeId: result.user.employeeId,
+          username: result.user.username,
+          temporaryPassword: values.password,
+        });
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to create user"));
       throw error;
@@ -365,6 +377,18 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
         user={resetUser}
         isSubmitting={resetMutation.isPending}
         onSubmit={handleResetPassword}
+      />
+
+      <UserCredentialsDialog
+        open={Boolean(createdCredentials)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreatedCredentials(null);
+            setCreatedUserName("");
+          }
+        }}
+        employeeName={createdUserName}
+        credentials={createdCredentials}
       />
     </DashboardShell>
   );

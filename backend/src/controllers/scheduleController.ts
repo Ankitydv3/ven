@@ -9,7 +9,7 @@ import {
   getScheduleStats,
   updateScheduleById
 } from "../services/scheduleService";
-import { userTeamName } from "../utils/teamScope";
+import { isTeamRole, scheduleTeamFilter, userTeamName } from "../utils/teamScope";
 
 function parseListQuery(query: Record<string, string | undefined>) {
   return {
@@ -28,15 +28,11 @@ function parseListQuery(query: Record<string, string | undefined>) {
 
 export async function listSchedules(req: AuthRequest, res: Response) {
   const parsed = parseListQuery(req.query as Record<string, string | undefined>);
-  const scopedTeam = userTeamName(req.user);
-  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
+  const isTeamPortalUser = isTeamRole(req.user?.role);
+  const scopeFilter = isTeamPortalUser ? scheduleTeamFilter(req.user) : undefined;
   const params = {
     ...parsed,
-    ...(isTeamPortalUser && req.user?.id
-      ? { assignedUserId: req.user.id }
-      : scopedTeam
-        ? { team: scopedTeam }
-        : {}),
+    ...(scopeFilter ? { scopeFilter } : { team: parsed.team }),
   };
 
   const result = await getSchedules(params);
@@ -79,14 +75,14 @@ export async function calendarSchedules(req: AuthRequest, res: Response) {
     return;
   }
 
-  const scopedTeam = userTeamName(req.user);
-  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
+  const isTeamPortalUser = isTeamRole(req.user?.role);
+  const scopeFilter = isTeamPortalUser ? scheduleTeamFilter(req.user) : undefined;
   const items = await getCalendarSchedules({
     startDate,
     endDate,
-    ...(isTeamPortalUser && req.user?.id
-      ? { assignedUserId: req.user.id }
-      : { team: isTeamPortalUser ? scopedTeam ?? "__unassigned_team__" : team }),
+    ...(scopeFilter
+      ? { scopeFilter }
+      : { team: team && team !== "All" ? team : undefined }),
   });
 
   res.json({ items });
@@ -95,12 +91,13 @@ export async function calendarSchedules(req: AuthRequest, res: Response) {
 export async function scheduleStats(req: AuthRequest, res: Response) {
   const { startDate, endDate } = req.query as Record<string, string | undefined>;
   const scopedTeam = userTeamName(req.user);
-  const isTeamPortalUser = req.user?.role === "team" || req.user?.role === "team_lead";
+  const isTeamPortalUser = isTeamRole(req.user?.role);
+  const scopeFilter = isTeamPortalUser ? scheduleTeamFilter(req.user) : undefined;
   const stats = await getScheduleStats(
     startDate,
     endDate,
-    isTeamPortalUser && req.user?.id ? undefined : scopedTeam ?? undefined,
-    isTeamPortalUser ? req.user?.id : undefined
+    isTeamPortalUser ? undefined : scopedTeam ?? undefined,
+    scopeFilter
   );
   res.json(stats);
 }

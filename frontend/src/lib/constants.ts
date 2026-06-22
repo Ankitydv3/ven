@@ -1,5 +1,3 @@
-export const teamNames = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"] as const;
-
 export const complaintStatuses = [
   "All",
   "Pending Assignment",

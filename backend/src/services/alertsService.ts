@@ -1,7 +1,6 @@
 import Complaint from "../models/Complaint";
 import TaskSchedule from "../models/TaskSchedule";
-
-const TEAM_NAMES = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"] as const;
+import { listActiveTeamNames } from "./teamService";
 
 export interface TeamReport {
   team: string;
@@ -38,26 +37,29 @@ export async function getAlertsData(filters?: { q?: string; team?: string; teamO
     ];
   }
 
+  const activeTeams = await listActiveTeamNames();
   const teamNamesToUse =
-    filters?.team && filters.team !== "All Teams" ? [filters.team] : [...TEAM_NAMES];
+    filters?.team && filters.team !== "All Teams" ? [filters.team] : activeTeams;
 
   const [pendingComplaints, taskAgg] = await Promise.all([
     filters?.teamOnly
       ? Promise.resolve([])
       : Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
-    TaskSchedule.aggregate([
-      { $match: { team: { $in: teamNamesToUse } } },
-      {
-        $group: {
-          _id: "$team",
-          totalTasks: { $sum: 1 },
-          completedTasks: {
-            $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
+    teamNamesToUse.length > 0
+      ? TaskSchedule.aggregate([
+          { $match: { team: { $in: teamNamesToUse } } },
+          {
+            $group: {
+              _id: "$team",
+              totalTasks: { $sum: 1 },
+              completedTasks: {
+                $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
+              },
+              lastUpdated: { $max: "$updatedAt" },
+            },
           },
-          lastUpdated: { $max: "$updatedAt" },
-        },
-      },
-    ]),
+        ])
+      : Promise.resolve([]),
   ]);
 
   const taskMap = new Map(taskAgg.map((row) => [row._id as string, row]));

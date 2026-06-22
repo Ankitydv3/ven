@@ -2,7 +2,6 @@
 
 import { SelectItem } from "@/components/ui/select";
 import { useTeams } from "@/hooks/use-teams";
-import { teamNames } from "@/lib/constants";
 import { readUser } from "@/lib/storage";
 
 interface TeamSelectItemsProps {
@@ -15,20 +14,26 @@ export function TeamSelectItems({ role = "admin", includeAll = false }: TeamSele
   const { data: teams = [], isLoading } = useTeams();
 
   const apiNames = teams.map((team) => team.teamName);
-  const fallbackNames = [...teamNames];
-  const allNames = apiNames.length > 0 ? apiNames : fallbackNames;
 
   const names =
     role === "team" && sessionUser?.teamName
       ? [sessionUser.teamName]
       : role === "team" && sessionUser?.team
         ? [sessionUser.team]
-        : allNames;
+        : apiNames;
 
   if (isLoading && apiNames.length === 0) {
     return (
       <SelectItem value="__loading" disabled>
         Loading teams...
+      </SelectItem>
+    );
+  }
+
+  if (names.length === 0) {
+    return (
+      <SelectItem value="__empty" disabled>
+        No teams available
       </SelectItem>
     );
   }

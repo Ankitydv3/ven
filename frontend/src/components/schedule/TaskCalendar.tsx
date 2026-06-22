@@ -17,7 +17,7 @@ import {
   minutesToTime,
   parseTimeToMinutes,
   startOfWeek,
-  teamColors,
+  getTeamColorStyle,
   toDateInputValue,
 } from "@/lib/schedule-constants";
 import { cn } from "@/lib/utils";
@@ -393,7 +393,7 @@ export function TaskCalendar({
 }
 
 function CalendarPill({ task, compact }: { task: TaskSchedule; compact?: boolean }) {
-  const style = teamColors[task.team] ?? teamColors["Team Alpha"];
+  const style = getTeamColorStyle(task.team);
   return (
     <div
       className={cn(
@@ -425,7 +425,7 @@ function CalendarEvent({
   onResizeStart: () => void;
   onResize: (endMinutes: number) => void;
 }) {
-  const style = teamColors[task.team] ?? teamColors["Team Alpha"];
+  const style = getTeamColorStyle(task.team);
   const start = parseTimeToMinutes(task.startTime);
   const end = parseTimeToMinutes(task.endTime);
   const top = ((start - CALENDAR_START_HOUR * 60) / 60) * HOUR_HEIGHT;

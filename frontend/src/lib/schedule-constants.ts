@@ -10,32 +10,73 @@ export const scheduleStatuses = [
 
 export const schedulePriorities = ["All", "Low", "Medium", "High", "Critical"] as const;
 
-export const teamColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  "Team Alpha": {
+const TEAM_COLOR_PALETTE = [
+  {
     bg: "bg-violet-500/15",
     border: "border-violet-500/40",
     text: "text-violet-600 dark:text-violet-300",
     dot: "bg-violet-500",
   },
-  "Team Beta": {
+  {
     bg: "bg-blue-500/15",
     border: "border-blue-500/40",
     text: "text-blue-600 dark:text-blue-300",
     dot: "bg-blue-500",
   },
-  "Team Gamma": {
+  {
     bg: "bg-cyan-500/15",
     border: "border-cyan-500/40",
     text: "text-cyan-600 dark:text-cyan-300",
     dot: "bg-cyan-500",
   },
-  "Team Delta": {
+  {
     bg: "bg-orange-500/15",
     border: "border-orange-500/40",
     text: "text-orange-600 dark:text-orange-300",
     dot: "bg-orange-500",
   },
-};
+  {
+    bg: "bg-pink-500/15",
+    border: "border-pink-500/40",
+    text: "text-pink-600 dark:text-pink-300",
+    dot: "bg-pink-500",
+  },
+  {
+    bg: "bg-teal-500/15",
+    border: "border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-300",
+    dot: "bg-teal-500",
+  },
+  {
+    bg: "bg-purple-500/15",
+    border: "border-purple-500/40",
+    text: "text-purple-600 dark:text-purple-300",
+    dot: "bg-purple-500",
+  },
+  {
+    bg: "bg-amber-500/15",
+    border: "border-amber-500/40",
+    text: "text-amber-600 dark:text-amber-300",
+    dot: "bg-amber-500",
+  },
+] as const;
+
+export type TeamColorStyle = (typeof TEAM_COLOR_PALETTE)[number];
+
+function hashTeamName(teamName: string) {
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i += 1) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+}
+
+export function getTeamColorStyle(teamName: string): TeamColorStyle {
+  return TEAM_COLOR_PALETTE[hashTeamName(teamName) % TEAM_COLOR_PALETTE.length];
+}
+
+/** @deprecated Use getTeamColorStyle(teamName) for dynamic teams */
+export const teamColors: Record<string, TeamColorStyle> = {};
 
 export const statusBadgeVariant: Record<
   string,

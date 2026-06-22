@@ -1,6 +1,34 @@
 import Team from "../models/Team";
 import { ApiError } from "../utils/ApiError";
 
+const TEAM_COLOR_PALETTE = [
+  "#A855F7",
+  "#3B82F6",
+  "#22C55E",
+  "#F59E0B",
+  "#EC4899",
+  "#14B8A6",
+  "#8B5CF6",
+  "#F97316",
+];
+
+function hashTeamName(teamName: string) {
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i += 1) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+}
+
+export function getTeamColorHex(teamName: string) {
+  return TEAM_COLOR_PALETTE[hashTeamName(teamName) % TEAM_COLOR_PALETTE.length];
+}
+
+export async function listActiveTeamNames() {
+  const teams = await Team.find({ status: "active" }).sort({ teamName: 1 }).lean();
+  return teams.map((team) => team.teamName);
+}
+
 function teamNameRegex(teamName: string) {
   return new RegExp(`^${teamName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 }
