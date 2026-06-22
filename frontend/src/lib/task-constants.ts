@@ -1,4 +1,13 @@
-export const taskStatuses = ["All", "Pending", "In Progress", "Completed", "Cancelled", "Overdue"] as const;
+export const taskStatuses = [
+  "All",
+  "Pending",
+  "In Progress",
+  "Completed",
+  "Cancelled",
+  "Overdue",
+  "Need Re-visit",
+  "Need Material",
+] as const;
 
 export const taskPriorities = ["All", "Low", "Medium", "High", "Critical"] as const;
 
@@ -25,6 +34,10 @@ export const statusBadgeVariant: Record<
   Cancelled: "default",
 
   Overdue: "danger",
+
+  "Need Re-visit": "warning",
+
+  "Need Material": "info",
 
 };
 
@@ -81,6 +94,10 @@ export const STATUS_CHART_COLORS: Record<string, string> = {
   "In Progress": "#EAB308",
 
   Completed: "#22C55E",
+
+  "Need Re-visit": "#F97316",
+
+  "Need Material": "#8B5CF6",
 
 };
 

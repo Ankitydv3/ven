@@ -1,5 +1,18 @@
 import { Schema, model } from "mongoose";
 
+const taskHistorySchema = new Schema(
+  {
+    action: { type: String, required: true },
+    by: { type: String, required: true },
+    role: { type: String, default: "" },
+    status: { type: String, required: true },
+    remarks: { type: String, default: "" },
+    photoUrl: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const taskSchema = new Schema(
   {
     taskId: { type: String, required: true, unique: true, index: true },
@@ -14,7 +27,15 @@ const taskSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["Pending", "In Progress", "Completed", "Cancelled", "Overdue"],
+      enum: [
+        "Pending",
+        "In Progress",
+        "Completed",
+        "Cancelled",
+        "Overdue",
+        "Need Re-visit",
+        "Need Material",
+      ],
       default: "Pending",
       index: true,
     },
@@ -28,6 +49,7 @@ const taskSchema = new Schema(
     completedAt: { type: Date },
     remarks: { type: String, default: "" },
     isLocked: { type: Boolean, default: false },
+    history: { type: [taskHistorySchema], default: [] },
   },
   { timestamps: true }
 );

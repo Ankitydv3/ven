@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronDown,
   LayoutDashboard,
   Users,
   FileText,
@@ -23,14 +24,15 @@ import {
   UserCog,
   ShoppingBag,
   CalendarDays,
-  CreditCard
+  CreditCard,
+  Package,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { clearSession, readUser } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import { navGroups } from "@/lib/constants";
+import { navGroups, type NavItem } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePendingAlertsCount } from "@/hooks/useAlerts";
 
@@ -53,7 +55,101 @@ const iconMap: Record<string, any> = {
   "System Health": Home,
   "Audit Log": Clock,
   "User Management": UserCog,
+  Alerts: Bell,
+  "Material Requests": Package,
 };
+
+function NavLinkItem({
+  item,
+  pathname,
+  onNavigate,
+  nested = false,
+}: {
+  item: NavItem;
+  pathname: string;
+  onNavigate?: () => void;
+  nested?: boolean;
+}) {
+  if (!item.href) return null;
+  const active = pathname === item.href;
+  const Icon = iconMap[item.label] || ChevronRight;
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={cn(
+        "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
+        nested && "ml-4 py-2.5 rounded-xl",
+        active
+          ? "bg-white/10 text-white shadow-lg shadow-white/5"
+          : "text-slate-300 hover:bg-white/5 hover:text-white hover:translate-x-1"
+      )}
+    >
+      <span className="flex items-center gap-3">
+        <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+        {item.label}
+      </span>
+      {active ? <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" /> : null}
+    </Link>
+  );
+}
+
+function NavGroupItem({
+  item,
+  pathname,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const childActive = item.children?.some((c) => c.href === pathname) ?? false;
+  const [open, setOpen] = useState(childActive);
+  const Icon = iconMap[item.label] || ChevronRight;
+
+  if (!item.children?.length) {
+    return <NavLinkItem item={item} pathname={pathname} onNavigate={onNavigate} />;
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
+          childActive
+            ? "bg-white/10 text-white"
+            : "text-slate-300 hover:bg-white/5 hover:text-white"
+        )}
+      >
+        <span className="flex items-center gap-3">
+          <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+          {item.label}
+        </span>
+        {open ? (
+          <ChevronDown className="h-4 w-4 opacity-60" />
+        ) : (
+          <ChevronRight className="h-4 w-4 opacity-60" />
+        )}
+      </button>
+      {open && (
+        <div className="space-y-1 border-l border-white/10 ml-6 pl-2">
+          {item.children.map((child) => (
+            <NavLinkItem
+              key={child.href ?? child.label}
+              item={child}
+              pathname={pathname}
+              onNavigate={onNavigate}
+              nested
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function DashboardShell({ 
   role, 
@@ -61,17 +157,27 @@ export function DashboardShell({
   subtitle, 
   children 
 }: { 
-  role: "admin" | "team"; 
+  role: "admin" | "team" | "store"; 
   title: string; 
   subtitle: string; 
   children: React.ReactNode 
 }) {
   const pathname = usePathname();
   const user = readUser();
-  const navItems = role === "admin" ? navGroups.admin : navGroups.team;
+  const navItems =
+    role === "admin"
+      ? navGroups.admin
+      : role === "store"
+        ? navGroups.store
+        : navGroups.team;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { data: pendingAlerts = 0 } = usePendingAlertsCount(role);
-  const alertsHref = role === "admin" ? "/admin/alerts" : "/team/alerts";
+  const alertsHref =
+    role === "admin"
+      ? "/admin/alerts"
+      : role === "store"
+        ? "/store/alerts"
+        : "/team/alerts";
 
   // Close mobile menu on route change
   const handleNavClick = () => {
@@ -94,36 +200,16 @@ export function DashboardShell({
         </div>
 <div className="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
           <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
-            {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
+            {role === "admin" ? "Admin Mode" : role === "store" ? "Store Manager" : user?.team ?? "Team Mode"}
           </Badge>
           <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
           <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
         </div>
 
         <nav className="space-y-2">
-          {navItems.map((item) => {
-            const active = pathname === item.href;
-            const Icon = iconMap[item.label] || ChevronRight;
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
-                  active 
-                    ? "bg-white/10 text-white shadow-lg shadow-white/5" 
-                    : "text-slate-300 hover:bg-white/5 hover:text-white hover:translate-x-1"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
-                  {item.label}
-                </span>
-                {active ? <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" /> : null}
-              </Link>
-            );
-          })}
+          {navItems.map((item) => (
+            <NavGroupItem key={item.label} item={item} pathname={pathname} />
+          ))}
         </nav>
 
         
@@ -172,34 +258,14 @@ export function DashboardShell({
               </div>
 
               <nav className="space-y-2">
-                {navItems.map((item) => {
-                  const active = pathname === item.href;
-                  const Icon = iconMap[item.label] || ChevronRight;
-                  
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={handleNavClick}
-                      className={cn(
-                        "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
-                        active 
-                          ? "bg-white/10 text-white shadow-lg shadow-white/5" 
-                          : "text-slate-300 hover:bg-white/5 hover:text-white"
-                      )}
-                    >
-                      <span className="flex items-center gap-3">
-                        <Icon className="h-4 w-4 opacity-60" />
-                        {item.label}
-                      </span>
-                      {active ? (
-                        <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 opacity-40" />
-                      )}
-                    </Link>
-                  );
-                })}
+                {navItems.map((item) => (
+                  <NavGroupItem
+                    key={item.label}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={handleNavClick}
+                  />
+                ))}
               </nav>
 
               <div className="mt-auto rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">

@@ -13,6 +13,8 @@ export async function getAlerts(req: AuthRequest, res: Response) {
     team: scopedTeam,
     teamOnly,
     scopeFilter: Object.keys(scopeFilter).length > 0 ? scopeFilter : undefined,
+    userId: req.user?.id,
+    userRole: req.user?.role,
   });
   res.json(data);
 }

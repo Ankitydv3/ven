@@ -41,8 +41,15 @@ export async function updateTask(id: string, payload: Partial<TaskPayload> & { s
   return data;
 }
 
-export async function patchTaskStatus(id: string, status: string) {
-  const { data } = await api.patch<TaskMutationResponse>(`/tasks/${id}/status`, { status });
+export async function patchTaskStatus(
+  id: string,
+  status: string,
+  options?: { notes?: string; photoUrl?: string; materialName?: string; quantity?: number; unit?: string }
+) {
+  const { data } = await api.patch<TaskMutationResponse>(`/tasks/${id}/status`, {
+    status,
+    ...options,
+  });
   return data;
 }
 

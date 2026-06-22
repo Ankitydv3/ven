@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-const createRoles = ["admin", "sub_admin", "team"] as const;
-const allRoles = ["super_admin", "admin", "sub_admin", "team", "manager", "team_lead", "accountant", "customer"] as const;
+const createRoles = ["admin", "sub_admin", "team", "store_manager"] as const;
+const allRoles = ["super_admin", "admin", "sub_admin", "team", "manager", "team_lead", "accountant", "customer", "store_manager"] as const;
 
 const passwordField = z.string().min(8, "Password must be at least 8 characters");
 

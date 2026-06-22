@@ -1,6 +1,6 @@
 export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
 export type Priority = "High" | "Medium" | "Low";
-export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant" | "store_manager";
 export type SubAdminType = "accountant" | "plant_head";
 export type UserStatus = "active" | "disabled";
 
@@ -266,12 +266,34 @@ export interface TeamReport {
   updatedAt: string;
 }
 
+export interface MaterialAlertItem {
+  _id: string;
+  type: string;
+  requestId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface AlertsResponse {
   pendingComplaints: Complaint[];
   teamReports: TeamReport[];
+  taskAlerts?: Array<{
+    _id: string;
+    type: string;
+    taskId: string;
+    title: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+  }>;
+  materialAlerts?: MaterialAlertItem[];
   counts: {
     pendingReview: number;
     teamsWithPending: number;
+    taskAlerts?: number;
+    materialAlerts?: number;
   };
 }
 

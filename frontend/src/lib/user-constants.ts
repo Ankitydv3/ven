@@ -13,12 +13,14 @@ export const USER_ROLES = [
   { value: "team", label: "USER" },
   { value: "manager", label: "MANAGER" },
   { value: "accountant", label: "ACCOUNTANT" },
+  { value: "store_manager", label: "STORE MANAGER" },
 ] as const;
 
 export const CREATE_USER_ROLES = [
   { value: "admin", label: "Admin" },
   { value: "sub_admin", label: "Sub Admin" },
   { value: "team", label: "User" },
+  { value: "store_manager", label: "Store Manager" },
 ] as const;
 
 export type UserSortField =

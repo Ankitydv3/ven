@@ -43,13 +43,18 @@ export function useDeclineComplaint() {
   });
 }
 
-export function usePendingAlertsCount(role: "admin" | "team" = "admin") {
+export function usePendingAlertsCount(role: "admin" | "team" | "store" = "admin") {
   const sessionUser = readUser();
   const isAdmin = isAdminPortalRole(sessionUser?.role);
+  const isStore = sessionUser?.role === "store_manager";
   return useQuery({
     queryKey: ["alerts", "count", role, sessionUser?.id],
     queryFn: () => fetchAlerts(),
     staleTime: 60 * 1000,
-    select: (data) => (isAdmin ? data.counts.pendingReview : data.counts.teamsWithPending),
+    select: (data) => {
+      if (isStore) return data.counts.materialAlerts ?? 0;
+      if (isAdmin) return (data.counts.pendingReview ?? 0) + (data.counts.materialAlerts ?? 0);
+      return data.counts.teamsWithPending;
+    },
   });
 }

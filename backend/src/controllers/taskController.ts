@@ -95,6 +95,12 @@ export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
     id: req.user?.id ?? "",
     role: req.user?.role ?? "",
     name: req.user?.name ?? "",
+  }, {
+    notes: req.body.notes,
+    photoUrl: req.body.photoUrl,
+    materialName: req.body.materialName,
+    quantity: req.body.quantity,
+    unit: req.body.unit,
   });
   res.json({ message: "Task status updated", task });
 }

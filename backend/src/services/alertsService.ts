@@ -1,8 +1,10 @@
 import Complaint from "../models/Complaint";
 import Task from "../models/Task";
 import TaskAlert from "../models/TaskAlert";
+import MaterialAlert from "../models/MaterialAlert";
 import { listActiveTeamNames } from "./teamService";
 import { applyOverdueUpdates } from "./taskService";
+import { isAdminRole } from "../utils/teamScope";
 
 export interface TeamReport {
   team: string;
@@ -12,6 +14,16 @@ export interface TeamReport {
   status: "all_complete" | "has_pending" | "no_tasks";
   message: string;
   updatedAt: string;
+}
+
+export interface MaterialAlertItem {
+  _id: string;
+  type: string;
+  requestId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface TaskAlertItem {
@@ -46,6 +58,8 @@ export async function getAlertsData(filters?: {
   team?: string;
   teamOnly?: boolean;
   scopeFilter?: Record<string, unknown>;
+  userId?: string;
+  userRole?: string;
 }) {
   await applyOverdueUpdates();
 
@@ -78,7 +92,7 @@ export async function getAlertsData(filters?: {
     alertFilter.userId = filters.scopeFilter.assignedUserId;
   }
 
-  const [pendingComplaints, taskAgg, taskAlerts] = await Promise.all([
+  const [pendingComplaints, taskAgg, taskAlerts, materialAlerts] = await Promise.all([
     filters?.teamOnly
       ? Promise.resolve([])
       : Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
@@ -98,6 +112,17 @@ export async function getAlertsData(filters?: {
         ])
       : Promise.resolve([]),
     TaskAlert.find(alertFilter).sort({ createdAt: -1 }).limit(50).lean(),
+    filters?.userId
+      ? MaterialAlert.find({
+          $or: [{ userId: filters.userId }, ...(filters.userRole === "store_manager" ? [{ targetRole: "store_manager" }] : [])],
+          read: false,
+        })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .lean()
+      : isAdminRole(filters?.userRole ?? "")
+        ? MaterialAlert.find({ read: false }).sort({ createdAt: -1 }).limit(50).lean()
+        : Promise.resolve([]),
   ]);
 
   const taskMap = new Map(taskAgg.map((row) => [row._id as string, row]));
@@ -159,14 +184,36 @@ export async function getAlertsData(filters?: {
     );
   }
 
+  let materialAlertItems: MaterialAlertItem[] = materialAlerts.map((a) => ({
+    _id: String(a._id),
+    type: a.type,
+    requestId: a.requestId,
+    title: a.title,
+    message: a.message,
+    read: a.read,
+    createdAt: a.createdAt.toISOString(),
+  }));
+
+  if (filters?.q) {
+    const q = filters.q.toLowerCase();
+    materialAlertItems = materialAlertItems.filter(
+      (a) =>
+        a.requestId.toLowerCase().includes(q) ||
+        a.title.toLowerCase().includes(q) ||
+        a.message.toLowerCase().includes(q)
+    );
+  }
+
   return {
     pendingComplaints,
     teamReports,
     taskAlerts: alerts,
+    materialAlerts: materialAlertItems,
     counts: {
       pendingReview: pendingComplaints.length,
       teamsWithPending: teamReports.filter((r) => r.status === "has_pending").length,
       taskAlerts: alerts.length,
+      materialAlerts: materialAlertItems.length,
     },
   };
 }

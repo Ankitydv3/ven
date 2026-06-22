@@ -57,6 +57,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const router = useRouter();
   const sessionUser = readUser();
   const canManage = canManageOrders(sessionUser?.role);
+  const myTasksPath = role === "admin" ? "/admin/my-tasks" : "/team/my-tasks";
+
+  const openCustomerTasks = useCallback(
+    (order: Order) => {
+      router.push(`${myTasksPath}?q=${encodeURIComponent(order.customerName)}`);
+    },
+    [router, myTasksPath]
+  );
   const { data: teams = [] } = useTeams();
   const teamOptions = teams.map((team) => team.teamName);
 
@@ -616,14 +624,18 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                       {/* Customer Details */}
                       <TD>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 dark:text-white">
+                        <button
+                          type="button"
+                          onClick={() => openCustomerTasks(order)}
+                          className="flex flex-col text-left transition hover:text-[#4F9B8C]"
+                        >
+                          <span className="font-semibold text-slate-900 underline-offset-2 hover:underline dark:text-white">
                             {order.customerName}
                           </span>
                           <span className="text-xs text-slate-400 dark:text-slate-400">
                             {order.phone} • {order.email}
                           </span>
-                        </div>
+                        </button>
                       </TD>
 
                       {/* Material Type */}
@@ -766,7 +778,13 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <p className="font-mono text-sm font-semibold text-[#04342C] dark:text-white">
                         {order.orderId}
                       </p>
-                      <p className="font-semibold text-slate-900 dark:text-white mt-1">
+                      <p
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openCustomerTasks(order)}
+                        onKeyDown={(e) => e.key === "Enter" && openCustomerTasks(order)}
+                        className="font-semibold text-slate-900 underline-offset-2 hover:text-[#4F9B8C] hover:underline dark:text-white mt-1 cursor-pointer"
+                      >
                         {order.customerName}
                       </p>
                     </div>
@@ -941,9 +959,15 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Name</span>
-                      <span className="font-medium text-slate-800 dark:text-white">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (viewTarget) openCustomerTasks(viewTarget);
+                        }}
+                        className="font-medium text-[#4F9B8C] underline-offset-2 hover:underline"
+                      >
                         {viewTarget.customerName}
-                      </span>
+                      </button>
                     </div>
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Phone</span>

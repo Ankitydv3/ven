@@ -13,6 +13,7 @@ import reportsRoutes from "./routes/reportsRoutes";
 import alertsRoutes from "./routes/alertsRoutes";
 import userRoutes from "./routes/userRoutes";
 import teamRoutes from "./routes/teamRoutes";
+import materialRequestRoutes from "./routes/materialRequestRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
@@ -37,6 +38,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/alerts", alertsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/teams", teamRoutes);
+app.use("/api/material-requests", materialRequestRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

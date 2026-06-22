@@ -5,6 +5,7 @@ import Complaint from "../models/Complaint";
 import User from "../models/User";
 import Team from "../models/Team";
 import { generateTaskId } from "../utils/taskId";
+import { createMaterialRequest } from "./materialRequestService";
 import { ApiError } from "../utils/ApiError";
 import { isAdminRole, isTeamRole } from "../utils/teamScope";
 import {
@@ -13,7 +14,14 @@ import {
   todayDateKey,
 } from "../utils/dateKey";
 
-export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Cancelled" | "Overdue";
+export type TaskStatus =
+  | "Pending"
+  | "In Progress"
+  | "Completed"
+  | "Cancelled"
+  | "Overdue"
+  | "Need Re-visit"
+  | "Need Material";
 export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
 const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["In Progress", "Completed"];
@@ -210,6 +218,16 @@ export async function createTask(payload: TaskPayload) {
     dueDateKey,
     remarks: payload.remarks ?? "",
     isLocked: false,
+    history: [
+      {
+        action: "Task Assigned",
+        by: payload.createdBy,
+        role: "admin",
+        status: "Pending",
+        remarks: payload.remarks ?? "",
+        createdAt: new Date(),
+      },
+    ],
   });
 
   await createTaskAlert(
@@ -227,7 +245,20 @@ export async function getTasks(options: TaskListOptions) {
   const filter: Record<string, unknown> = {};
 
   if (options.q) {
-    filter.$or = [
+    const matchingComplaints = await Complaint.find({
+      $or: [
+        { clientName: { $regex: options.q, $options: "i" } },
+        { mobileNumber: { $regex: options.q, $options: "i" } },
+        { location: { $regex: options.q, $options: "i" } },
+        { complaintId: { $regex: options.q, $options: "i" } },
+      ],
+    })
+      .select("complaintId")
+      .lean();
+
+    const complaintIds = matchingComplaints.map((c) => c.complaintId);
+
+    const searchClauses: Record<string, unknown>[] = [
       { taskId: { $regex: options.q, $options: "i" } },
       { complaintId: { $regex: options.q, $options: "i" } },
       { title: { $regex: options.q, $options: "i" } },
@@ -235,6 +266,12 @@ export async function getTasks(options: TaskListOptions) {
       { assignedUserName: { $regex: options.q, $options: "i" } },
       { assignedTeamName: { $regex: options.q, $options: "i" } },
     ];
+
+    if (complaintIds.length > 0) {
+      searchClauses.push({ complaintId: { $in: complaintIds } });
+    }
+
+    filter.$or = searchClauses;
   }
 
   if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
@@ -271,7 +308,22 @@ export async function getTasks(options: TaskListOptions) {
     Task.countDocuments(filter),
   ]);
 
-  return { items, total };
+  const complaintIds = items
+    .map((t) => t.complaintId)
+    .filter((id): id is string => Boolean(id));
+
+  let complaintMap: Record<string, Record<string, unknown>> = {};
+  if (complaintIds.length > 0) {
+    const complaints = await Complaint.find({ complaintId: { $in: complaintIds } }).lean();
+    complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
+  }
+
+  const enrichedItems = items.map((task) => ({
+    ...task,
+    complaint: task.complaintId ? complaintMap[task.complaintId] ?? null : null,
+  }));
+
+  return { items: enrichedItems, total };
 }
 
 export async function getTaskById(id: string) {
@@ -280,7 +332,13 @@ export async function getTaskById(id: string) {
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
-  return task;
+
+  let complaint = null;
+  if (task.complaintId) {
+    complaint = await Complaint.findOne({ complaintId: task.complaintId }).lean();
+  }
+
+  return { ...task, complaint };
 }
 
 export async function getCalendarTaskCounts(options: CalendarOptions) {
@@ -351,6 +409,7 @@ export async function getTaskStats(
   }
 
   const todayKey = todayDateKey();
+  const todayStart = startOfDay(new Date());
 
   const [
     total,
@@ -361,6 +420,9 @@ export async function getTaskStats(
     upcoming,
     dueToday,
     completedOnTime,
+    completedToday,
+    needRevisit,
+    needMaterial,
   ] = await Promise.all([
     Task.countDocuments(baseFilter),
     Task.countDocuments({ ...baseFilter, status: "Pending" }),
@@ -388,6 +450,13 @@ export async function getTaskStats(
         ],
       },
     }),
+    Task.countDocuments({
+      ...baseFilter,
+      status: "Completed",
+      completedAt: { $gte: todayStart },
+    }),
+    Task.countDocuments({ ...baseFilter, status: "Need Re-visit" }),
+    Task.countDocuments({ ...baseFilter, status: "Need Material" }),
   ]);
 
   const completionRate = total === 0 ? 0 : Math.round((completed / total) * 1000) / 10;
@@ -403,6 +472,9 @@ export async function getTaskStats(
     pendingRate,
     inProgress,
     completed,
+    completedToday,
+    needRevisit,
+    needMaterial,
     completedOnTime,
     completedOnTimeRate,
     overdue,
@@ -413,6 +485,8 @@ export async function getTaskStats(
       pending,
       inProgress,
       completed,
+      needRevisit,
+      needMaterial,
     },
   };
 }
@@ -573,6 +647,12 @@ async function applyStatusChange(
     return;
   }
 
+  if (status === "Need Re-visit" || status === "Need Material") {
+    task.status = "Pending";
+    task.isLocked = false;
+    return;
+  }
+
   task.status = status;
   task.isLocked = false;
 }
@@ -580,7 +660,14 @@ async function applyStatusChange(
 export async function patchTaskStatusById(
   id: string,
   status: TaskStatus,
-  actor: { id: string; role: string; name?: string }
+  actor: { id: string; role: string; name?: string },
+  options?: {
+    notes?: string;
+    photoUrl?: string;
+    materialName?: string;
+    quantity?: number;
+    unit?: string;
+  }
 ) {
   const task = await Task.findById(id);
   if (!task) {
@@ -592,8 +679,8 @@ export async function patchTaskStatusById(
   }
 
   if (isAdminRole(actor.role)) {
-    if (["In Progress", "Completed"].includes(status)) {
-      throw new ApiError(403, "Only assigned team members can start or complete tasks");
+    if (["In Progress", "Completed", "Need Re-visit", "Need Material"].includes(status)) {
+      throw new ApiError(403, "Only assigned team members can update task progress");
     }
     const allowReopen = status === "Pending" && task.status === "Completed";
     if (!["Cancelled", "Pending"].includes(status) || (status === "Pending" && !allowReopen)) {
@@ -602,9 +689,22 @@ export async function patchTaskStatusById(
   }
 
   if (isTeamRole(actor.role)) {
-    if (!["In Progress", "Completed"].includes(status)) {
-      throw new ApiError(403, "You can only mark tasks as In Progress or Completed");
+    const fromInProgress = task.status === "In Progress";
+    const progressStatuses: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
+    const startStatuses: TaskStatus[] = ["In Progress"];
+
+    if (fromInProgress) {
+      if (!progressStatuses.includes(status)) {
+        throw new ApiError(403, "You can mark tasks as Completed, Need Re-visit, or Need Material");
+      }
+    } else if (startStatuses.includes(status)) {
+      if (!["Pending", "Overdue"].includes(task.status)) {
+        throw new ApiError(400, "Only pending tasks can be started");
+      }
+    } else {
+      throw new ApiError(403, "You can only start tasks or update in-progress tasks");
     }
+
     if (task.status === "Completed" || task.isLocked) {
       throw new ApiError(400, "Completed tasks cannot be updated");
     }
@@ -612,7 +712,54 @@ export async function patchTaskStatusById(
 
   const allowReopen = isAdminRole(actor.role) && status === "Pending" && task.status === "Completed";
   await applyStatusChange(task, status, { allowReopen });
+
+  const historyStatus =
+    status === "Need Re-visit" || status === "Need Material" ? "Pending" : status;
+
+  const actionLabel =
+    status === "In Progress"
+      ? "Task Started"
+      : status === "Completed"
+        ? "Task Completed"
+        : status === "Need Re-visit"
+          ? "Marked Need Re-visit (Pending)"
+          : status === "Need Material"
+            ? "Marked Need Material (Pending)"
+            : `Status Updated to ${status}`;
+
+  if (!task.history) {
+    task.history = [];
+  }
+  task.history.push({
+    action: actionLabel,
+    by: actor.name ?? "User",
+    role: actor.role,
+    status: historyStatus,
+    remarks: options?.notes ?? "",
+    photoUrl: options?.photoUrl ?? "",
+    createdAt: new Date(),
+  });
+
+  if (options?.notes) {
+    task.remarks = options.notes;
+  }
+
   await task.save();
+
+  if (status === "Need Material" && options?.materialName && options?.quantity && options?.unit) {
+    await createMaterialRequest({
+      materialName: options.materialName,
+      quantity: options.quantity,
+      unit: options.unit,
+      remarks: options.notes ?? `Material needed for task ${task.taskId}`,
+      imageUrl: options?.photoUrl ?? "",
+      taskId: task.taskId,
+      complaintId: task.complaintId,
+      requestedBy: actor.name ?? "User",
+      requestedById: actor.id,
+      department: task.assignedTeamName ?? "",
+    });
+  }
 
   if (task.complaintId && (status === "In Progress" || status === "Completed")) {
     await syncComplaintFromTask(task.complaintId, status, {

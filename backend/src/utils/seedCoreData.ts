@@ -193,6 +193,28 @@ export async function seedCoreData() {
     { upsert: true }
   );
 
+  const storePassword = await bcrypt.hash("123456", 10);
+  await User.updateOne(
+    { email: "store@oknadesigns.com" },
+    {
+      $set: {
+        employeeId: "EMPST001",
+        username: "store.empst001",
+        mobile: "9000000099",
+        name: "Store Manager",
+        email: "store@oknadesigns.com",
+        password: storePassword,
+        role: "store_manager",
+        designation: "Store Manager",
+        department: "Store",
+        status: "active",
+        createdBy: "System",
+        deletedAt: null,
+      },
+    },
+    { upsert: true }
+  );
+
   for (const teamUser of teamUsers) {
     const password = await bcrypt.hash("123456", 10);
     const teamDoc = await Team.findOne({ teamName: teamUser.team });

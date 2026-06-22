@@ -1,4 +1,4 @@
-export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant";
+export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant" | "store_manager";
 export type SubAdminType = "accountant" | "plant_head";
 
 export interface JwtUser {

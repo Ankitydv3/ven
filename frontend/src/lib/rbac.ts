@@ -8,16 +8,18 @@ export const ROLE_RANK: Record<UserRole, number> = {
   manager: 3,
   accountant: 2,
   team: 4,
+  store_manager: 3,
   customer: 5,
 };
 
 export const MANAGEABLE_ROLES: Record<UserRole, UserRole[]> = {
-  super_admin: ["admin", "sub_admin", "team"],
-  admin: ["sub_admin", "team"],
+  super_admin: ["admin", "sub_admin", "team", "store_manager"],
+  admin: ["sub_admin", "team", "store_manager"],
   sub_admin: ["team"],
   team_lead: [],
   manager: [],
   accountant: [],
+  store_manager: [],
   team: [],
   customer: [],
 };

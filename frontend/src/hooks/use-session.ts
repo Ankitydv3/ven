@@ -8,8 +8,9 @@ import type { UserRole } from "@/lib/types";
 
 const ADMIN_PORTAL_ROLES: UserRole[] = ["super_admin", "admin", "sub_admin"];
 const TEAM_PORTAL_ROLES: UserRole[] = ["team", "team_lead", "manager", "accountant"];
+const STORE_PORTAL_ROLES: UserRole[] = ["store_manager"];
 
-export function useSession(portal?: "admin" | "team") {
+export function useSession(portal?: "admin" | "team" | "store") {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<ReturnType<typeof readUser>>(null);
 
@@ -26,7 +27,12 @@ export function useSession(portal?: "admin" | "team") {
       return;
     }
 
-    const allowedRoles = portal === "admin" ? ADMIN_PORTAL_ROLES : TEAM_PORTAL_ROLES;
+    const allowedRoles =
+      portal === "admin"
+        ? ADMIN_PORTAL_ROLES
+        : portal === "store"
+          ? STORE_PORTAL_ROLES
+          : TEAM_PORTAL_ROLES;
     if (!allowedRoles.includes(user.role)) {
       const redirectTo = getDashboardPathForRole(user.role);
       window.location.href = redirectTo ?? LOGIN_PATH;

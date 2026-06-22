@@ -9,7 +9,23 @@ export function usePatchTaskStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => patchTaskStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      notes,
+      photoUrl,
+      materialName,
+      quantity,
+      unit,
+    }: {
+      id: string;
+      status: string;
+      notes?: string;
+      photoUrl?: string;
+      materialName?: string;
+      quantity?: number;
+      unit?: string;
+    }) => patchTaskStatus(id, status, { notes, photoUrl, materialName, quantity, unit }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       void queryClient.refetchQueries({ queryKey: taskKeys.all });
@@ -19,6 +35,7 @@ export function usePatchTaskStatus() {
       void queryClient.invalidateQueries({ queryKey: ["reports"] });
       void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
       void queryClient.refetchQueries({ queryKey: complaintKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["material-requests"] });
     },
   });
 }
