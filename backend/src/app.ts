@@ -11,7 +11,6 @@ import scheduleRoutes from "./routes/scheduleRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import reportsRoutes from "./routes/reportsRoutes";
 import alertsRoutes from "./routes/alertsRoutes";
-import teamRoutes from "./routes/teamRoutes";
 import userRoutes from "./routes/userRoutes";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 
@@ -35,7 +34,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/alerts", alertsRoutes);
-app.use("/api/teams", teamRoutes);
 app.use("/api/users", userRoutes);
 
 app.use(notFound);

@@ -1,39 +1,17 @@
 import bcrypt from "bcryptjs";
 import Complaint from "../models/Complaint";
 import User from "../models/User";
-import Team from "../models/Team";
 import Order from "../models/Order";
 import { generateComplaintId } from "./complaintId";
-
-const defaultTeams = [
-  { teamName: "Team Alpha", description: "Primary service team Alpha" },
-  { teamName: "Team Beta", description: "Primary service team Beta" },
-  { teamName: "Team Gamma", description: "Primary service team Gamma" },
-  { teamName: "Dispatch", description: "Dispatch operations team" },
-  { teamName: "Quality", description: "Quality assurance team" },
-  { teamName: "Store", description: "Store management team" },
-  { teamName: "Glass", description: "Glass processing team" },
-  { teamName: "Floor", description: "Floor management team" },
-  { teamName: "Evaluation", description: "Evaluation team" },
-  { teamName: "Accounts", description: "Accounts and billing team" }
-];
 
 const teamUsers = [
   { name: "Team Alpha Lead", email: "teamalpha@gmail.com", team: "Team Alpha" },
   { name: "Team Beta Lead", email: "teambeta@gmail.com", team: "Team Beta" },
   { name: "Team Gamma Lead", email: "teamgamma@gmail.com", team: "Team Gamma" },
-  { name: "Team Delta Lead", email: "teamdelta@gmail.com", team: "Team Delta" }
+  { name: "Team Delta Lead", email: "teamdelta@gmail.com", team: "Team Delta" },
 ];
 
 export async function seedCoreData() {
-  for (const team of defaultTeams) {
-    await Team.updateOne(
-      { teamName: team.teamName },
-      { $set: { ...team, status: "active", createdBy: "System" } },
-      { upsert: true }
-    );
-  }
-
   const adminPassword = await bcrypt.hash("admin123", 10);
   await User.updateOne(
     { email: "superadmin@gmail.com" },
@@ -50,7 +28,7 @@ export async function seedCoreData() {
         status: "active",
         createdBy: "System",
         deletedAt: null,
-      }
+      },
     },
     { upsert: true }
   );
@@ -76,7 +54,6 @@ export async function seedCoreData() {
   );
 
   for (const teamUser of teamUsers) {
-    const team = await Team.findOne({ teamName: teamUser.team });
     const password = await bcrypt.hash("123456", 10);
     await User.updateOne(
       { email: teamUser.email },
@@ -87,12 +64,12 @@ export async function seedCoreData() {
           role: "team",
           teamName: teamUser.team,
           team: teamUser.team,
-          teamId: team?._id,
           designation: "Team Lead",
           department: "Operations",
           status: "active",
-          createdBy: "System"
-        }
+          createdBy: "System",
+          deletedAt: null,
+        },
       },
       { upsert: true }
     );

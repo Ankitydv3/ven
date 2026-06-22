@@ -286,23 +286,6 @@ export interface AuthResponse {
   };
 }
 
-export interface Team {
-  _id: string;
-  teamName: string;
-  description?: string;
-  status: "active" | "inactive";
-  createdBy?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface TeamListResponse {
-  items: Team[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
 export interface ManagedUser {
   _id: string;
   employeeId?: string;

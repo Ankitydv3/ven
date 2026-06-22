@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import type { AuthRequest } from "../middleware/auth";
-import Team from "../models/Team";
 import * as userService from "../services/userService";
 import { ApiError } from "../utils/ApiError";
 import { canCreateUsers, canDeleteUsers, canManageUsers, canResetOthersPassword } from "../utils/rbac";
@@ -39,15 +38,7 @@ function parseUserQuery(req: AuthRequest) {
 }
 
 async function resolveScopedTeamId(req: AuthRequest) {
-  const scopedTeamId = userService.resolveUserTeamScope(req.user);
-  if (scopedTeamId) return scopedTeamId;
-
-  if (req.user?.role === "team" && req.user.team) {
-    const team = await Team.findOne({ teamName: req.user.team });
-    return team ? String(team._id) : undefined;
-  }
-
-  return undefined;
+  return userService.resolveUserTeamScope(req.user);
 }
 
 export async function createUserHandler(req: AuthRequest, res: Response) {

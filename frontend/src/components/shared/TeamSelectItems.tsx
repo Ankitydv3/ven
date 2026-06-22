@@ -1,7 +1,8 @@
 "use client";
 
 import { SelectItem } from "@/components/ui/select";
-import { useTeamNames } from "@/hooks/use-teams";
+import { teamNames } from "@/lib/constants";
+import { readUser } from "@/lib/storage";
 
 interface TeamSelectItemsProps {
   role?: "admin" | "team";
@@ -9,12 +10,18 @@ interface TeamSelectItemsProps {
 }
 
 export function TeamSelectItems({ role = "admin", includeAll = false }: TeamSelectItemsProps) {
-  const { teamNames } = useTeamNames(role);
+  const sessionUser = readUser();
+  const names =
+    role === "team" && sessionUser?.teamName
+      ? [sessionUser.teamName]
+      : role === "team" && sessionUser?.team
+        ? [sessionUser.team]
+        : [...teamNames];
 
   return (
     <>
       {includeAll && <SelectItem value="all">All Teams</SelectItem>}
-      {teamNames.map((team) => (
+      {names.map((team) => (
         <SelectItem key={team} value={team}>
           {team}
         </SelectItem>

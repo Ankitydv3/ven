@@ -45,7 +45,6 @@ export function useCreateUser() {
     mutationFn: (payload: UserPayload) => createUser(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
   });
 }

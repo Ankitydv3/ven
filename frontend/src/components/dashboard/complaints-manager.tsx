@@ -5,8 +5,7 @@ import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban, CreditCard } fro
 import { toast } from "sonner";
 import { AddPaymentModal } from "../payments/AddPaymentModal";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
-import { complaintStatuses } from "@/lib/constants";
-import { useTeamNames } from "@/hooks/use-teams";
+import { complaintStatuses, teamNames } from "@/lib/constants";
 import type { Complaint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,6 @@ function priorityDotClass(priority: Complaint["priority"]) {
 }
 
 export function ComplaintsManager() {
-  const { teamNames } = useTeamNames("admin");
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

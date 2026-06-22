@@ -5,7 +5,6 @@ import { Download, FileSpreadsheet, Loader2, Plus, Search, Users } from "lucide-
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { isAdminPortalRole, useSession } from "@/hooks/use-session";
-import { useAllTeams } from "@/hooks/use-teams";
 import {
   useCreateUser,
   useDeleteUser,
@@ -31,7 +30,6 @@ import { UserTable } from "@/components/users/UserTable";
 import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UserViewDialog } from "@/components/users/UserViewDialog";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
-import { TeamsPanel } from "@/components/users/TeamsPanel";
 import type { ManagedUser } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 import { canManageUsers } from "@/lib/rbac";
@@ -52,7 +50,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   const canCreate = canManage;
 
   const [search, setSearch] = useState("");
-  const [teamFilter, setTeamFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -69,7 +66,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   const filters = useMemo(
     () => ({
       q: search.trim() || undefined,
-      teamId: teamFilter !== "all" ? teamFilter : undefined,
       role: roleFilter !== "all" ? roleFilter : undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
       page,
@@ -77,11 +73,10 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       sortBy,
       sortOrder,
     }),
-    [page, roleFilter, search, sortBy, sortOrder, statusFilter, teamFilter]
+    [page, roleFilter, search, sortBy, sortOrder, statusFilter]
   );
 
   const { data, isLoading, refetch } = useUsers(filters);
-  const { data: teams = [] } = useAllTeams();
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -94,7 +89,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
 
   useEffect(() => {
     setPage(1);
-  }, [search, teamFilter, roleFilter, statusFilter]);
+  }, [search, roleFilter, statusFilter]);
 
   const handleCreate = async (values: Parameters<typeof createMutation.mutateAsync>[0]) => {
     try {
@@ -197,11 +192,9 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
     <DashboardShell
       role={role}
       title={isAdmin ? "User Management" : "My Team"}
-      subtitle={isAdmin ? "Manage users, roles, teams, and access permissions" : "View members assigned to your team"}
+      subtitle={isAdmin ? "Manage users, roles, and access permissions" : "View members assigned to your team"}
     >
       <div className="space-y-6">
-        {isAdmin && sessionUser?.role !== "sub_admin" && <TeamsPanel />}
-
         <div className={`${glassCardClass} space-y-4 p-5`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -254,8 +247,8 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="relative md:col-span-2 xl:col-span-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="relative md:col-span-2">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
               <Input
                 value={search}
@@ -264,22 +257,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
                 className={`${inputClass} pl-10`}
               />
             </div>
-
-            {isAdmin && sessionUser?.role !== "sub_admin" && (
-              <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className={inputClass}>
-                  <SelectValue placeholder="Filter by team" />
-                </SelectTrigger>
-                <SelectContent className="border-white/10 bg-[#0B1120] text-white">
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team._id} value={team._id}>
-                      {team.teamName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
 
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className={inputClass}>
