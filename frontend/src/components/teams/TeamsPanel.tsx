@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, UsersRound } from "lucide-react";
+import { Loader2, Plus, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useCreateTeam, useTeams } from "@/hooks/use-teams";
+import { useCreateTeam, useDeleteTeam, useTeams } from "@/hooks/use-teams";
+import type { Team } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/api";
 import { glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 
@@ -24,8 +34,10 @@ interface TeamsPanelProps {
 export function TeamsPanel({ canManage = false }: TeamsPanelProps) {
   const { data: teams = [], isLoading } = useTeams();
   const createMutation = useCreateTeam();
+  const deleteMutation = useDeleteTeam();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
 
   const handleCreate = async () => {
     const name = teamName.trim();
@@ -41,6 +53,18 @@ export function TeamsPanel({ canManage = false }: TeamsPanelProps) {
       setDialogOpen(false);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to create team"));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!teamToDelete) return;
+
+    try {
+      await deleteMutation.mutateAsync(teamToDelete._id);
+      toast.success(`Team "${teamToDelete.teamName}" deleted`);
+      setTeamToDelete(null);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete team"));
     }
   };
 
@@ -71,12 +95,22 @@ export function TeamsPanel({ canManage = false }: TeamsPanelProps) {
             <p className="text-sm text-[#94A3B8]">No teams yet. Create your first team.</p>
           ) : (
             teams.map((team) => (
-              <Badge
+              <span
                 key={team._id}
-                className="border-[#3B82F6]/40 bg-[#3B82F6]/10 px-3 py-1 text-sm font-medium text-[#60A5FA]"
+                className="inline-flex items-center gap-1 rounded-full border border-[#3B82F6]/40 bg-[#3B82F6]/10 px-3 py-1 text-sm font-medium text-[#60A5FA]"
               >
                 {team.teamName}
-              </Badge>
+                {canManage && (
+                  <button
+                    type="button"
+                    className="ml-1 rounded-full p-0.5 text-[#60A5FA]/70 transition hover:bg-[#3B82F6]/20 hover:text-white"
+                    aria-label={`Delete ${team.teamName}`}
+                    onClick={() => setTeamToDelete(team)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </span>
             ))
           )}
         </div>
@@ -124,6 +158,35 @@ export function TeamsPanel({ canManage = false }: TeamsPanelProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(teamToDelete)} onOpenChange={(open) => !open && setTeamToDelete(null)}>
+        <AlertDialogContent className="border-white/10 bg-[#0B1120] text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete team?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#94A3B8]">
+              {teamToDelete
+                ? `Are you sure you want to delete "${teamToDelete.teamName}"? Teams with assigned users cannot be deleted.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/10 bg-transparent text-white hover:bg-white/5">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
+            >
+              {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

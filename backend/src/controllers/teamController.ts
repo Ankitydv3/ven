@@ -26,3 +26,13 @@ export async function createTeamHandler(req: AuthRequest, res: Response) {
   const team = await teamService.createTeam(value, req.user.name ?? "Admin");
   res.status(201).json({ message: "Team created successfully", team });
 }
+
+export async function deleteTeamHandler(req: AuthRequest, res: Response) {
+  if (!req.user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const { id } = req.params;
+  const result = await teamService.deleteTeam(id);
+  res.json({ message: `Team "${result.teamName}" deleted successfully` });
+}

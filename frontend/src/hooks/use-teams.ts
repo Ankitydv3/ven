@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createTeam, fetchTeams } from "@/services/teams";
+import { createTeam, deleteTeam, fetchTeams } from "@/services/teams";
 
 export const teamKeys = {
   all: ["teams"] as const,
@@ -20,6 +20,17 @@ export function useCreateTeam() {
 
   return useMutation({
     mutationFn: (teamName: string) => createTeam(teamName),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: teamKeys.all });
+    },
+  });
+}
+
+export function useDeleteTeam() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (teamId: string) => deleteTeam(teamId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: teamKeys.all });
     },

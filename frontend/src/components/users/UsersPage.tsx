@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, Loader2, Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import {
   useCreateUser,
   useDeleteUser,
-  useExportUsersCsv,
   useResetUserPassword,
   useUpdateUser,
   useUsers,
@@ -35,7 +34,6 @@ import { UserCredentialsDialog } from "@/components/users/UserCredentialsDialog"
 import type { ManagedUser, UserCredentials } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 import { canManageUsers } from "@/lib/permissions";
-import { downloadBlob, exportUsersToExcel } from "@/lib/user-export";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 
@@ -86,7 +84,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
   const resetMutation = useResetUserPassword();
-  const exportCsvMutation = useExportUsersCsv();
 
   const users = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -181,25 +178,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
     }
   };
 
-  const handleExportCsv = async () => {
-    try {
-      const blob = await exportCsvMutation.mutateAsync(filters);
-      downloadBlob(blob, `users-export-${Date.now()}.csv`);
-      toast.success("CSV exported successfully");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export CSV");
-    }
-  };
-
-  const handleExportExcel = () => {
-    if (users.length === 0) {
-      toast.error("No users to export");
-      return;
-    }
-    exportUsersToExcel(users);
-    toast.success("Excel exported successfully");
-  };
-
   if (!ready) return null;
 
   return (
@@ -229,28 +207,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
               <Button type="button" variant="outline" className="border-white/10 bg-transparent text-white hover:bg-white/5" onClick={() => void refetch()}>
                 Refresh
               </Button>
-              {canManage && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-white/10 bg-transparent text-white hover:bg-white/5"
-                    onClick={handleExportCsv}
-                    disabled={exportCsvMutation.isPending}
-                  >
-                    {exportCsvMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    Export CSV
-                  </Button>
-                  <Button type="button" variant="outline" className="border-white/10 bg-transparent text-white hover:bg-white/5" onClick={handleExportExcel}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Export Excel
-                  </Button>
-                </>
-              )}
               {canCreate && (
                 <Button
                   type="button"

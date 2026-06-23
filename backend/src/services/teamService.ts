@@ -1,6 +1,6 @@
 import Team from "../models/Team";
+import User from "../models/User";
 import { ApiError } from "../utils/ApiError";
-
 const TEAM_COLOR_PALETTE = [
   "#A855F7",
   "#3B82F6",
@@ -83,4 +83,26 @@ export async function getTeamFields(teamName?: string) {
     team: team.teamName,
     teamId: team._id,
   };
+}
+
+export async function deleteTeam(teamId: string) {
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new ApiError(404, "Team not found");
+  }
+
+  const assignedUsers = await User.countDocuments({
+    $or: [{ teamId: team._id }, { teamName: team.teamName }, { team: team.teamName }],
+    $and: [{ $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }] }],
+  });
+
+  if (assignedUsers > 0) {
+    throw new ApiError(
+      400,
+      `Cannot delete "${team.teamName}" while ${assignedUsers} user(s) are assigned. Reassign or remove them first.`
+    );
+  }
+
+  await Team.deleteOne({ _id: team._id });
+  return { teamName: team.teamName };
 }

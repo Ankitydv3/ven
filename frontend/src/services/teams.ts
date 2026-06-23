@@ -10,3 +10,8 @@ export async function createTeam(teamName: string) {
   const { data } = await api.post<{ message: string; team: Team }>("/teams", { teamName });
   return data;
 }
+
+export async function deleteTeam(teamId: string) {
+  const { data } = await api.delete<{ message: string }>(`/teams/${teamId}`);
+  return data;
+}
