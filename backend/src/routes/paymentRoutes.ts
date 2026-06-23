@@ -6,13 +6,13 @@ const router = Router();
 
 router.use(authRequired);
 
-router.get("/stats", requireRole("admin", "accountant", "manager"), paymentController.getStats);
-router.get("/export/csv", requireRole("admin", "accountant"), paymentController.exportCSV);
-router.get("/", requireRole("admin", "accountant", "manager"), paymentController.listPayments);
-router.post("/", requireRole("admin", "accountant", "team"), paymentController.createPaymentHandler);
-router.get("/:id", requireRole("admin", "accountant", "manager", "team"), paymentController.readPayment);
-router.put("/:id", requireRole("admin", "accountant"), paymentController.updatePaymentHandler);
-router.delete("/:id", requireRole("admin"), paymentController.deletePaymentHandler);
+router.get("/stats", requireRole("admin", "sub_admin", "accountant", "manager"), paymentController.getStats);
+router.get("/export/csv", requireRole("admin", "sub_admin", "accountant"), paymentController.exportCSV);
+router.get("/", requireRole("admin", "sub_admin", "accountant", "manager"), paymentController.listPayments);
+router.post("/", requireRole("admin", "sub_admin", "accountant", "team"), paymentController.createPaymentHandler);
+router.get("/:id", requireRole("admin", "sub_admin", "accountant", "manager", "team"), paymentController.readPayment);
+router.put("/:id", requireRole("admin", "sub_admin", "accountant"), paymentController.updatePaymentHandler);
+router.delete("/:id", requireRole("admin", "sub_admin"), paymentController.deletePaymentHandler);
 
 router.get("/:id/invoice", paymentController.downloadInvoice);
 router.post("/:id/email", paymentController.emailInvoice);

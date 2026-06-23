@@ -86,7 +86,7 @@ export function getCreatableRoles(actorRole?: UserRole) {
     return CREATE_USER_ROLES.filter((role) => role.value !== "admin");
   }
   if (actorRole === "sub_admin") {
-    return CREATE_USER_ROLES.filter((role) => role.value === "team");
+    return CREATE_USER_ROLES.filter((role) => role.value !== "admin");
   }
   return [];
 }

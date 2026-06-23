@@ -7,6 +7,7 @@ export interface SessionUser {
   id: string;
   name: string;
   email: string;
+  mobile?: string;
   role: UserRole;
   team?: string;
   teamId?: string;
@@ -20,6 +21,12 @@ export interface SessionUser {
 export function saveSession(token: string, user: SessionUser) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function updateSessionUser(patch: Partial<SessionUser>) {
+  const current = readUser();
+  if (!current) return;
+  localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...patch }));
 }
 
 export function readToken() {

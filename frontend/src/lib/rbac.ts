@@ -15,7 +15,7 @@ export const ROLE_RANK: Record<UserRole, number> = {
 export const MANAGEABLE_ROLES: Record<UserRole, UserRole[]> = {
   super_admin: ["admin", "sub_admin", "team", "store_manager"],
   admin: ["sub_admin", "team", "store_manager"],
-  sub_admin: ["team"],
+  sub_admin: ["sub_admin", "team", "store_manager"],
   team_lead: [],
   manager: [],
   accountant: [],
@@ -30,15 +30,15 @@ export function getAssignableRoles(actorRole?: UserRole): UserRole[] {
 }
 
 export function canResetOthersPassword(role?: UserRole) {
-  return role === "super_admin" || role === "admin";
+  return role === "super_admin" || role === "admin" || role === "sub_admin";
 }
 
 export function canManageUsers(role?: UserRole) {
-  return role === "super_admin" || role === "admin";
+  return role === "super_admin" || role === "admin" || role === "sub_admin";
 }
 
 export function canDeleteUsers(role?: UserRole) {
-  return role === "super_admin" || role === "admin";
+  return role === "super_admin" || role === "admin" || role === "sub_admin";
 }
 
 export function isAdminPortalRole(role?: UserRole) {

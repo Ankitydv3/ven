@@ -23,7 +23,7 @@ router.get("/export/csv", requireRole("super_admin", "admin", "sub_admin"), asyn
 router.get("/assignable", requireRole("super_admin", "admin", "sub_admin"), asyncHandler(listAssignableUsers));
 router.post(
   "/reset-password",
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "admin", "sub_admin"),
   validateRequest(resetPasswordSchema),
   asyncHandler(resetPasswordHandler)
 );
@@ -37,6 +37,6 @@ router.post(
   asyncHandler(createUserHandler)
 );
 router.put("/:id", validateRequest(userUpdateSchema), asyncHandler(updateUserHandler));
-router.delete("/:id", requireRole("super_admin", "admin"), asyncHandler(deleteUserHandler));
+router.delete("/:id", requireRole("super_admin", "admin", "sub_admin"), asyncHandler(deleteUserHandler));
 
 export default router;

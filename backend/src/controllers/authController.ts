@@ -51,6 +51,7 @@ export async function login(req: Request, res: Response) {
       id: String(user._id),
       name: user.name,
       email: user.email,
+      mobile: user.mobile ?? undefined,
       role: user.role,
       team: user.team ?? user.teamName ?? undefined,
       teamId: user.teamId ? String(user.teamId) : undefined,

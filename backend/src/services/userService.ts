@@ -105,17 +105,7 @@ function buildUserFilter(options: UserListOptions) {
   return and.length === 1 ? and[0] : { $and: and };
 }
 
-export function resolveUserListScope(user?: JwtUser) {
-  if (!user) return {};
-
-  if (user.role === "sub_admin") {
-    const subAdminType = (user as JwtUser & { subAdminType?: SubAdminType }).subAdminType;
-    if (subAdminType && SUB_ADMIN_DEPARTMENT[subAdminType]) {
-      return { scopedDepartment: SUB_ADMIN_DEPARTMENT[subAdminType] };
-    }
-    return {};
-  }
-
+export function resolveUserListScope(_user?: JwtUser) {
   // All users can browse the full user directory (manage actions are RBAC-gated separately).
   return {};
 }
@@ -124,15 +114,7 @@ export function resolveUserListScope(user?: JwtUser) {
 export function resolveUserManageScope(user?: JwtUser) {
   if (!user) return {};
 
-  if (user.role === "super_admin" || user.role === "admin") {
-    return {};
-  }
-
-  if (user.role === "sub_admin") {
-    const subAdminType = (user as JwtUser & { subAdminType?: SubAdminType }).subAdminType;
-    if (subAdminType && SUB_ADMIN_DEPARTMENT[subAdminType]) {
-      return { scopedDepartment: SUB_ADMIN_DEPARTMENT[subAdminType] };
-    }
+  if (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin") {
     return {};
   }
 
@@ -209,6 +191,8 @@ function roleProfileDefaults(role: string, subAdminType?: SubAdminType) {
               : "Sub Administrator",
         department: subAdminType ? SUB_ADMIN_DEPARTMENT[subAdminType] : "",
       };
+    case "manager":
+      return { designation: "Product Manager", department: "Production" };
     default:
       return { designation: "", department: "" };
   }
