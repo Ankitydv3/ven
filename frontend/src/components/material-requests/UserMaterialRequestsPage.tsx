@@ -32,9 +32,12 @@ import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 
 export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
+  const isAdminView = role === "admin";
   const { ready } = useSession(role);
   const user = readUser();
-  const { data, isLoading, isError, error, refetch } = useMaterialRequests({ limit: 50 });
+  const { data, isLoading, isError, error, refetch } = useMaterialRequests({
+    limit: isAdminView ? 100 : 50,
+  });
   const createMutation = useCreateMaterialRequest();
   const [open, setOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
@@ -99,97 +102,103 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
     <DashboardShell
       role={role}
       title="Material Requests"
-      subtitle="Track your material requirement requests"
+      subtitle={
+        isAdminView
+          ? "View which teams require materials and track request status"
+          : "Track your material requirement requests"
+      }
     >
       <div className="space-y-6">
-        <div className="flex justify-end">
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-xl bg-blue-600 hover:bg-blue-500">
-                <Plus className="mr-1.5 h-4 w-4" />
-                New Request
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl border-white/10 bg-[#0A1F1A] text-white">
-              <DialogHeader>
-                <DialogTitle>Material Requirement Request</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Material Name</Label>
-                  <Input
-                    value={form.materialName}
-                    onChange={(e) => setForm({ ...form, materialName: e.target.value })}
-                    className="mt-1 rounded-xl border-white/10 bg-white/5"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={form.quantity}
-                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                      className="mt-1 rounded-xl border-white/10 bg-white/5"
-                    />
-                  </div>
-                  <div>
-                    <Label>Unit</Label>
-                    <Input
-                      value={form.unit}
-                      onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                      placeholder="pcs, kg, m..."
-                      className="mt-1 rounded-xl border-white/10 bg-white/5"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>Remarks</Label>
-                  <Textarea
-                    value={form.remarks}
-                    onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-                    className="mt-1 rounded-xl border-white/10 bg-white/5"
-                  />
-                </div>
-                <div>
-                  <Label>Attach Image</Label>
-                  <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-5 hover:border-teal-500/40">
-                    <Upload className="mb-2 h-5 w-5 text-slate-400" />
-                    <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                  {imagePreview && (
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="mt-2 max-h-32 rounded-lg border border-white/10"
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">
-                  Requested by: <span className="text-white">{user?.name}</span>
-                </p>
-                <Button
-                  className="w-full rounded-xl bg-blue-600"
-                  disabled={createMutation.isPending}
-                  onClick={handleCreate}
-                >
-                  {createMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Submit Request"
-                  )}
+        {!isAdminView && (
+          <div className="flex justify-end">
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="rounded-xl bg-blue-600 hover:bg-blue-500">
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  New Request
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl border-white/10 bg-[#0A1F1A] text-white">
+                <DialogHeader>
+                  <DialogTitle>Material Requirement Request</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Material Name</Label>
+                    <Input
+                      value={form.materialName}
+                      onChange={(e) => setForm({ ...form, materialName: e.target.value })}
+                      className="mt-1 rounded-xl border-white/10 bg-white/5"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Quantity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={form.quantity}
+                        onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                        className="mt-1 rounded-xl border-white/10 bg-white/5"
+                      />
+                    </div>
+                    <div>
+                      <Label>Unit</Label>
+                      <Input
+                        value={form.unit}
+                        onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                        placeholder="pcs, kg, m..."
+                        className="mt-1 rounded-xl border-white/10 bg-white/5"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Remarks</Label>
+                    <Textarea
+                      value={form.remarks}
+                      onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                      className="mt-1 rounded-xl border-white/10 bg-white/5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Attach Image</Label>
+                    <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-5 hover:border-teal-500/40">
+                      <Upload className="mb-2 h-5 w-5 text-slate-400" />
+                      <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                    </label>
+                    {imagePreview && (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="mt-2 max-h-32 rounded-lg border border-white/10"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Requested by: <span className="text-white">{user?.name}</span>
+                  </p>
+                  <Button
+                    className="w-full rounded-xl bg-blue-600"
+                    disabled={createMutation.isPending}
+                    onClick={handleCreate}
+                  >
+                    {createMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Submit Request"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
 
         <div className={cn(panelClass, "overflow-hidden")}>
           {isLoading ? (
@@ -209,41 +218,75 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
             <TableElement>
               <THead>
                 <TR>
-                  <TH>Image</TH>
-                  <TH>Request ID</TH>
-                  <TH>Material Name</TH>
-                  <TH>Quantity</TH>
-                  <TH>Request Date</TH>
-                  <TH>Status</TH>
-                  <TH>Store Manager Remarks</TH>
+                  {isAdminView ? (
+                    <>
+                      <TH>Team</TH>
+                      <TH>Material Name</TH>
+                      <TH>Quantity</TH>
+                      <TH>Requested By</TH>
+                      <TH>Request Date</TH>
+                      <TH>Status</TH>
+                      <TH>Store Manager Remarks</TH>
+                    </>
+                  ) : (
+                    <>
+                      <TH>Image</TH>
+                      <TH>Request ID</TH>
+                      <TH>Material Name</TH>
+                      <TH>Quantity</TH>
+                      <TH>Request Date</TH>
+                      <TH>Status</TH>
+                      <TH>Store Manager Remarks</TH>
+                    </>
+                  )}
                 </TR>
               </THead>
               <tbody>
                 {requests.map((req) => (
                   <TR key={req._id}>
-                    <TD>
-                      {req.imageUrl ? (
-                        <img
-                          src={req.imageUrl}
-                          alt={req.materialName}
-                          className="h-12 w-12 rounded-lg border border-white/10 object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs text-slate-500">—</span>
-                      )}
-                    </TD>
-                    <TD className="font-mono text-sm">{req.requestId}</TD>
-                    <TD>{req.materialName}</TD>
-                    <TD>
-                      {req.quantity} {req.unit}
-                    </TD>
-                    <TD>{new Date(req.requestDate).toLocaleDateString("en-GB")}</TD>
-                    <TD>
-                      <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
-                        {materialStatusLabel[req.status]}
-                      </Badge>
-                    </TD>
-                    <TD className="text-slate-400">{req.storeManagerRemarks || "—"}</TD>
+                    {isAdminView ? (
+                      <>
+                        <TD className="font-medium">{req.department || "—"}</TD>
+                        <TD>{req.materialName}</TD>
+                        <TD>
+                          {req.quantity} {req.unit}
+                        </TD>
+                        <TD>{req.requestedBy}</TD>
+                        <TD>{new Date(req.requestDate).toLocaleDateString("en-GB")}</TD>
+                        <TD>
+                          <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
+                            {materialStatusLabel[req.status]}
+                          </Badge>
+                        </TD>
+                        <TD className="text-slate-400">{req.storeManagerRemarks || "—"}</TD>
+                      </>
+                    ) : (
+                      <>
+                        <TD>
+                          {req.imageUrl ? (
+                            <img
+                              src={req.imageUrl}
+                              alt={req.materialName}
+                              className="h-12 w-12 rounded-lg border border-white/10 object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-500">—</span>
+                          )}
+                        </TD>
+                        <TD className="font-mono text-sm">{req.requestId}</TD>
+                        <TD>{req.materialName}</TD>
+                        <TD>
+                          {req.quantity} {req.unit}
+                        </TD>
+                        <TD>{new Date(req.requestDate).toLocaleDateString("en-GB")}</TD>
+                        <TD>
+                          <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
+                            {materialStatusLabel[req.status]}
+                          </Badge>
+                        </TD>
+                        <TD className="text-slate-400">{req.storeManagerRemarks || "—"}</TD>
+                      </>
+                    )}
                   </TR>
                 ))}
               </tbody>

@@ -1,6 +1,12 @@
 "use client";
-
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,16 +20,34 @@ import { createComplaint } from "@/services/complaints";
 import { priorities } from "@/lib/constants";
 import type { Complaint } from "@/lib/types";
 
-const schema = z.object({
-  clientName: z.string().min(2, "Client name is required"),
-  contactPerson: z.string().min(2, "Contact person is required"),
-  mobileNumber: z.string().min(10, "Enter a valid 10-digit number"),
-  email: z.string().email("Enter a valid email address"),
-  title: z.string().min(4, "Title is too short"),
-  description: z.string().min(20, "Please provide more detail"),
-  priority: z.enum(["High", "Medium", "Low"]),
-  location: z.string().min(2, "Location is required"),
-});
+const complaintIssueTypes = [
+  "Locking issue",
+  "Leakage issue",
+  "Difficulty in moving",
+  "Alignment issue",
+  "Other",
+] as const;
+
+const schema = z
+  .object({
+    clientName: z.string().min(2, "Client name is required"),
+    contactPerson: z.string().min(2, "Contact person is required"),
+    mobileNumber: z.string().min(10, "Enter a valid 10-digit number"),
+    email: z.string().email("Enter a valid email address"),
+    title: z.string().min(1, "Please select an issue type"),
+    description: z.string(),
+    priority: z.enum(["High", "Medium", "Low"]),
+    location: z.string().min(2, "Location is required"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.title === "Other" && data.description.trim().length < 20) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please provide more detail",
+        path: ["description"],
+      });
+    }
+  });
 
 type ComplaintFormValues = z.infer<typeof schema>;
 
@@ -55,10 +79,15 @@ export function ComplaintRegistrationForm() {
     defaultValues,
   });
 
+  const selectedIssue = form.watch("title");
+
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
-        const response = await createComplaint(values);
+        const response = await createComplaint({
+          ...values,
+          description: values.title === "Other" ? values.description.trim() : values.title,
+        });
         setSubmittedComplaint(response.complaint);
         toast.success("Complaint submitted successfully");
         form.reset(defaultValues);
@@ -124,16 +153,35 @@ export function ComplaintRegistrationForm() {
         <FieldError message={form.formState.errors.email?.message} />
       </div>
 
-      {/* Title */}
+      {/* Issue type */}
       <div className="space-y-1.5">
         <Label className="text-[11px] font-medium tracking-[0.03em] text-slate-500 dark:text-slate-400 uppercase">
-          Complaint title
+          Issue type
         </Label>
-        <Input
-          {...form.register("title")}
-          placeholder="Short issue summary"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
-        />
+
+        <Select
+          value={selectedIssue || undefined}
+          onValueChange={(value) => {
+            form.setValue("title", value, { shouldValidate: true });
+            if (value !== "Other") {
+              form.setValue("description", "");
+              form.clearErrors("description");
+            }
+          }}
+        >
+          <SelectTrigger className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] text-[13px]">
+            <SelectValue placeholder="Select issue type" />
+          </SelectTrigger>
+
+          <SelectContent>
+            {complaintIssueTypes.map((issue) => (
+              <SelectItem key={issue} value={issue}>
+                {issue}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <FieldError message={form.formState.errors.title?.message} />
       </div>
 
@@ -153,18 +201,22 @@ export function ComplaintRegistrationForm() {
         <FieldError message={form.formState.errors.priority?.message} />
       </div>
 
-      {/* Description */}
-      <div className="md:col-span-2 space-y-1.5">
-        <Label className="text-[11px] font-medium tracking-[0.03em] text-slate-500 dark:text-slate-400 uppercase">
-          Description
-        </Label>
-        <Textarea
-          {...form.register("description")}
-          placeholder="Describe what happened, when it occurred, and its impact on your operations"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px] min-h-[88px]"
-        />
-        <FieldError message={form.formState.errors.description?.message} />
-      </div>
+      {/* Description (Other only) */}
+      {selectedIssue === "Other" && (
+        <div className="md:col-span-2 space-y-1.5">
+          <Label className="text-[11px] font-medium tracking-[0.03em] text-slate-500 dark:text-slate-400 uppercase">
+            Describe issue
+          </Label>
+
+          <Textarea
+            {...form.register("description")}
+            placeholder="Please describe the issue in detail..."
+            className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px] min-h-[88px]"
+          />
+
+          <FieldError message={form.formState.errors.description?.message} />
+        </div>
+      )}
 
       {/* Location */}
       <div className="space-y-1.5">

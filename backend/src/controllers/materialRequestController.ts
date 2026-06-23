@@ -12,6 +12,10 @@ import { isAdminRole } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
 
 export async function createMaterialRequestHandler(req: AuthRequest, res: Response) {
+  if (isAdminRole(req.user?.role)) {
+    throw new ApiError(403, "Admins cannot create material requests");
+  }
+
   const request = await createMaterialRequest({
     ...req.body,
     requestedBy: req.user?.name ?? "User",

@@ -25,9 +25,11 @@ function buildHistoryEntry(action: string, user: { name: string; role: string; t
 export async function createComplaint(req: Request, res: Response) {
   const payload = req.body as Record<string, string>;
   const complaintId = await generateComplaintId();
+  const description = payload.description?.trim() || payload.title?.trim() || "No description provided";
 
   const complaint = await Complaint.create({
     ...payload,
+    description,
     complaintId,
     status: "Pending Review",
     history: [buildHistoryEntry("Complaint Submitted", { name: payload.contactPerson ?? "Customer", role: "customer" }, { status: "Pending Review", details: payload.title ?? "" })]

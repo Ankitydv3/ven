@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban, CreditCard } from "lucide-react";
+import { Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { AddPaymentModal } from "../payments/AddPaymentModal";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
 import { fetchAssignableUsers } from "@/services/users";
 import { getApiErrorMessage } from "@/lib/api";
@@ -82,7 +81,6 @@ export function ComplaintsManager() {
   const [total, setTotal] = useState(0);
   const [limit] = useState(8);
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<Complaint | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
@@ -266,7 +264,6 @@ export function ComplaintsManager() {
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden lg:table-cell">Location</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Status</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Schedule</TH>
-                <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Payment</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Assigned to</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase hidden xl:table-cell">Created</TH>
                 <TH className="text-slate-500 dark:text-white/50 font-medium text-xs tracking-wide uppercase">Actions</TH>
@@ -276,7 +273,7 @@ export function ComplaintsManager() {
               {loading
                 ? Array.from({ length: 4 }).map((_, index) => (
                     <TR key={index} className="border-b border-slate-100 dark:border-white/[0.06] last:border-0">
-                      <TD colSpan={9}>
+                      <TD colSpan={8}>
                         <Skeleton className="h-10 rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
                       </TD>
                     </TR>
@@ -284,7 +281,7 @@ export function ComplaintsManager() {
                 : items.length === 0
                 ? (
                   <TR>
-                    <TD colSpan={9}>
+                    <TD colSpan={8}>
                       <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
                         <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">No complaints found</p>
                         <p className="text-sm text-slate-500 dark:text-white/50">Try adjusting your search or filters.</p>
@@ -334,14 +331,6 @@ export function ComplaintsManager() {
                               </p>
                             )}
                           </div>
-                        </TD>
-                        <TD>
-                          <Badge
-                            variant={(item as any).paymentStatus === "Paid" ? "success" : "warning"}
-                            className="rounded-full border-0 font-normal"
-                          >
-                            {(item as any).paymentStatus || "Pending"}
-                          </Badge>
                         </TD>
                         <TD className="text-slate-700 dark:text-white/70 hidden xl:table-cell">
                           {item.assignedUserName
@@ -400,18 +389,6 @@ export function ComplaintsManager() {
                                 )}
                               </Tooltip>
                             </TooltipProvider>
-
-                            {isCompleted && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-400"
-                                onClick={() => setPaymentTarget(item)}
-                              >
-                                <CreditCard className="h-3.5 w-3.5 mr-1" />
-                                Pay
-                              </Button>
-                            )}
                           </div>
                         </TD>
                       </TR>
@@ -708,11 +685,6 @@ export function ComplaintsManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AddPaymentModal
-        open={Boolean(paymentTarget)}
-        onOpenChange={(open) => !open && setPaymentTarget(null)}
-        complaint={paymentTarget}
-      />
     </div>
   );
 }

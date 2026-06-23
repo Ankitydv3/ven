@@ -188,7 +188,7 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl lg:flex lg:flex-col">
+      <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl overflow-y-auto">
         <div className="mb-10 bg-Black flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl  text-teal-300">
             <Workflow className="h-5 w-5" />
