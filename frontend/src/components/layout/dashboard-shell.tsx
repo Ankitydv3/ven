@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   LogOut,
@@ -55,7 +55,6 @@ const iconMap: Record<string, any> = {
   "System Health": Home,
   "Audit Log": Clock,
   "User Management": UserCog,
-  Alerts: Bell,
   "Material Requests": Package,
 };
 
@@ -184,21 +183,34 @@ export function DashboardShell({
     setIsMobileMenuOpen(false);
   };
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - Fixed height with scroll */}
       <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl overflow-y-auto">
-        <div className="mb-10 bg-Black flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl  text-teal-300">
+        <div className="flex-shrink-0 mb-10 bg-Black flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-teal-300">
             <Workflow className="h-5 w-5" />
           </div>
-          <div >
+          <div>
             <p className="font-heading text-lg font-semibold">Complaint Flow OS</p>
             <p className="text-xs text-slate-400">Enterprise service desk</p>
           </div>
         </div>
-<div className="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
+        
+        <div className="flex-shrink-0 mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
           <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
             {role === "admin" ? "Admin Mode" : role === "store" ? "Store Manager" : user?.team ?? "Team Mode"}
           </Badge>
@@ -206,13 +218,11 @@ export function DashboardShell({
           <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="flex-1 overflow-y-auto pb-4 space-y-2">
           {navItems.map((item) => (
             <NavGroupItem key={item.label} item={item} pathname={pathname} />
           ))}
         </nav>
-
-        
       </aside>
 
       {/* Mobile Menu Overlay */}
@@ -229,15 +239,15 @@ export function DashboardShell({
               onClick={() => setIsMobileMenuOpen(false)}
             />
             
-            {/* Mobile Sidebar */}
+            {/* Mobile Sidebar - Full height with scroll */}
             <motion.aside
               initial={{ x: -320 }}
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-[#020817]/95 px-5 py-6 text-white backdrop-blur-xl lg:hidden"
+              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl overflow-y-auto lg:hidden"
             >
-              <div className="mb-8 flex items-center justify-between">
+              <div className="flex-shrink-0 mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
                     <Workflow className="h-5 w-5" />
@@ -250,14 +260,14 @@ export function DashboardShell({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-full hover:bg-white/10"
+                  className="h-10 w-10 rounded-full hover:bg-white/10 flex-shrink-0"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <X className="h-5 w-5" />
                 </Button>
               </div>
 
-              <nav className="space-y-2">
+              <nav className="flex-1 overflow-y-auto pb-4 space-y-2">
                 {navItems.map((item) => (
                   <NavGroupItem
                     key={item.label}
@@ -268,7 +278,7 @@ export function DashboardShell({
                 ))}
               </nav>
 
-              <div className="mt-auto rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
+              <div className="flex-shrink-0 mt-4 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
                 <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
                   {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
                 </Badge>
@@ -280,61 +290,60 @@ export function DashboardShell({
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
-      <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#020817]/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
+      {/* Main Content - Full scrollable */}
+      <div className="flex min-h-screen flex-col overflow-y-auto">
+        <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-[#020817]/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
               {/* Mobile Menu Button */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden h-10 w-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800"
+                className="lg:hidden h-10 w-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 flex-shrink-0"
                 onClick={() => setIsMobileMenuOpen(true)}
               >
                 <Menu className="h-5 w-5" />
               </Button>
 
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
-                  <Shield className="h-3.5 w-3.5" /> Secure workflow platform
+                  <Shield className="h-3.5 w-3.5 flex-shrink-0" /> 
+                  <span className="truncate">Secure workflow platform</span>
                 </div>
-                <h1 className="font-heading text-2xl font-semibold text-white">{title}</h1>
-                <p className="text-sm text-slate-300">{subtitle}</p>
+                <h1 className="font-heading text-xl sm:text-2xl font-semibold text-white truncate">{title}</h1>
+                <p className="text-sm text-slate-300 truncate">{subtitle}</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
               <ThemeToggle />
               <Button
-  variant="outline"
-  size="sm"
-  className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
-  onClick={() => {
-    const target =
-      user?.role === "admin" || user?.role === "super_admin"
-        ? "/admin/alerts"
-        : "/team/alerts";
-
-    window.location.href = target;
-  }}
->
-  <Bell className="h-4 w-4 mr-1.5" />
-  <span className="hidden sm:inline">Notifications</span>
-
-  {pendingAlerts > 0 && (
-    <Badge
-      variant="destructive"
-      className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]"
-    >
-      {pendingAlerts > 99 ? "99+" : pendingAlerts}
-    </Badge>
-  )}
-</Button>
+                variant="outline"
+                size="sm"
+                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 whitespace-nowrap"
+                onClick={() => {
+                  const target =
+                    user?.role === "admin" || user?.role === "super_admin"
+                      ? "/admin/alerts"
+                      : "/team/alerts";
+                  window.location.href = target;
+                }}
+              >
+                <Bell className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Notifications</span>
+                {pendingAlerts > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]"
+                  >
+                    {pendingAlerts > 99 ? "99+" : pendingAlerts}
+                  </Badge>
+                )}
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 whitespace-nowrap"
                 onClick={() => {
                   clearSession();
                   window.location.href = "/login";
@@ -348,7 +357,11 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 text-white lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 text-white lg:px-8 overflow-y-auto">
+          <div className="max-w-full">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

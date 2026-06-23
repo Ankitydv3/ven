@@ -180,12 +180,12 @@ export function Navbar() {
 
       {/* Mobile nav */}
       <div
-        className={cn(
-          "overflow-hidden border-t backdrop-blur-xl transition-[max-height,opacity,border-color] duration-300 ease-in-out dark:bg-[#04140F]/95 md:hidden",
-          open
-            ? "max-h-96 border-slate-200/70 bg-white/90 opacity-100 dark:border-white/[0.06]"
-            : "max-h-0 border-transparent bg-white/90 opacity-0 dark:border-transparent",
-        )}
+       className={cn(
+        "overflow-hidden border-t backdrop-blur-xl transition-[max-height,opacity,border-color] duration-300 ease-in-out md:hidden",
+        open
+          ? "max-h-96 border-slate-200/70 bg-black text-white opacity-100 dark:border-white/[0.06]"
+          : "max-h-0 border-transparent bg-black opacity-0 dark:border-transparent",
+      )}
       >
         <div className="flex flex-col gap-1 px-6 py-4">
           <div
@@ -198,7 +198,7 @@ export function Navbar() {
             <span className="text-sm font-medium text-slate-700 dark:text-white/70">
               Appearance
             </span>
-            <ThemeToggle />
+         
           </div>
           {navLinks.map((l, index) => {
             const active = pathname === l.href;

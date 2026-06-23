@@ -9,6 +9,16 @@ export const complaintStatuses = [
 
 export const priorities = ["High", "Medium", "Low"] as const;
 
+export const complaintIssueTypes = [
+  "Locking issue",
+  "Leakage issue",
+  "Difficulty in moving",
+  "Alignment issue",
+  "Other",
+] as const;
+
+export type ComplaintIssueType = (typeof complaintIssueTypes)[number];
+
 export const dashboardStatuses = ["Pending Assignment", "Assigned", "In Progress", "Completed"] as const;
 
 export type NavItem = {

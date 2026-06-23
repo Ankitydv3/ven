@@ -17,16 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createComplaint } from "@/services/complaints";
-import { priorities } from "@/lib/constants";
+import { priorities, complaintIssueTypes } from "@/lib/constants";
 import type { Complaint } from "@/lib/types";
-
-const complaintIssueTypes = [
-  "Locking issue",
-  "Leakage issue",
-  "Difficulty in moving",
-  "Alignment issue",
-  "Other",
-] as const;
 
 const schema = z
   .object({

@@ -25,8 +25,11 @@ import {
   Wallet,
   ListTodo,
   Clock,
-  PackageX,
-  CreditCard as PaymentIcon,
+  Lock,
+  Droplets,
+  Move,
+  AlignCenter,
+  MoreHorizontal,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
@@ -55,24 +58,28 @@ const KPI_COLORS = {
   paid: { bg: "bg-teal-500", text: "text-teal-500", ring: "ring-teal-500/20" },
 };
 
-// Unresolved reason colors (Delayed / Material Unavailability / Payment Pending)
 const REASON_COLORS: Record<string, string> = {
-  Delayed: "#F97316", // orange
-  "Material Unavailability": "#EF4444", // red
-  "Payment Pending": "#F59E0B", // amber
+  "Locking issue": "#3B82F6",
+  "Leakage issue": "#06B6D4",
+  "Difficulty in moving": "#F97316",
+  "Alignment issue": "#A855F7",
+  Others: "#94A3B8",
 };
 const REASON_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  Delayed: Clock,
-  "Material Unavailability": PackageX,
-  "Payment Pending": PaymentIcon,
+  "Locking issue": Lock,
+  "Leakage issue": Droplets,
+  "Difficulty in moving": Move,
+  "Alignment issue": AlignCenter,
+  Others: MoreHorizontal,
 };
 
-// Complaints overview slice colors (Resolved / Delayed / Material Unavailability / Payment Pending)
 const OVERVIEW_COLORS: Record<string, string> = {
-  Resolved: "#22C55E", // green
-  Delayed: "#EF4444", // red
-  "Material Unavailability": "#F97316", // orange
-  "Payment Pending": "#EAB308", // yellow
+  Resolved: "#22C55E",
+  "Locking issue": "#3B82F6",
+  "Leakage issue": "#06B6D4",
+  "Difficulty in moving": "#F97316",
+  "Alignment issue": "#A855F7",
+  Others: "#94A3B8",
 };
 
 const tooltipStyle = {
@@ -192,89 +199,36 @@ function UnresolvedByReason({ data }: { data: DashboardPageData["unresolvedReaso
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   return (
-    <SectionCard title="Unresolved Complaints – By Reason">
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] items-center">
-        {/* mini stat tiles */}
-        <div className="grid grid-cols-3 gap-3">
-          {data.map((reason) => {
-            const Icon = REASON_ICONS[reason.name] ?? AlertTriangle;
-            const color = REASON_COLORS[reason.name] ?? "#94A3B8";
-            const pct = total ? ((reason.value / total) * 100).toFixed(1) : "0.0";
-            return (
-              <div
-                key={reason.name}
-                className="rounded-xl border border-gray-200 dark:border-white/10 p-3"
-              >
-                <div
-                  className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `${color}1A`, color }}
-                >
-                  <Icon className="h-4.5 w-4.5" />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-slate-400">{reason.name}</p>
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {reason.value}
-                </p>
-                <p className="text-[11px]" style={{ color }}>
-                  {pct}% of unresolved
-                </p>
-              </div>
-            );
-          })}
-        </div>
+    <SectionCard title="Unresolved Complaints by Issue Type">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {data.map((item) => {
+          const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
+          const color = REASON_COLORS[item.name] ?? "#94A3B8";
 
-        {/* donut + legend */}
-        <div className="flex items-center gap-4">
-          <div className="relative h-[180px] w-[180px] shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={58}
-                  outerRadius={84}
-                  paddingAngle={3}
-                  cornerRadius={6}
-                  startAngle={90}
-                  endAngle={-270}
+          return (
+            <div
+              key={item.name}
+              className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${color}22`, color }}
                 >
-                  {data.map((entry) => (
-                    <Cell
-                      key={entry.name}
-                      fill={REASON_COLORS[entry.name] ?? "#94A3B8"}
-                      stroke="transparent"
-                    />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">{total}</span>
-              <span className="text-[11px] text-gray-500 dark:text-slate-400">Total Unresolved</span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {data.map((reason) => {
-              const pct = total ? ((reason.value / total) * 100).toFixed(1) : "0.0";
-              return (
-                <div key={reason.name} className="flex items-center gap-2 text-sm">
-                  <span
-                    className="h-2.5 w-2.5 rounded-sm"
-                    style={{ backgroundColor: REASON_COLORS[reason.name] ?? "#94A3B8" }}
-                  />
-                  <span className="text-gray-700 dark:text-slate-300">{reason.name}</span>
-                  <span className="ml-auto font-medium text-gray-900 dark:text-white">
-                    {reason.value}
-                  </span>
-                  <span className="text-xs text-gray-400 w-12 text-right">({pct}%)</span>
+                  <Icon className="h-5 w-5" />
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">{item.name}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{item.value}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+      {total === 0 && (
+        <p className="mt-4 text-sm text-gray-500 dark:text-slate-400">No unresolved complaints right now.</p>
+      )}
     </SectionCard>
   );
 }
@@ -486,7 +440,7 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                         {complaint.complaintId}
                       </TD>
                       <TD>{complaint.clientName ?? "Customer"}</TD>
-                      <TD>{complaint.reason ?? complaint.assignedTeam ?? "—"}</TD>
+                      <TD>{complaint.title ?? complaint.reason ?? complaint.assignedTeam ?? "—"}</TD>
                       <TD>
                         <Badge
                           variant={
@@ -625,53 +579,111 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
       title="Dashboard"
       subtitle="Overview of service operations and performance."
     >
-      <div className="min-h-screen rounded-2xl bg-gray-50 dark:bg-slate-950 p-4 lg:p-6">
+      <div className="space-y-8">
         {isLoading || !data ? (
           <LoadingState />
         ) : (
           <motion.div
             initial="hidden"
             animate="visible"
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
-            className="space-y-6"
+            variants={{
+              hidden: {},
+              visible: {
+                transition: { staggerChildren: 0.06 },
+              },
+            }}
+            className="space-y-8"
           >
-            <motion.div
-              variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-              className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+            {/* Complaint Overview */}
+            <motion.section
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className="space-y-4"
             >
-              {summaryCards.map((card) => (
-                <KpiCard key={card.label} {...card} />
-              ))}
-            </motion.div>
-
-            <motion.div
-              variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-              className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  Complaint Overview
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Track complaint performance and resolution metrics
+                </p>
+              </div>
+  
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {summaryCards.map((card) => (
+                  <KpiCard key={card.label} {...card} />
+                ))}
+              </div>
+            </motion.section>
+  
+            {/* Task Overview */}
+            <motion.section
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className="space-y-4"
             >
-              {taskCards.map((card) => (
-                <KpiCard key={card.label} {...card} />
-              ))}
-            </motion.div>
-
-            <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  Task Overview
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Monitor task progress and team productivity
+                </p>
+              </div>
+  
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {taskCards.map((card) => (
+                  <KpiCard key={card.label} {...card} />
+                ))}
+              </div>
+            </motion.section>
+  
+            {/* Unresolved Reasons */}
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                visible: { opacity: 1, y: 0 },
+              }}
+            >
               <UnresolvedByReason data={data.unresolvedReasons} />
             </motion.div>
-
+  
+            {/* Charts */}
             <motion.div
-              variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                visible: { opacity: 1, y: 0 },
+              }}
               className="grid gap-6 xl:grid-cols-3"
             >
               <ComplaintsOverview data={data} />
+  
               <div className="xl:col-span-2">
                 <MonthlyTrend data={data.monthlyTrend} />
               </div>
             </motion.div>
-
-            <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
+  
+            {/* Categories */}
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                visible: { opacity: 1, y: 0 },
+              }}
+            >
               <TopCategories data={data.categories} />
             </motion.div>
-
-            <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
+  
+            {/* Summary Table */}
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                visible: { opacity: 1, y: 0 },
+              }}
+            >
               <SummaryTables data={data} />
             </motion.div>
           </motion.div>

@@ -5,6 +5,11 @@ import type { AuthRequest } from "../middleware/auth";
 import { getTaskStats, applyOverdueUpdates } from "../services/taskService";
 import { listActiveTeamNames } from "../services/teamService";
 import { resolveDashboardScope, type DashboardScope } from "../utils/dashboardScope";
+import {
+  COMPLAINT_ISSUE_TYPES,
+  buildIssueTitleFilter,
+  displayIssueLabel,
+} from "../utils/complaintIssueTypes";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -63,84 +68,65 @@ async function buildMonthlyTrend(scope: DashboardScope) {
   );
 }
 
+const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
+
+async function countComplaintsByIssue(
+  complaintFilter: Record<string, unknown>,
+  issue: (typeof COMPLAINT_ISSUE_TYPES)[number],
+  options?: { unresolvedOnly?: boolean }
+) {
+  const filter = {
+    ...complaintFilter,
+    ...buildIssueTitleFilter(issue),
+    ...(options?.unresolvedOnly ? { status: { $in: OPEN_COMPLAINT_STATUSES } } : {}),
+  };
+
+  return Complaint.countDocuments(filter);
+}
+
 async function buildUnresolvedReasons(scope: DashboardScope) {
   const complaintFilter = scope.complaintFilter;
-  const orderFilter = scope.orderFilter;
 
-  return [
-    {
-      name: "Delayed",
-      value: await Complaint.countDocuments({
-        ...complaintFilter,
-        title: /delay|delayed|late/i,
-        status: { $ne: "Completed" },
-      }),
-    },
-    {
-      name: "Material Unavailability",
-      value: await Complaint.countDocuments({
-        ...complaintFilter,
-        description: /material|parts|inventory/i,
-        status: { $ne: "Completed" },
-      }),
-    },
-    {
-      name: "Payment Pending",
-      value: await Order.countDocuments({ ...orderFilter, paid: false }),
-    },
-  ];
+  return Promise.all(
+    COMPLAINT_ISSUE_TYPES.map(async (issue) => ({
+      name: displayIssueLabel(issue),
+      value: await countComplaintsByIssue(complaintFilter, issue, { unresolvedOnly: true }),
+    }))
+  );
 }
 
 async function buildComplaintOverview(scope: DashboardScope) {
   const complaintFilter = scope.complaintFilter;
-  const orderFilter = scope.orderFilter;
 
-  const [resolved, delayed, material, payment] = await Promise.all([
+  const [resolved, ...issueCounts] = await Promise.all([
     Complaint.countDocuments({ ...complaintFilter, status: "Completed" }),
-    Complaint.countDocuments({
-      ...complaintFilter,
-      title: /delay|delayed|late/i,
-      status: { $ne: "Completed" },
-    }),
-    Complaint.countDocuments({
-      ...complaintFilter,
-      description: /material|parts|inventory/i,
-      status: { $ne: "Completed" },
-    }),
-    Order.countDocuments({ ...orderFilter, paid: false }),
+    ...COMPLAINT_ISSUE_TYPES.map((issue) =>
+      countComplaintsByIssue(complaintFilter, issue, { unresolvedOnly: true })
+    ),
   ]);
 
+  const [lockingIssue, leakageIssue, difficultyMoving, alignmentIssue, other] = issueCounts;
+
   return {
-    total: resolved + delayed + material + payment,
+    total: resolved + issueCounts.reduce((sum, value) => sum + value, 0),
     resolved,
-    delayed,
-    materialUnavailable: material,
-    paymentPending: payment,
+    lockingIssue,
+    leakageIssue,
+    difficultyMoving,
+    alignmentIssue,
+    other,
   };
 }
 
 async function buildTopCategories(scope: DashboardScope) {
   const base = scope.complaintFilter;
 
-  return [
-    {
-      name: "Product Issue",
-      value: await Complaint.countDocuments({ ...base, title: /product|device|equipment/i }),
-    },
-    {
-      name: "Installation Issue",
-      value: await Complaint.countDocuments({ ...base, title: /install|installation|setup/i }),
-    },
-    {
-      name: "Service Delay",
-      value: await Complaint.countDocuments({ ...base, title: /delay|late/i }),
-    },
-    {
-      name: "Payment Related",
-      value: await Complaint.countDocuments({ ...base, title: /payment|billing|invoice/i }),
-    },
-    { name: "Others", value: await Complaint.countDocuments(base) },
-  ];
+  return Promise.all(
+    COMPLAINT_ISSUE_TYPES.map(async (issue) => ({
+      name: displayIssueLabel(issue),
+      value: await countComplaintsByIssue(base, issue),
+    }))
+  );
 }
 
 async function buildRecentOrders(scope: DashboardScope) {

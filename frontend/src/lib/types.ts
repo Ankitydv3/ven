@@ -109,9 +109,11 @@ export interface DashboardReasonPoint {
 export interface DashboardOverviewPoint {
   total: number;
   resolved: number;
-  delayed: number;
-  materialUnavailable: number;
-  paymentPending: number;
+  lockingIssue: number;
+  leakageIssue: number;
+  difficultyMoving: number;
+  alignmentIssue: number;
+  other: number;
 }
 
 export interface DashboardCategoryPoint {
