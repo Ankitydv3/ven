@@ -1,17 +1,5 @@
-import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
-import { MyTasksPage } from "@/components/my-tasks/MyTasksPage";
+import { redirect } from "next/navigation";
 
 export default function AdminMyTasksPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#020817]">
-          <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
-        </div>
-      }
-    >
-      <MyTasksPage role="admin" />
-    </Suspense>
-  );
+  redirect("/admin/orders");
 }

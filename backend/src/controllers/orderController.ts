@@ -9,7 +9,6 @@ import {
   updateOrderById
 } from "../services/orderService";
 import { ApiError } from "../utils/ApiError";
-import { orderTeamFilter } from "../utils/teamScope";
 
 function parseQuery(query: Record<string, string | undefined>) {
   const paidVal = query.paid;
@@ -31,26 +30,17 @@ function parseQuery(query: Record<string, string | undefined>) {
 
 export async function listOrders(req: AuthRequest, res: Response) {
   const parsed = parseQuery(req.query as Record<string, string | undefined>);
-  const teamFilter = orderTeamFilter(req.user);
-  const params = {
-    ...parsed,
-    ...(teamFilter.assignedTeam ? { assignedTeam: String(teamFilter.assignedTeam) } : {}),
-  };
-  const result = await getOrders(params);
+  const result = await getOrders(parsed);
   res.json({
     items: result.items,
     total: result.total,
-    page: params.page,
-    limit: params.limit
+    page: parsed.page,
+    limit: parsed.limit
   });
 }
 
 export async function readOrder(req: AuthRequest, res: Response) {
   const order = await getOrderById(req.params.id as string);
-  const teamFilter = orderTeamFilter(req.user);
-  if (teamFilter.assignedTeam && order.assignedTeam !== teamFilter.assignedTeam) {
-    throw new ApiError(403, "You do not have access to this order");
-  }
   res.json({ order });
 }
 

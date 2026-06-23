@@ -60,13 +60,12 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const router = useRouter();
   const sessionUser = readUser();
   const canManage = canManageOrders(sessionUser?.role);
-  const myTasksPath = role === "admin" ? "/admin/my-tasks" : "/team/my-tasks";
-
   const openCustomerTasks = useCallback(
     (order: Order) => {
-      router.push(`${myTasksPath}?q=${encodeURIComponent(order.customerName)}`);
+      if (role !== "team") return;
+      router.push(`/team/my-tasks?q=${encodeURIComponent(order.customerName)}`);
     },
-    [router, myTasksPath]
+    [router, role]
   );
   const { data: teams = [] } = useTeams();
   const teamOptions = teams.map((team) => team.teamName);
@@ -414,12 +413,8 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   return (
     <DashboardShell
       role={role}
-      title={canManage ? "Orders Management" : "Team Orders"}
-      subtitle={
-        canManage
-          ? "Track material types, client orders, service availability, and workflow lifecycles."
-          : "View orders assigned to your team."
-      }
+      title="Orders Management"
+      subtitle="Track material types, client orders, service availability, and workflow lifecycles."
     >
       <div className="space-y-6">
         {/* Search and Filters */}
@@ -431,7 +426,9 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 Orders List
               </CardTitle>
               <CardDescription className="text-slate-500 dark:text-white/50">
-                Filter and manage registered client orders.
+                {canManage
+                  ? "Filter and manage registered client orders."
+                  : "Filter and view all registered client orders."}
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -708,18 +705,29 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                       {/* Customer Details */}
                       <TD>
-                        <button
-                          type="button"
-                          onClick={() => openCustomerTasks(order)}
-                          className="flex flex-col text-left transition hover:text-[#4F9B8C]"
-                        >
-                          <span className="font-semibold text-slate-900 underline-offset-2 hover:underline dark:text-white">
-                            {order.customerName}
-                          </span>
-                          <span className="text-xs text-slate-400 dark:text-slate-400">
-                            {order.phone} • {order.email}
-                          </span>
-                        </button>
+                        {role === "team" ? (
+                          <button
+                            type="button"
+                            onClick={() => openCustomerTasks(order)}
+                            className="flex flex-col text-left transition hover:text-[#4F9B8C]"
+                          >
+                            <span className="font-semibold text-slate-900 underline-offset-2 hover:underline dark:text-white">
+                              {order.customerName}
+                            </span>
+                            <span className="text-xs text-slate-400 dark:text-slate-400">
+                              {order.phone} • {order.email}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="flex flex-col text-left">
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {order.customerName}
+                            </span>
+                            <span className="text-xs text-slate-400 dark:text-slate-400">
+                              {order.phone} • {order.email}
+                            </span>
+                          </div>
+                        )}
                       </TD>
 
                       {/* Material Type */}
@@ -862,15 +870,21 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <p className="font-mono text-sm font-semibold text-[#04342C] dark:text-white">
                         {order.orderId}
                       </p>
-                      <p
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openCustomerTasks(order)}
-                        onKeyDown={(e) => e.key === "Enter" && openCustomerTasks(order)}
-                        className="font-semibold text-slate-900 underline-offset-2 hover:text-[#4F9B8C] hover:underline dark:text-white mt-1 cursor-pointer"
-                      >
-                        {order.customerName}
-                      </p>
+                      {role === "team" ? (
+                        <p
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openCustomerTasks(order)}
+                          onKeyDown={(e) => e.key === "Enter" && openCustomerTasks(order)}
+                          className="font-semibold text-slate-900 underline-offset-2 hover:text-[#4F9B8C] hover:underline dark:text-white mt-1 cursor-pointer"
+                        >
+                          {order.customerName}
+                        </p>
+                      ) : (
+                        <p className="font-semibold text-slate-900 dark:text-white mt-1">
+                          {order.customerName}
+                        </p>
+                      )}
                     </div>
                     <Badge
                       className={`rounded-full border-0 font-normal ${
@@ -1043,15 +1057,21 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Name</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (viewTarget) openCustomerTasks(viewTarget);
-                        }}
-                        className="font-medium text-[#4F9B8C] underline-offset-2 hover:underline"
-                      >
-                        {viewTarget.customerName}
-                      </button>
+                      {role === "team" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (viewTarget) openCustomerTasks(viewTarget);
+                          }}
+                          className="font-medium text-[#4F9B8C] underline-offset-2 hover:underline"
+                        >
+                          {viewTarget.customerName}
+                        </button>
+                      ) : (
+                        <span className="font-medium text-slate-800 dark:text-white">
+                          {viewTarget.customerName}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Phone</span>

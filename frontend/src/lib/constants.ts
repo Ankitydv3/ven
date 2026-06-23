@@ -20,13 +20,7 @@ export type NavItem = {
 export const navGroups: { admin: NavItem[]; team: NavItem[]; store: NavItem[] } = {
   admin: [
     { href: "/admin/dashboard", label: "Dashboard" },
-    {
-      label: "Orders",
-      children: [
-        { href: "/admin/orders", label: "All Orders" },
-        { href: "/admin/my-tasks", label: "My Tasks" },
-      ],
-    },
+    { href: "/admin/orders", label: "Orders" },
     { href: "/admin/complaints", label: "Complaints" },
     { href: "/admin/customers", label: "Customers" },
     { href: "/admin/schedule", label: "Schedule" },
