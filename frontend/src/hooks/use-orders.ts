@@ -7,6 +7,7 @@ import {
   deleteOrder,
   fetchOrder,
   fetchOrders,
+  importOrders,
   updateOrder,
   type OrderPayload
 } from "@/services/orders";
@@ -70,6 +71,19 @@ export function useDeleteOrder() {
     mutationFn: (id: string) => deleteOrder(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    }
+  });
+}
+
+export function useImportOrders() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (orders: OrderPayload[]) => importOrders(orders),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+      void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
     }
   });
 }

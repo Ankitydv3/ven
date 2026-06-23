@@ -144,3 +144,20 @@ export async function deleteOrderById(id: string) {
   }
   return order;
 }
+
+export async function bulkCreateOrders(payloads: OrderPayload[]) {
+  const created = [];
+  const errors: Array<{ row: number; message: string }> = [];
+
+  for (let index = 0; index < payloads.length; index += 1) {
+    try {
+      const order = await createOrder(payloads[index]);
+      created.push(order);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create order";
+      errors.push({ row: index + 1, message });
+    }
+  }
+
+  return { created, errors };
+}

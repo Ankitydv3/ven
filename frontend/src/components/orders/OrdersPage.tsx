@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useTransition, useCallback, useMemo } from "react";
+import { useEffect, useState, useTransition, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
   Filter,
   Download,
   Plus,
+  Upload,
+  FileSpreadsheet,
   Eye,
   Edit2,
   Trash2,
@@ -18,7 +20,7 @@ import {
   X
 } from "lucide-react";
 import { toast } from "sonner";
-import { useOrders, useUpdateOrder, useDeleteOrder } from "@/hooks/use-orders";
+import { useOrders, useUpdateOrder, useDeleteOrder, useImportOrders } from "@/hooks/use-orders";
 import { useTeams } from "@/hooks/use-teams";
 import { useSession } from "@/hooks/use-session";
 import { fetchOrders } from "@/services/orders";
@@ -51,6 +53,7 @@ import {
 import type { Order, OrderFilters } from "@/lib/types";
 import { readUser } from "@/lib/storage";
 import { canManageOrders } from "@/lib/permissions";
+import { downloadOrderImportTemplate, parseOrdersFromFile } from "@/lib/order-import";
 
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
@@ -98,6 +101,9 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { data, isLoading, refetch } = useOrders(activeFilters);
   const updateOrderMutation = useUpdateOrder();
   const deleteOrderMutation = useDeleteOrder();
+  const importOrdersMutation = useImportOrders();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, startImportTransition] = useTransition();
 
   // Modal target states
   const [viewTarget, setViewTarget] = useState<Order | null>(null);
@@ -356,6 +362,55 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     }
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const allowedTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const isAllowed =
+      allowedTypes.includes(file.type) ||
+      extension === "xlsx" ||
+      extension === "xls" ||
+      extension === "csv";
+
+    if (!isAllowed) {
+      toast.error("Please upload a valid Excel file (.xlsx, .xls) or CSV");
+      return;
+    }
+
+    startImportTransition(async () => {
+      try {
+        const { orders, errors } = await parseOrdersFromFile(file);
+        const result = await importOrdersMutation.mutateAsync(orders);
+
+        if (result.failed > 0) {
+          toast.warning(
+            `Imported ${result.created} order(s). ${result.failed} row(s) failed on the server.`
+          );
+        } else if (errors.length > 0) {
+          toast.success(`Imported ${result.created} order(s). Skipped ${errors.length} invalid row(s).`);
+        } else {
+          toast.success(`Successfully imported ${result.created} order(s)`);
+        }
+
+        setPage(1);
+        refetch();
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || error.message || "Failed to import orders");
+      }
+    });
+  };
+
   return (
     <DashboardShell
       role={role}
@@ -379,9 +434,38 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 Filter and manage registered client orders.
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {canManage && (
                 <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                    className="hidden"
+                    onChange={handleImportFile}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={downloadOrderImportTemplate}
+                    className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Template
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleImportClick}
+                    disabled={isImporting || importOrdersMutation.isPending}
+                    className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                  >
+                    {isImporting || importOrdersMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    Import Excel
+                  </Button>
                   <Button
                     onClick={handleExportCSV}
                     variant="outline"

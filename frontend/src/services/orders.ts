@@ -44,3 +44,15 @@ export async function deleteOrder(id: string) {
   const { data } = await api.delete<{ message: string }>(`/orders/${id}`);
   return data;
 }
+
+export interface OrderImportResponse {
+  message: string;
+  created: number;
+  failed: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+export async function importOrders(orders: OrderPayload[]) {
+  const { data } = await api.post<OrderImportResponse>("/orders/import", { orders });
+  return data;
+}

@@ -21,3 +21,7 @@ export const orderSchema = z.object({
 });
 
 export const orderUpdateSchema = orderSchema.partial();
+
+export const orderBulkImportSchema = z.object({
+  orders: z.array(orderSchema).min(1, "At least one order is required").max(500, "Maximum 500 orders per import")
+});

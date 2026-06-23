@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import type { AuthRequest } from "../middleware/auth";
 import {
+  bulkCreateOrders,
   createOrder,
   deleteOrderById,
   getOrderById,
@@ -66,4 +67,21 @@ export async function updateOrderHandler(req: AuthRequest, res: Response) {
 export async function deleteOrderHandler(req: AuthRequest, res: Response) {
   await deleteOrderById(req.params.id as string);
   res.json({ message: "Order Deleted Successfully" });
+}
+
+export async function importOrdersHandler(req: AuthRequest, res: Response) {
+  const { orders } = req.body as { orders: Parameters<typeof bulkCreateOrders>[0] };
+  const result = await bulkCreateOrders(orders);
+
+  if (result.created.length === 0) {
+    throw new ApiError(400, "No orders were imported. Please check your file and try again.");
+  }
+
+  res.status(201).json({
+    message: `Successfully imported ${result.created.length} order(s)`,
+    created: result.created.length,
+    failed: result.errors.length,
+    errors: result.errors,
+    orders: result.created
+  });
 }

@@ -5,11 +5,12 @@ import { authRequired, requireAdminPortalRole } from "../middleware/auth";
 import {
   createOrderHandler,
   deleteOrderHandler,
+  importOrdersHandler,
   listOrders,
   readOrder,
   updateOrderHandler
 } from "../controllers/orderController";
-import { orderSchema, orderUpdateSchema } from "../validation/orderValidation";
+import { orderBulkImportSchema, orderSchema, orderUpdateSchema } from "../validation/orderValidation";
 import { validateRequest } from "../middleware/validateRequest";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use(authRequired);
 router.get("/recent", asyncHandler(getRecentOrders));
 router.get("/", asyncHandler(listOrders));
 router.get("/:id", asyncHandler(readOrder));
+router.post("/import", requireAdminPortalRole(), validateRequest(orderBulkImportSchema), asyncHandler(importOrdersHandler));
 router.post("/", requireAdminPortalRole(), validateRequest(orderSchema), asyncHandler(createOrderHandler));
 router.put("/:id", requireAdminPortalRole(), validateRequest(orderUpdateSchema), asyncHandler(updateOrderHandler));
 router.delete("/:id", requireAdminPortalRole(), asyncHandler(deleteOrderHandler));
