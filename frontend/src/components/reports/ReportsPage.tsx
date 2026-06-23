@@ -9,6 +9,9 @@ import {
   Calendar,
   Download,
   SlidersHorizontal,
+  ThumbsUp,
+  ThumbsDown,
+  Star,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -24,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { KpiCard } from "./KpiCard";
 import { TeamPerformanceTable } from "./TeamPerformanceTable";
+import { FeedbackList, UserFeedbackTable } from "./FeedbackSection";
 import { useReports, useExportReports } from "@/hooks/useReports";
 import { ReportsPageSkeleton } from "./ReportsSkeleton";
 import { ReportsErrorState } from "./ReportsStates";
@@ -81,7 +85,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
 
   const kpiCards = useMemo(() => {
     if (!data) return [];
-    const { summary } = data;
+    const { summary, feedback } = data;
     return [
       {
         label: "Total Tasks Assigned",
@@ -98,6 +102,30 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
         trend: summary.growth.completedTasks.trend,
         icon: CheckCircle,
         color: "green" as const,
+      },
+      {
+        label: "Positive Feedback",
+        value: feedback?.summary.positiveCount ?? 0,
+        growth: feedback?.summary.growth.totalFeedback.growth ?? "0%",
+        trend: feedback?.summary.growth.totalFeedback.trend ?? ("up" as const),
+        icon: ThumbsUp,
+        color: "green" as const,
+      },
+      {
+        label: "Negative Feedback",
+        value: feedback?.summary.negativeCount ?? 0,
+        growth: feedback?.summary.growth.totalFeedback.growth ?? "0%",
+        trend: feedback?.summary.growth.totalFeedback.trend ?? ("down" as const),
+        icon: ThumbsDown,
+        color: "red" as const,
+      },
+      {
+        label: "Average Rating",
+        value: feedback?.summary.averageRating ? `${feedback.summary.averageRating}/5` : "—",
+        growth: feedback?.summary.growth.totalFeedback.growth ?? "0%",
+        trend: feedback?.summary.growth.totalFeedback.trend ?? ("up" as const),
+        icon: Star,
+        color: "orange" as const,
       },
     ];
   }, [data]);
@@ -201,7 +229,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
         {/* KPI Cards */}
         <div
           className={cn(
-            "grid grid-cols-1 gap-4 sm:grid-cols-2",
+            "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
             isFetching && "opacity-80"
           )}
         >
@@ -267,6 +295,33 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
           <TaskStatusDonut data={data.taskStatus.items} total={data.taskStatus.total} />
           {showOrgReports && <TasksByTeamChart data={data.teamTasks} />}
         </div>
+
+        {/* Customer Feedback */}
+        {data.feedback && (
+          <>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Customer Feedback
+            </h2>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              <div className="xl:col-span-1">
+                <UserFeedbackTable
+                  data={data.feedback.userPerformance}
+                  showTeam={showOrgReports}
+                />
+              </div>
+              <FeedbackList
+                title="Positive Feedback"
+                items={data.feedback.positive}
+                variant="positive"
+              />
+              <FeedbackList
+                title="Negative Feedback"
+                items={data.feedback.negative}
+                variant="negative"
+              />
+            </div>
+          </>
+        )}
 
         <p className="text-center text-xs text-[#64748B]">
           Completion Rate = (Completed Tasks / Assigned Tasks) × 100

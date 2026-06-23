@@ -16,6 +16,7 @@ import Task from "../models/Task";
 import { canUpdateScheduleProgress } from "../utils/permissions";
 import { isAdminRole, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
+import { submitTaskFeedbackByMongoId } from "../services/feedbackService";
 
 function parseListQuery(query: Record<string, string | undefined>) {
   return {
@@ -140,4 +141,17 @@ export async function taskStats(req: AuthRequest, res: Response) {
     Object.keys(scopeFilter).length > 0 ? undefined : team
   );
   res.json(stats);
+}
+
+export async function submitTaskFeedbackHandler(req: AuthRequest, res: Response) {
+  const { rating, comment } = req.body as { rating?: number; comment?: string };
+  const feedback = await submitTaskFeedbackByMongoId(String(req.params.id), {
+    rating: Number(rating),
+    comment,
+  });
+
+  res.status(201).json({
+    message: "Feedback submitted successfully",
+    feedback,
+  });
 }

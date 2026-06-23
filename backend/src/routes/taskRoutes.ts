@@ -16,6 +16,7 @@ import {
   patchTaskStatusHandler,
   readTask,
   reopenTaskHandler,
+  submitTaskFeedbackHandler,
   taskStats,
   updateTaskHandler,
 } from "../controllers/taskController";
@@ -35,6 +36,11 @@ router.patch(
   requireRole("team", "team_lead", "super_admin", "admin", "sub_admin"),
   validateRequest(taskStatusSchema),
   asyncHandler(patchTaskStatusHandler)
+);
+router.post(
+  "/:id/feedback",
+  requireRole("team", "team_lead", "super_admin", "admin", "sub_admin"),
+  asyncHandler(submitTaskFeedbackHandler)
 );
 router.post(
   "/:id/reopen",

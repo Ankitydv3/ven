@@ -33,6 +33,7 @@ interface AssignedTasksTableProps {
   canManage?: boolean;
   canUpdateProgress?: boolean;
   assignableUsers?: Array<{ _id: string; name: string; teamName?: string }>;
+  onTaskCompleted?: (task: Task) => void;
 }
 
 export function AssignedTasksTable({
@@ -42,6 +43,7 @@ export function AssignedTasksTable({
   canManage,
   canUpdateProgress,
   assignableUsers = [],
+  onTaskCompleted,
 }: AssignedTasksTableProps) {
   const patchMutation = usePatchTaskStatus();
   const reopenMutation = useReopenTask();
@@ -51,6 +53,9 @@ export function AssignedTasksTable({
     try {
       await patchMutation.mutateAsync({ id: task._id, status });
       toast.success(`Task marked as ${status}`);
+      if (status === "Completed") {
+        onTaskCompleted?.(task);
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));
     }

@@ -6,6 +6,8 @@ const feedbackSchema = new Schema(
     complaintId: { type: String, index: true },
     taskId: { type: String, index: true },
     team: { type: String, required: true, index: true },
+    assignedUserId: { type: String, index: true },
+    assignedUserName: { type: String, default: "", index: true },
     customerName: { type: String, required: true },
     sentiment: {
       type: String,

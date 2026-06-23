@@ -34,6 +34,6 @@ export async function completeComplaint(complaintId: string, payload: { completi
 }
 
 export async function trackComplaint(complaintId: string) {
-  const { data } = await api.get<{ complaint: Complaint }>(`/complaints/${complaintId}/track`);
+  const { data } = await api.get<{ complaint: Complaint; hasFeedback: boolean }>(`/complaints/${complaintId}/track`);
   return data;
 }

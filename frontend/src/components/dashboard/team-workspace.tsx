@@ -60,6 +60,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDueDate } from "@/lib/task-constants";
+import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
+import { feedbackTargetFromComplaint } from "@/lib/feedback-target";
 
 function scheduleLabel(item: Complaint) {
   if (!item.taskScheduleStatus) return "Not Scheduled";
@@ -145,6 +147,7 @@ export function TeamWorkspace() {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const { openFeedback } = useFeedbackPrompt();
   
   // New state for filtering and search
   const [searchTerm, setSearchTerm] = useState("");
@@ -264,15 +267,17 @@ export function TeamWorkspace() {
 
   const handleCompleteWork = () => {
     if (!activeComplaint) return;
+
+    const completedComplaint = activeComplaint;
     
     startTransition(async () => {
-      setCompletingId(activeComplaint._id);
+      setCompletingId(completedComplaint._id);
       try {
-        await completeComplaint(activeComplaint._id, { 
+        await completeComplaint(completedComplaint._id, { 
           completionRemarks: remarks, 
           resolutionDetails: details 
         });
-        toast.success(`✅ Complaint ${activeComplaint.complaintId} has been marked as completed!`, {
+        toast.success(`✅ Complaint ${completedComplaint.complaintId} has been marked as completed!`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
           duration: 5000,
         });
@@ -280,6 +285,9 @@ export function TeamWorkspace() {
         setActiveComplaint(null);
         setRemarks("");
         setDetails("");
+        setTimeout(() => {
+          openFeedback(feedbackTargetFromComplaint(completedComplaint));
+        }, 200);
         await refreshComplaintsAndTasks();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to complete complaint", {

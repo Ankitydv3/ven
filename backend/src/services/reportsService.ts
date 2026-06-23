@@ -1,6 +1,11 @@
 import Task from "../models/Task";
 import { applyOverdueUpdates } from "./taskService";
 import { getTeamColorHex, listActiveTeamNames } from "./teamService";
+import {
+  buildFeedbackItems,
+  buildFeedbackSummary,
+  buildUserFeedbackPerformance,
+} from "./feedbackService";
 
 const STATUS_CHART_COLORS: Record<string, string> = {
   Completed: "#22C55E",
@@ -289,11 +294,16 @@ export async function getReports(query: ReportsQuery) {
     ...(!query.startDate && !query.endDate ? getDefaultDateRange() : {}),
   };
 
-  const [summary, teamPerformance, taskStatus, teamTasks] = await Promise.all([
+  const [summary, teamPerformance, taskStatus, teamTasks, feedbackSummary, userFeedback, positiveFeedback, negativeFeedback] =
+    await Promise.all([
     buildSummary(resolvedQuery),
     buildTeamPerformance(resolvedQuery),
     buildTaskStatus(resolvedQuery),
     buildTeamTasks(resolvedQuery),
+    buildFeedbackSummary(resolvedQuery),
+    buildUserFeedbackPerformance(resolvedQuery),
+    buildFeedbackItems(resolvedQuery, "Positive"),
+    buildFeedbackItems(resolvedQuery, "Negative"),
   ]);
 
   return {
@@ -301,6 +311,12 @@ export async function getReports(query: ReportsQuery) {
     teamPerformance,
     taskStatus,
     teamTasks,
+    feedback: {
+      summary: feedbackSummary,
+      userPerformance: userFeedback,
+      positive: positiveFeedback,
+      negative: negativeFeedback,
+    },
   };
 }
 

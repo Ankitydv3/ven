@@ -38,6 +38,8 @@ import { Badge } from "@/components/ui/badge";
 
 import { trackComplaint } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
+import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
+import { feedbackTargetFromComplaint } from "@/lib/feedback-target";
 
 // Floating particles background
 function FloatingParticles() {
@@ -323,9 +325,17 @@ function Timeline({ complaint }: { complaint: Complaint }) {
 export default function ComplaintTracking() {
   const [trackingId, setTrackingId] = useState("");
   const [trackingComplaint, setTrackingComplaint] = useState<Complaint | null>(null);
+  const [hasFeedback, setHasFeedback] = useState(false);
   const [trackingLoading, setTrackingLoading] = useState(false);
+  const { openFeedback } = useFeedbackPrompt();
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const maybeShowRating = (complaint: Complaint, feedbackSubmitted: boolean) => {
+    if (complaint.status === "Completed" && !feedbackSubmitted) {
+      openFeedback(feedbackTargetFromComplaint(complaint, () => setHasFeedback(true)));
+    }
+  };
 
   const handleTrack = async () => {
     if (!trackingId.trim()) {
@@ -338,6 +348,8 @@ export default function ComplaintTracking() {
     try {
       const response = await trackComplaint(trackingId.trim());
       setTrackingComplaint(response.complaint);
+      setHasFeedback(response.hasFeedback);
+      maybeShowRating(response.complaint, response.hasFeedback);
       toast.success("Complaint located successfully", {
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
         style: {
@@ -592,6 +604,45 @@ export default function ComplaintTracking() {
 
               <CardContent className="relative pt-6">
                 <Timeline complaint={trackingComplaint} />
+
+                {trackingComplaint.status === "Completed" && !hasFeedback && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-8 rounded-xl border border-teal-500/20 bg-teal-500/10 p-4 text-center"
+                  >
+                    <Star className="mx-auto mb-2 h-6 w-6 text-amber-400" />
+                    <p className="text-sm font-medium text-slate-200">
+                      Your complaint has been resolved!
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      We&apos;d love to hear about your experience.
+                    </p>
+                    <Button
+                      className="mt-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+                      onClick={() =>
+                        openFeedback(
+                          feedbackTargetFromComplaint(trackingComplaint, () => setHasFeedback(true))
+                        )
+                      }
+                    >
+                      Rate Your Experience
+                    </Button>
+                  </motion.div>
+                )}
+
+                {trackingComplaint.status === "Completed" && hasFeedback && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-8 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center"
+                  >
+                    <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                    <p className="text-sm font-medium text-slate-200">
+                      Thank you for your feedback!
+                    </p>
+                  </motion.div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

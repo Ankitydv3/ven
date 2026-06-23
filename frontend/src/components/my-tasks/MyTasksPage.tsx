@@ -44,6 +44,8 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
 import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
+import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
+import { feedbackTargetFromTask } from "@/lib/feedback-target";
 
 const PROGRESS_OPTIONS: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
 
@@ -142,6 +144,7 @@ function TaskDetailPanel({
   onRefresh: () => void;
 }) {
   const patchMutation = usePatchTaskStatus();
+  const { openFeedback } = useFeedbackPrompt();
   const [notes, setNotes] = useState("");
   const [nextStatus, setNextStatus] = useState<TaskStatus | "">("");
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -210,6 +213,7 @@ function TaskDetailPanel({
         return;
       }
     }
+    const completedStatus = nextStatus;
     try {
       await patchMutation.mutateAsync({
         id: task._id,
@@ -236,6 +240,9 @@ function TaskDetailPanel({
       setMaterialName("");
       setQuantity("");
       setUnit("");
+      if (completedStatus === "Completed") {
+        openFeedback(feedbackTargetFromTask(task));
+      }
       onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));

@@ -1,5 +1,6 @@
 import Task from "../models/Task";
 import { createTask, syncComplaintTaskStatus, updateTaskById, assertComplaintEligibleForTaskAssignment } from "../services/taskService";
+import { hasFeedbackForComplaint, submitComplaintFeedback } from "../services/feedbackService";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
@@ -338,7 +339,23 @@ export async function trackComplaint(req: Request, res: Response) {
     throw new ApiError(404, "Complaint not found");
   }
 
-  res.json({ complaint });
+  const hasFeedback = await hasFeedbackForComplaint(complaint.complaintId);
+
+  res.json({ complaint, hasFeedback });
+}
+
+export async function submitFeedback(req: Request, res: Response) {
+  const complaintId = String(req.params.complaintId);
+  const { rating, comment } = req.body as { rating?: number; comment?: string };
+  const feedback = await submitComplaintFeedback(complaintId, {
+    rating: Number(rating),
+    comment,
+  });
+
+  res.status(201).json({
+    message: "Thank you for your feedback",
+    feedback,
+  });
 }
 
 export async function confirmComplaint(req: AuthRequest, res: Response) {

@@ -27,6 +27,8 @@ import {
 import { fetchAssignableUsers } from "@/services/users";
 import { formatDueDate, toDateKey } from "@/lib/task-constants";
 import type { TaskPayload } from "@/lib/task.types";
+import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
+import { feedbackTargetFromTask } from "@/lib/feedback-target";
 
 export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
   const { ready, user } = useSession(role);
@@ -64,6 +66,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
   });
 
   const createMutation = useCreateTask();
+  const { openFeedback } = useFeedbackPrompt();
   const tasks = tasksData?.items ?? [];
 
   const selectedDateLabel = formatDueDate(selectedDate);
@@ -144,6 +147,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
           canManage={canManage}
           canUpdateProgress={canUpdateProgress}
           assignableUsers={assignableUsers}
+          onTaskCompleted={(task) => openFeedback(feedbackTargetFromTask(task))}
         />
       </div>
 
