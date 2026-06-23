@@ -1,12 +1,14 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { TableElement, THead, TH, TR, TD } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Card, SectionHeading } from "@/components/ui/card";
+
 import { ReportsEmptyState } from "./ReportsStates";
 
 export interface TeamPerformanceRow {
   team: string;
+  
   teamColor: string;
   tasksAssigned: number;
   completed: number;
@@ -18,67 +20,76 @@ interface TeamPerformanceTableProps {
   data: TeamPerformanceRow[];
 }
 
-const glassCardClass =
-  "rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg shadow-[#3B82F6]/5 backdrop-blur-xl dark:border-[rgba(59,130,246,0.15)] dark:bg-[rgba(10,20,35,0.95)]";
-
 export function TeamPerformanceTable({ data }: TeamPerformanceTableProps) {
   const rows = data.filter((row) => !row.isTotal);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15 }}
-      whileHover={{ scale: 1.01 }}
-      className={cn("h-full", glassCardClass)}
-    >
-      <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">
-        Team Performance Summary
-      </h3>
+    <Card delay={0} className="flex h-full flex-col">
+      <SectionHeading title="Team Performance" description="Assigned, completed, and completion rate by team" />
       {rows.length === 0 ? (
         <ReportsEmptyState
           title="No team performance data"
           description="No task assignments found for the selected filters."
         />
       ) : (
-      <div className="overflow-x-auto">
-        <TableElement>
-          <THead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-[#071B31]/95">
-            <tr>
-              <TH className="whitespace-nowrap text-[#64748B]">Team</TH>
-              <TH className="whitespace-nowrap text-right text-[#64748B]">Tasks Assigned</TH>
-              <TH className="whitespace-nowrap text-right text-[#64748B]">Completed</TH>
-              <TH className="whitespace-nowrap text-right text-[#64748B]">Completion Rate</TH>
-            </tr>
-          </THead>
-          <tbody>
-            {data.map((row) => (
-              <TR
-                key={row.team}
-                className={cn(
-                  "transition-colors hover:bg-[#3B82F6]/5",
-                  row.isTotal && "bg-[#3B82F6]/8 font-semibold"
-                )}
-              >
-                <TD>
-                  <span
-                    className="font-medium"
-                    style={{ color: row.isTotal ? "#FFFFFF" : row.teamColor }}
-                  >
-                    {row.team}
-                  </span>
-                </TD>
-                <TD className="text-right text-slate-700 dark:text-[#94A3B8]">
-                  {row.tasksAssigned.toLocaleString()}
-                </TD>
-                <TD className="text-right text-[#22C55E]">{row.completed.toLocaleString()}</TD>
-                <TD className="text-right text-slate-700 dark:text-white">{row.completionRate}</TD>
-              </TR>
-            ))}
-          </tbody>
-        </TableElement>
-      </div>
+        <div className="overflow-x-auto">
+          <TableElement>
+            <THead>
+              <tr className="border-b border-slate-200 dark:border-slate-800">
+                <TH className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Team
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Assigned
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Completed
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Completion Rate
+                </TH>
+              </tr>
+            </THead>
+            <tbody>
+              {data.map((row) => (
+                <TR
+                  key={row.team}
+                  className={cn(
+                    "border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/40",
+                    row.isTotal && "border-t-2 border-slate-200 bg-slate-50/80 font-semibold dark:border-slate-700 dark:bg-slate-800/30"
+                  )}
+                >
+                  <TD className="py-3">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: row.isTotal ? "#64748B" : row.teamColor }}
+                      />
+                      <span
+                        className={cn(
+                          "font-medium",
+                          row.isTotal ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-200"
+                        )}
+                      >
+                        {row.team}
+                      </span>
+                    </span>
+                  </TD>
+                  <TD className="text-right tabular-nums text-slate-600 dark:text-slate-300">
+                    {row.tasksAssigned.toLocaleString()}
+                  </TD>
+                  <TD className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {row.completed.toLocaleString()}
+                  </TD>
+                  <TD className="text-right tabular-nums font-medium text-slate-900 dark:text-white">
+                    {row.completionRate}
+                  </TD>
+                </TR>
+              ))}
+            </tbody>
+          </TableElement>
+        </div>
       )}
-    </motion.div>
+    </Card>
   );
 }

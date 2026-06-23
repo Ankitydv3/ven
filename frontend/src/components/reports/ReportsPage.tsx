@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Users,
   CheckCircle,
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { KpiCard } from "./KpiCard";
 import { TeamPerformanceTable } from "./TeamPerformanceTable";
 import { FeedbackList, UserFeedbackTable } from "./FeedbackSection";
+import { SegmentedControl, Divider } from "@/components/ui/card";
 import { useReports, useExportReports } from "@/hooks/useReports";
 import { ReportsPageSkeleton } from "./ReportsSkeleton";
 import { ReportsErrorState } from "./ReportsStates";
@@ -136,8 +137,7 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab !== "All Teams") setTeamDropdown(tab);
-    else setTeamDropdown("All Teams");
+    setTeamDropdown(tab === "All Teams" ? "All Teams" : tab);
   };
 
   const handleDropdownChange = (value: string) => {
@@ -181,31 +181,62 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
       title="Reports"
       subtitle={showOrgReports ? "Performance overview of all service teams" : "Your team's performance overview"}
     >
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-[1680px] space-y-6 2xl:space-y-8">
         {/* Toolbar */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end"
+          className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <div className="flex flex-wrap items-center gap-3">
+          {showOrgReports ? (
+            <>
+              {/* Desktop / tablet landscape: segmented control */}
+              <div className="hidden md:block">
+                <SegmentedControl
+                  options={teamTabs.map((t) => ({ label: t, value: t }))}
+                  value={activeTab}
+                  onChange={handleTabChange}
+                  className="max-w-full overflow-x-auto"
+                />
+              </div>
+              {/* Mobile / tablet portrait: dropdown */}
+              <div className="md:hidden">
+                <Select value={teamDropdown} onValueChange={handleDropdownChange}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 sm:w-[200px]">
+                    <SelectValue placeholder="All Teams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamTabs.map((team) => (
+                      <SelectItem key={team} value={team}>
+                        {team}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               variant="outline"
-              className="h-10 rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8] backdrop-blur-md hover:bg-[rgba(59,130,246,0.1)] hover:text-white dark:border-[rgba(59,130,246,0.15)] dark:bg-[rgba(10,20,35,0.6)]"
+              className="h-10 rounded-xl border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             >
-              <Calendar className="mr-2 h-4 w-4 text-[#3B82F6]" />
-              <span className="text-sm">{dateLabel}</span>
+              <Calendar className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
+              {dateLabel}
             </Button>
 
             {showOrgReports && (
               <Button
-                className="h-10 rounded-xl bg-[#3B82F6] text-white shadow-lg shadow-[#3B82F6]/25 hover:bg-[#2563EB]"
+                className="h-10 rounded-xl bg-blue-600 text-sm text-white shadow-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                 onClick={handleExport}
                 disabled={exportReports.isPending}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Report
+                Export
               </Button>
             )}
 
@@ -213,11 +244,11 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
               <Button
                 variant="outline"
                 size="icon"
-                className="relative h-10 w-10 rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8] backdrop-blur-md hover:bg-[rgba(59,130,246,0.1)] hover:text-white"
+                className="relative h-10 w-10 flex-shrink-0 rounded-xl border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 {activeFilterCount > 0 && (
-                  <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] p-0 text-[10px] text-white">
+                  <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 p-0 text-[10px] text-white">
                     {activeFilterCount}
                   </Badge>
                 )}
@@ -226,11 +257,11 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
           </div>
         </motion.div>
 
-        {/* KPI Cards */}
+        {/* KPI strip */}
         <div
           className={cn(
-            "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
-            isFetching && "opacity-80"
+            "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4",
+            isFetching && "opacity-70"
           )}
         >
           {kpiCards.map((kpi, i) => (
@@ -238,92 +269,40 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
           ))}
         </div>
 
-        {/* Team Tabs */}
-        {showOrgReports && (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-[rgba(59,130,246,0.15)] pb-px">
-            {teamTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => handleTabChange(tab)}
-                className={cn(
-                  "relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-300",
-                  activeTab === tab
-                    ? "text-[#3B82F6]"
-                    : "text-[#64748B] hover:text-[#94A3B8]"
-                )}
-              >
-                {tab}
-                <AnimatePresence>
-                  {activeTab === tab && (
-                    <motion.span
-                      layoutId="reports-tab-underline"
-                      className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#3B82F6] shadow-[0_0_12px_rgba(59,130,246,0.6)]"
-                      transition={{ duration: 0.3 }}
-                    />
-                  )}
-                </AnimatePresence>
-              </button>
-            ))}
-          </div>
-
-          <Select value={teamDropdown} onValueChange={handleDropdownChange}>
-            <SelectTrigger className="h-10 w-[180px] rounded-xl border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.6)] text-[#94A3B8] backdrop-blur-md">
-              <SelectValue placeholder="All Teams" />
-            </SelectTrigger>
-            <SelectContent>
-              {teamTabs.map((team) => (
-                <SelectItem key={team} value={team}>
-                  {team}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        )}
-
-        {/* Row 1 */}
+        {/* Analytics: performance table anchors the row, charts stack alongside */}
         <div
           className={cn(
-            "grid grid-cols-1 gap-4 md:grid-cols-2",
-            showOrgReports ? "xl:grid-cols-3" : "xl:grid-cols-2"
+            "grid grid-cols-1 gap-4",
+            showOrgReports ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2"
           )}
         >
-          <div className="md:col-span-2 xl:col-span-1">
+          <div className={showOrgReports ? "md:col-span-2 lg:col-span-2" : ""}>
             <TeamPerformanceTable data={data.teamPerformance} />
           </div>
-          <TaskStatusDonut data={data.taskStatus.items} total={data.taskStatus.total} />
-          {showOrgReports && <TasksByTeamChart data={data.teamTasks} />}
+          <div className="space-y-4">
+            <TaskStatusDonut data={data.taskStatus.items} total={data.taskStatus.total} />
+            {showOrgReports && <TasksByTeamChart data={data.teamTasks} />}
+          </div>
         </div>
 
-        {/* Customer Feedback */}
+        {/* Customer feedback */}
         {data.feedback && (
-          <>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <div className="space-y-4">
+            <Divider />
+            <h2 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
               Customer Feedback
             </h2>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <div className="xl:col-span-1">
-                <UserFeedbackTable
-                  data={data.feedback.userPerformance}
-                  showTeam={showOrgReports}
-                />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="md:col-span-2 xl:col-span-1">
+                <UserFeedbackTable data={data.feedback.userPerformance} showTeam={showOrgReports} />
               </div>
-              <FeedbackList
-                title="Positive Feedback"
-                items={data.feedback.positive}
-                variant="positive"
-              />
-              <FeedbackList
-                title="Negative Feedback"
-                items={data.feedback.negative}
-                variant="negative"
-              />
+              <FeedbackList title="Positive Feedback" items={data.feedback.positive} variant="positive" />
+              <FeedbackList title="Negative Feedback" items={data.feedback.negative} variant="negative" />
             </div>
-          </>
+          </div>
         )}
 
-        <p className="text-center text-xs text-[#64748B]">
+        <p className="text-center text-xs text-slate-400 dark:text-slate-500">
           Completion Rate = (Completed Tasks / Assigned Tasks) × 100
         </p>
       </div>

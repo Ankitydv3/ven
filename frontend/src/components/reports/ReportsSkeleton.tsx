@@ -1,72 +1,84 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
-
-const glassCardClass =
-  "rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg shadow-[#3B82F6]/5 backdrop-blur-xl dark:border-[rgba(59,130,246,0.15)] dark:bg-[rgba(10,20,35,0.95)]";
+import { Card } from "@/components/ui/card";
 
 export function ReportsKpiSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {[...Array(2)].map((_, i) => (
-        <div key={i} className={glassCardClass}>
-          <div className="flex items-start justify-between">
-            <Skeleton className="h-10 w-10 rounded-xl" />
-            <Skeleton className="h-4 w-12" />
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {[...Array(5)].map((_, i) => (
+        <Card key={i} className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-5 w-12 rounded-full" />
           </div>
-          <Skeleton className="mt-4 h-8 w-20" />
-          <Skeleton className="mt-2 h-4 w-28" />
-        </div>
+          <div>
+            <Skeleton className="h-7 w-20" />
+            <Skeleton className="mt-2 h-3.5 w-24" />
+          </div>
+        </Card>
       ))}
     </div>
   );
 }
 
-export function ReportsTableSkeleton() {
+export function ReportsTableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className={glassCardClass}>
-      <Skeleton className="mb-4 h-5 w-48" />
+    <Card className="h-full">
+      <Skeleton className="mb-5 h-4 w-44" />
       <div className="space-y-3">
-        {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full rounded-lg" />
+        {[...Array(rows)].map((_, i) => (
+          <Skeleton key={i} className="h-11 w-full rounded-lg" />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
 export function ReportsChartSkeleton() {
   return (
-    <div className={glassCardClass}>
-      <Skeleton className="mb-4 h-5 w-40" />
-      <Skeleton className="mx-auto h-[200px] w-[200px] rounded-full" />
-    </div>
+    <Card className="h-full">
+      <Skeleton className="mb-5 h-4 w-36" />
+      <div className="flex items-center gap-6">
+        <Skeleton className="h-[170px] w-[170px] flex-shrink-0 rounded-full" />
+        <div className="flex-1 space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-4 w-full" />
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
 export function ReportsBarChartSkeleton() {
   return (
-    <div className={glassCardClass}>
-      <Skeleton className="mb-4 h-5 w-36" />
-      <Skeleton className="h-[240px] w-full rounded-xl" />
-    </div>
+    <Card className="h-full">
+      <Skeleton className="mb-5 h-4 w-32" />
+      <Skeleton className="h-[220px] w-full rounded-xl" />
+    </Card>
   );
 }
 
 export function ReportsPageSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="flex justify-end gap-3">
-        <Skeleton className="h-10 w-56 rounded-xl" />
-        <Skeleton className="h-10 w-36 rounded-xl" />
-        <Skeleton className="h-10 w-10 rounded-xl" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-9 w-64 rounded-xl" />
+        <div className="flex gap-3">
+          <Skeleton className="h-9 w-40 rounded-xl" />
+          <Skeleton className="h-9 w-32 rounded-xl" />
+        </div>
       </div>
       <ReportsKpiSkeleton />
-      <Skeleton className="h-10 w-full max-w-xl rounded-xl" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ReportsTableSkeleton />
-        <ReportsChartSkeleton />
-        <ReportsBarChartSkeleton />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ReportsTableSkeleton rows={6} />
+        </div>
+        <div className="space-y-4">
+          <ReportsChartSkeleton />
+          <ReportsBarChartSkeleton />
+        </div>
       </div>
     </div>
   );

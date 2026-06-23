@@ -1,17 +1,14 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
 import { TableElement, THead, TH, TR, TD } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
 import { ReportsEmptyState } from "./ReportsStates";
 import type { FeedbackItem, UserFeedbackRow } from "@/services/reportService";
 
-const glassCardClass =
-  "rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg shadow-[#3B82F6]/5 backdrop-blur-xl dark:border-[rgba(59,130,246,0.15)] dark:bg-[rgba(10,20,35,0.95)]";
-
 function StarRating({ rating }: { rating?: number }) {
-  if (!rating) return <span className="text-[#64748B]">—</span>;
+  if (!rating) return <span className="text-sm text-slate-400 dark:text-slate-500">—</span>;
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -19,7 +16,9 @@ function StarRating({ rating }: { rating?: number }) {
           key={star}
           className={cn(
             "h-3.5 w-3.5",
-            star <= rating ? "fill-amber-400 text-amber-400" : "text-slate-600"
+            star <= rating
+              ? "fill-amber-400 text-amber-400"
+              : "fill-transparent text-slate-300 dark:text-slate-700"
           )}
         />
       ))}
@@ -34,16 +33,15 @@ interface UserFeedbackTableProps {
 
 export function UserFeedbackTable({ data, showTeam = true }: UserFeedbackTableProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.2 }}
-      whileHover={{ scale: 1.01 }}
-      className={cn("h-full", glassCardClass)}
-    >
-      <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">
-        Feedback by Team Member
-      </h3>
+    <Card delay={0} className="flex h-full flex-col">
+      <div className="mb-4">
+  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+    Feedback by Team Member
+  </h3>
+  <p className="text-sm text-slate-500 dark:text-slate-400">
+    Volume and rating per agent
+  </p>
+</div>
       {data.length === 0 ? (
         <ReportsEmptyState
           title="No feedback data"
@@ -52,28 +50,53 @@ export function UserFeedbackTable({ data, showTeam = true }: UserFeedbackTablePr
       ) : (
         <div className="overflow-x-auto">
           <TableElement>
-            <THead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-[#071B31]/95">
-              <tr>
-                <TH className="whitespace-nowrap text-[#64748B]">Team Member</TH>
-                {showTeam && <TH className="whitespace-nowrap text-[#64748B]">Team</TH>}
-                <TH className="whitespace-nowrap text-right text-[#64748B]">Total</TH>
-                <TH className="whitespace-nowrap text-right text-[#22C55E]">Positive</TH>
-                <TH className="whitespace-nowrap text-right text-[#EF4444]">Negative</TH>
-                <TH className="whitespace-nowrap text-right text-[#64748B]">Avg Rating</TH>
+            <THead>
+              <tr className="border-b border-slate-200 dark:border-slate-800">
+                <TH className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Team Member
+                </TH>
+                {showTeam && (
+                  <TH className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Team
+                  </TH>
+                )}
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Total
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                  Positive
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">
+                  Negative
+                </TH>
+                <TH className="whitespace-nowrap text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Avg Rating
+                </TH>
               </tr>
             </THead>
             <tbody>
               {data.map((row) => (
-                <TR key={`${row.userName}-${row.team}`} className="transition-colors hover:bg-[#3B82F6]/5">
-                  <TD className="font-medium text-slate-900 dark:text-white">{row.userName}</TD>
-                  {showTeam && <TD className="text-[#94A3B8]">{row.team || "—"}</TD>}
-                  <TD className="text-right text-slate-900 dark:text-white">{row.totalFeedback}</TD>
-                  <TD className="text-right text-[#22C55E]">{row.positiveCount}</TD>
-                  <TD className="text-right text-[#EF4444]">{row.negativeCount}</TD>
+                <TR
+                  key={`${row.userName}-${row.team}`}
+                  className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/40"
+                >
+                  <TD className="py-3 font-medium text-slate-900 dark:text-white">{row.userName}</TD>
+                  {showTeam && <TD className="text-slate-500 dark:text-slate-400">{row.team || "—"}</TD>}
+                  <TD className="text-right tabular-nums text-slate-700 dark:text-slate-200">
+                    {row.totalFeedback}
+                  </TD>
+                  <TD className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {row.positiveCount}
+                  </TD>
+                  <TD className="text-right tabular-nums text-rose-600 dark:text-rose-400">
+                    {row.negativeCount}
+                  </TD>
                   <TD className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <StarRating rating={row.averageRating} />
-                      <span className="text-sm text-[#94A3B8]">{row.averageRating || "—"}</span>
+                      <span className="text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                        {row.averageRating || "—"}
+                      </span>
                     </div>
                   </TD>
                 </TR>
@@ -82,7 +105,7 @@ export function UserFeedbackTable({ data, showTeam = true }: UserFeedbackTablePr
           </TableElement>
         </div>
       )}
-    </motion.div>
+    </Card>
   );
 }
 
@@ -93,24 +116,31 @@ interface FeedbackListProps {
 }
 
 export function FeedbackList({ title, items, variant }: FeedbackListProps) {
-  const Icon = variant === "positive" ? ThumbsUp : ThumbsDown;
-  const accentColor = variant === "positive" ? "text-[#22C55E]" : "text-[#EF4444]";
-  const borderColor =
-    variant === "positive"
-      ? "border-[#22C55E]/20"
-      : "border-[#EF4444]/20";
+  const isPositive = variant === "positive";
+  const Icon = isPositive ? ThumbsUp : ThumbsDown;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.25 }}
-      className={cn("h-full", glassCardClass, borderColor)}
-    >
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className={cn("h-5 w-5", accentColor)} />
-        <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
-        <span className={cn("ml-auto text-sm font-semibold", accentColor)}>{items.length}</span>
+    <Card accent={isPositive ? "emerald" : "rose"} delay={isPositive ? 0.05 : 0.1} className="flex h-full flex-col">
+      <div className="mb-4 flex items-center gap-2 pl-1.5">
+        <span
+          className={cn(
+            "inline-flex h-7 w-7 items-center justify-center rounded-lg",
+            isPositive ? "bg-emerald-50 dark:bg-emerald-500/10" : "bg-rose-50 dark:bg-rose-500/10"
+          )}
+        >
+          <Icon className={cn("h-3.5 w-3.5", isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")} />
+        </span>
+        <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h3>
+        <span
+          className={cn(
+            "ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+            isPositive
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+          )}
+        >
+          {items.length}
+        </span>
       </div>
 
       {items.length === 0 ? (
@@ -119,30 +149,28 @@ export function FeedbackList({ title, items, variant }: FeedbackListProps) {
           description="Customer ratings will appear here once submitted."
         />
       ) : (
-        <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+        <div className="max-h-80 space-y-2.5 overflow-y-auto pl-1.5 pr-1">
           {items.map((item) => (
             <div
               key={item.feedbackId}
-              className="rounded-xl border border-slate-200/50 bg-slate-50/50 p-3 dark:border-[rgba(59,130,246,0.1)] dark:bg-[rgba(10,20,35,0.5)]"
+              className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800/60 dark:bg-slate-800/30"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    {item.customerName}
-                  </p>
-                  <p className="text-xs text-[#64748B]">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{item.customerName}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {item.complaintId} · {item.assignedUserName}
                   </p>
                 </div>
                 <StarRating rating={item.rating} />
               </div>
               {item.comment && (
-                <p className="mt-2 text-sm text-[#94A3B8]">&ldquo;{item.comment}&rdquo;</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">&ldquo;{item.comment}&rdquo;</p>
               )}
             </div>
           ))}
         </div>
       )}
-    </motion.div>
+    </Card>
   );
 }
