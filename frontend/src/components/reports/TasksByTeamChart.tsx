@@ -27,8 +27,8 @@ export const TasksByTeamChart = memo(function TasksByTeamChart({ data }: TasksBy
           description="No assigned or completed tasks found for the selected filters."
         />
       ) : (
-        <div className="h-[220px] min-h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[220px] min-h-[220px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data} barGap={4} barCategoryGap="24%">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
               <XAxis

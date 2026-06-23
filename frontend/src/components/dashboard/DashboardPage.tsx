@@ -253,8 +253,8 @@ function ComplaintsOverview({ data }: { data: DashboardPageData }) {
   return (
     <SectionCard title="Complaints Overview">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative h-[200px] w-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="relative mx-auto h-[200px] w-[200px] min-h-[200px] min-w-[200px] shrink-0">
+          <ResponsiveContainer width={200} height={200}>
             <PieChart>
               <Pie
                 data={slices}
@@ -310,7 +310,8 @@ function ComplaintsOverview({ data }: { data: DashboardPageData }) {
 function MonthlyTrend({ data }: { data: DashboardPageData["monthlyTrend"] }) {
   return (
     <SectionCard title="Monthly Trend">
-      <ResponsiveContainer width="100%" height={280}>
+      <div className="h-[280px] w-full min-w-0">
+        <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148,163,184,0.16)" vertical={false} />
           <XAxis dataKey="month" stroke="#94A3B8" tickLine={false} axisLine={false} />
@@ -329,6 +330,7 @@ function MonthlyTrend({ data }: { data: DashboardPageData["monthlyTrend"] }) {
           <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
+      </div>
     </SectionCard>
   );
 }

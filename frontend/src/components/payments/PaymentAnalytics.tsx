@@ -35,8 +35,8 @@ export function PaymentAnalytics() {
           <CardHeader>
             <CardTitle className="text-white">Revenue Trend</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="h-[300px] min-w-0">
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
@@ -58,8 +58,8 @@ export function PaymentAnalytics() {
           <CardHeader>
             <CardTitle className="text-white">Payment Mode Distribution</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="h-[300px] min-w-0">
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={modeData}
@@ -85,8 +85,8 @@ export function PaymentAnalytics() {
           <CardHeader>
             <CardTitle className="text-white">Monthly Collection Target</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="h-[300px] min-w-0">
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="name" stroke="#888" />

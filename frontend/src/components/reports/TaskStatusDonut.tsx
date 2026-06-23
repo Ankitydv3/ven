@@ -30,8 +30,8 @@ export const TaskStatusDonut = memo(function TaskStatusDonut({ data, total }: Ta
         />
       ) : (
         <div className="flex flex-col items-center gap-6 sm:flex-row">
-          <div className="relative h-[170px] w-[170px] flex-shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative mx-auto h-[170px] w-[170px] min-h-[170px] min-w-[170px] shrink-0">
+            <ResponsiveContainer width={170} height={170}>
               <PieChart>
                 <Pie
                   data={data}

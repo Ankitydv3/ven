@@ -34,8 +34,8 @@ export function ScheduleTaskStatusChart({ stats, isLoading }: ScheduleTaskStatus
         <div className="flex flex-1 items-center justify-center text-sm text-slate-500">Loading…</div>
       ) : (
         <div className="grid flex-1 gap-4 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-          <div className="relative mx-auto h-[200px] w-full max-w-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative mx-auto h-[200px] w-full min-h-[200px] min-w-0 max-w-[220px]">
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
                   data={items}

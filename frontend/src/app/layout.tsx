@@ -30,6 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={cn("h-full", "antialiased", manrope.variable, spaceGrotesk.variable, "font-sans", geist.variable)}
     >

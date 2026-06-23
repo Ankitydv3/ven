@@ -223,7 +223,7 @@ export function ComplaintsManager() {
               </tr>
             </thead>
             <tbody>
-              <AnimatePresence mode="wait">
+              <AnimatePresence>
                 {loading
                   ? Array.from({ length: 5 }).map((_, i) => <RowSkeleton key={i} />)
                   : items.length === 0

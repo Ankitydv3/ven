@@ -284,6 +284,7 @@ export function LoginForm() {
           src="/web-site-4-1.png"
           alt="Portal visual"
           fill
+          sizes="(max-width: 768px) 100vw, 50vw"
           priority
           className="object-cover object-center"
         />

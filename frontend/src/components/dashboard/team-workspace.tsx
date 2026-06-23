@@ -451,8 +451,8 @@ export function TeamWorkspace() {
             <Users className="h-3.5 w-3.5" /> {total} total
           </span>
         </div>
-        <div className="h-[240px]">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[240px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={pieData}
