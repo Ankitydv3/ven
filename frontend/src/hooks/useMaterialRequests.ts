@@ -2,9 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  confirmMaterialPayment,
   createMaterialRequest,
   fetchMaterialRequestStats,
   fetchMaterialRequests,
+  serviceHeadReviewMaterialRequest,
   updateMaterialRequestStatus,
 } from "@/services/material-requests";
 
@@ -50,6 +52,42 @@ export function useCreateMaterialRequest() {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+    },
+  });
+}
+
+export function useServiceHeadReviewMaterial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      decision,
+      serviceHeadRemarks,
+    }: {
+      id: string;
+      decision: "APPROVED" | "DENIED";
+      serviceHeadRemarks?: string;
+    }) => serviceHeadReviewMaterialRequest(id, { decision, serviceHeadRemarks }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+    },
+  });
+}
+
+export function useConfirmMaterialPayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => confirmMaterialPayment(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
     },
   });
 }
@@ -70,6 +108,8 @@ export function useUpdateMaterialRequestStatus() {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { readUser } from "@/lib/storage";
 import { canManageComplaints } from "@/lib/permissions";
 import { statusBadgeVariant as taskStatusBadgeVariant, formatDueDate, blocksTaskAssignment } from "@/lib/task-constants";
+import { getComplaintWorkflowStage } from "@/lib/workflow";
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
 function statusConfig(status: Complaint["status"]) {
@@ -44,7 +45,7 @@ function priorityConfig(priority: Complaint["priority"]) {
 }
 
 function scheduleLabel(item: Complaint) {
-  return item.taskScheduleStatus ?? "Not Scheduled";
+  return getComplaintWorkflowStage(item);
 }
 
 function assignLockReason(c: Complaint) {

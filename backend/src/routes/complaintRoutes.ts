@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { assignComplaint, assignComplaintTeam, completeComplaint, confirmComplaint, createComplaint, declineComplaint, getComplaintStats, listComplaints, startComplaint, submitFeedback, trackComplaint, updateComplaint } from "../controllers/complaintController";
+import { assignComplaint, assignComplaintTeam, completeComplaint, confirmComplaint, createComplaint, declineComplaint, getComplaintStats, listComplaints, lookupOrdersForComplaint, startComplaint, submitFeedback, trackComplaint, updateComplaint } from "../controllers/complaintController";
 import { getRecentComplaints } from "../controllers/dashboardController";
 import { authRequired, requireAdminPortalRole, requireRole } from "../middleware/auth";
 import { complaintUpload } from "../middleware/complaintUpload";
@@ -15,6 +15,7 @@ router.post(
   ]),
   asyncHandler(createComplaint)
 );
+router.get("/lookup-orders", asyncHandler(lookupOrdersForComplaint));
 router.get("/", authRequired, asyncHandler(listComplaints));
 router.get("/stats", authRequired, asyncHandler(getComplaintStats));
 router.get("/recent", authRequired, asyncHandler(getRecentComplaints));

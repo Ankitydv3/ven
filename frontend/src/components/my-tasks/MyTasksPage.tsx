@@ -152,6 +152,7 @@ function TaskDetailPanel({
   const [materialName, setMaterialName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
+  const [revisitDate, setRevisitDate] = useState("");
 
   const complaint = task.complaint;
   const customerName = complaint?.clientName ?? task.title;
@@ -208,10 +209,18 @@ function TaskDetailPanel({
       return;
     }
     if (nextStatus === "Need Material") {
-      if (!materialName.trim() || !quantity || !unit.trim()) {
-        toast.error("Material name, quantity, and unit are required");
+      if (!materialName.trim() || !quantity) {
+        toast.error("Material name and quantity are required");
         return;
       }
+      if (!photoFile) {
+        toast.error("Photo is required for material requests");
+        return;
+      }
+    }
+    if (nextStatus === "Need Re-visit" && !revisitDate) {
+      toast.error("Re-visit date is required");
+      return;
     }
     const completedStatus = nextStatus;
     try {
@@ -227,11 +236,14 @@ function TaskDetailPanel({
               unit: unit.trim(),
             }
           : {}),
+        ...(nextStatus === "Need Re-visit" ? { revisitDate } : {}),
       });
       const message =
-        nextStatus === "Need Re-visit" || nextStatus === "Need Material"
-          ? `Task set to Pending (${nextStatus})`
-          : `Task marked as ${nextStatus}`;
+        nextStatus === "Need Re-visit"
+          ? `Re-visit scheduled for ${revisitDate}`
+          : nextStatus === "Need Material"
+            ? "Material request sent to Service Head"
+            : `Task marked as ${nextStatus}`;
       toast.success(message);
       setNotes("");
       setNextStatus("");
@@ -240,6 +252,7 @@ function TaskDetailPanel({
       setMaterialName("");
       setQuantity("");
       setUnit("");
+      setRevisitDate("");
       if (completedStatus === "Completed") {
         openFeedback(feedbackTargetFromTask(task));
       }
@@ -250,7 +263,8 @@ function TaskDetailPanel({
   };
 
   const showProgressForm = canUpdate && task.status === "In Progress";
-  const showStartButton = canUpdate && ["Pending", "Overdue"].includes(task.status);
+  const showStartButton =
+    canUpdate && ["Pending", "Overdue", "Need Re-visit"].includes(task.status);
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -386,6 +400,20 @@ function TaskDetailPanel({
                     </SelectContent>
                   </Select>
                 </div>
+                {nextStatus === "Need Re-visit" && (
+                  <div>
+                    <label className="mb-1.5 block text-xs text-slate-400">Re-visit Date</label>
+                    <Input
+                      type="date"
+                      value={revisitDate}
+                      onChange={(e) => setRevisitDate(e.target.value)}
+                      className="rounded-xl border-white/10 bg-white/5 text-white"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Schedule and dashboard will show this re-visit date.
+                    </p>
+                  </div>
+                )}
                 {nextStatus === "Need Material" && (
                   <div className="space-y-3 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
                     <p className="text-xs font-semibold uppercase text-purple-300">
@@ -412,7 +440,7 @@ function TaskDetailPanel({
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs text-slate-400">Unit</label>
+                        <label className="mb-1 block text-xs text-slate-400">Unit (optional)</label>
                         <Input
                           value={unit}
                           onChange={(e) => setUnit(e.target.value)}
@@ -422,13 +450,15 @@ function TaskDetailPanel({
                       </div>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      A material request will be sent to Store Manager. Task returns to Pending.
-                      Upload a photo below — it will be attached to the material request.
+                      Request goes to Service Head for approval, then Accounts or Store Manager.
+                      A photo is required and will be attached to the material request.
                     </p>
                   </div>
                 )}
                 <div>
-                  <label className="mb-1.5 block text-xs text-slate-400">Add Photo</label>
+                  <label className="mb-1.5 block text-xs text-slate-400">
+                    Add Photo {nextStatus === "Need Material" ? "*" : ""}
+                  </label>
                   <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-6 transition hover:border-blue-500/40 hover:bg-white/[0.06]">
                     <Upload className="mb-2 h-6 w-6 text-slate-400" />
                     <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
@@ -491,7 +521,9 @@ function TaskDetailPanel({
                     {!isLast && <span className="mt-1 w-px flex-1 bg-white/10" />}
                   </div>
                   <div className="pb-4">
-                    <p className="text-sm font-medium text-white">{entry.action}</p>
+                    <p className="text-sm font-medium text-white">
+                      {entry.action.replace(/^Marked\s+/i, "")}
+                    </p>
                     <p className="text-xs text-slate-400">by {entry.by}</p>
                     {entry.remarks && (
                       <p className="mt-1 text-xs text-slate-500">{entry.remarks}</p>
@@ -535,8 +567,8 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     dueDate: dateFilter || undefined,
     page,
     limit,
-    sortBy: "dueDate",
-    sortOrder: "asc",
+    sortBy: "createdAt",
+    sortOrder: "desc",
   });
 
   const tasks = data?.items ?? [];

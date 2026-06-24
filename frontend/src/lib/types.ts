@@ -267,6 +267,9 @@ export interface Complaint {
   taskScheduleStatus?: string | null;
   taskScheduleDueDate?: string | null;
   taskId?: string | null;
+  materialRequestStatus?: string | null;
+  materialRequestId?: string | null;
+  workflowStage?: string | null;
 }
 
 export interface TeamReport {

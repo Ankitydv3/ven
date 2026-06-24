@@ -6,6 +6,10 @@ const materialAlertSchema = new Schema(
       type: String,
       enum: [
         "material_request_created",
+        "material_service_head_pending",
+        "material_denied",
+        "material_awaiting_accounts",
+        "material_awaiting_store",
         "material_waiting",
         "material_out_of_stock",
         "material_granted",

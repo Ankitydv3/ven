@@ -2,6 +2,7 @@ import Complaint from "../models/Complaint";
 import Task from "../models/Task";
 import TaskAlert from "../models/TaskAlert";
 import MaterialAlert from "../models/MaterialAlert";
+import { getMaterialAlertsForUser } from "./materialRequestService";
 import { listActiveTeamNames } from "./teamService";
 import { applyOverdueUpdates } from "./taskService";
 import { isAdminRole } from "../utils/teamScope";
@@ -60,6 +61,7 @@ export async function getAlertsData(filters?: {
   scopeFilter?: Record<string, unknown>;
   userId?: string;
   userRole?: string;
+  subAdminType?: string;
 }) {
   await applyOverdueUpdates();
 
@@ -114,13 +116,7 @@ export async function getAlertsData(filters?: {
       : Promise.resolve([]),
     TaskAlert.find(alertFilter).sort({ createdAt: -1 }).limit(50).lean(),
     filters?.userId
-      ? MaterialAlert.find({
-          $or: [{ userId: filters.userId }, ...(filters.userRole === "store_manager" ? [{ targetRole: "store_manager" }] : [])],
-          read: false,
-        })
-          .sort({ createdAt: -1 })
-          .limit(50)
-          .lean()
+      ? getMaterialAlertsForUser(filters.userId, filters.userRole ?? "", filters.subAdminType)
       : isAdminRole(filters?.userRole ?? "")
         ? MaterialAlert.find({ read: false }).sort({ createdAt: -1 }).limit(50).lean()
         : Promise.resolve([]),

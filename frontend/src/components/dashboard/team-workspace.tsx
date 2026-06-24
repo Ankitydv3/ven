@@ -27,12 +27,13 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDueDate } from "@/lib/task-constants";
+import { getComplaintWorkflowStage } from "@/lib/workflow";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
 import { feedbackTargetFromComplaint } from "@/lib/feedback-target";
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
 function scheduleLabel(item: Complaint) {
-  return item.taskScheduleStatus ?? "Not Scheduled";
+  return getComplaintWorkflowStage(item);
 }
 
 function effectiveStatus(item: Complaint): Complaint["status"] {

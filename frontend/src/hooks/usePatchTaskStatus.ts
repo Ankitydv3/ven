@@ -17,6 +17,7 @@ export function usePatchTaskStatus() {
       materialName,
       quantity,
       unit,
+      revisitDate,
     }: {
       id: string;
       status: string;
@@ -25,7 +26,9 @@ export function usePatchTaskStatus() {
       materialName?: string;
       quantity?: number;
       unit?: string;
-    }) => patchTaskStatus(id, status, { notes, photoUrl, materialName, quantity, unit }),
+      revisitDate?: string;
+    }) =>
+      patchTaskStatus(id, status, { notes, photoUrl, materialName, quantity, unit, revisitDate }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       void queryClient.refetchQueries({ queryKey: taskKeys.all });

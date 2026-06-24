@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import {
+  useConfirmMaterialPayment,
   useCreateMaterialRequest,
   useMaterialRequests,
+  useServiceHeadReviewMaterial,
 } from "@/hooks/useMaterialRequests";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,11 +27,98 @@ import {
 import {
   materialStatusBadgeClass,
   materialStatusLabel,
+  isServiceHeadUser,
+  isAccountantUser,
+  type MaterialRequest,
 } from "@/services/material-requests";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
+
+function MaterialRequestActions({ req, onDone }: { req: MaterialRequest; onDone: () => void }) {
+  const user = readUser();
+  const serviceHeadMutation = useServiceHeadReviewMaterial();
+  const accountsMutation = useConfirmMaterialPayment();
+  const [remarks, setRemarks] = useState("");
+
+  const pendingServiceHead = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
+  const canServiceHead = isServiceHeadUser(user) && pendingServiceHead;
+  const canAccounts = isAccountantUser(user) && req.status === "AWAITING_ACCOUNTS";
+
+  if (!canServiceHead && !canAccounts) {
+    return <span className="text-xs text-slate-500">—</span>;
+  }
+
+  const handleServiceHead = async (decision: "APPROVED" | "DENIED") => {
+    try {
+      await serviceHeadMutation.mutateAsync({
+        id: req._id,
+        decision,
+        serviceHeadRemarks: remarks.trim() || undefined,
+      });
+      toast.success(decision === "APPROVED" ? "Request approved" : "Request denied");
+      setRemarks("");
+      onDone();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to update request"));
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    try {
+      await accountsMutation.mutateAsync(req._id);
+      toast.success("Payment confirmed — sent to Store Manager");
+      onDone();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to confirm payment"));
+    }
+  };
+
+  return (
+    <div className="flex min-w-[200px] flex-col gap-2">
+      {(canServiceHead || canAccounts) && (
+        <Textarea
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
+          placeholder="Remarks (optional)"
+          className="min-h-[52px] rounded-lg border-white/10 bg-white/5 text-xs text-white"
+        />
+      )}
+      {canServiceHead && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="h-8 flex-1 rounded-lg bg-emerald-600 text-xs hover:bg-emerald-500"
+            disabled={serviceHeadMutation.isPending}
+            onClick={() => void handleServiceHead("APPROVED")}
+          >
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 flex-1 rounded-lg border-red-500/30 text-xs text-red-300"
+            disabled={serviceHeadMutation.isPending}
+            onClick={() => void handleServiceHead("DENIED")}
+          >
+            Deny
+          </Button>
+        </div>
+      )}
+      {canAccounts && (
+        <Button
+          size="sm"
+          className="h-8 rounded-lg bg-yellow-600 text-xs hover:bg-yellow-500"
+          disabled={accountsMutation.isPending}
+          onClick={() => void handleConfirmPayment()}
+        >
+          Confirm Payment
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const isAdminView = role === "admin";
@@ -68,8 +157,12 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const requests = data?.items ?? [];
 
   const handleCreate = async () => {
-    if (!form.materialName.trim() || !form.quantity || !form.unit.trim()) {
-      toast.error("Material name, quantity, and unit are required");
+    if (!form.materialName.trim() || !form.quantity) {
+      toast.error("Material name and quantity are required");
+      return;
+    }
+    if (!form.imageUrl) {
+      toast.error("Photo is required for material requests");
       return;
     }
     try {
@@ -143,7 +236,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       />
                     </div>
                     <div>
-                      <Label>Unit</Label>
+                      <Label>Unit (optional)</Label>
                       <Input
                         value={form.unit}
                         onChange={(e) => setForm({ ...form, unit: e.target.value })}
@@ -161,7 +254,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                     />
                   </div>
                   <div>
-                    <Label>Attach Image</Label>
+                    <Label>Attach Image *</Label>
                     <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-5 hover:border-blue-500/40">
                       <Upload className="mb-2 h-5 w-5 text-slate-400" />
                       <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
@@ -226,7 +319,8 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       <TH>Requested By</TH>
                       <TH>Request Date</TH>
                       <TH>Status</TH>
-                      <TH>Store Manager Remarks</TH>
+                      <TH>Remarks</TH>
+                      <TH>Actions</TH>
                     </>
                   ) : (
                     <>
@@ -258,7 +352,12 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             {materialStatusLabel[req.status]}
                           </Badge>
                         </TD>
-                        <TD className="text-slate-400">{req.storeManagerRemarks || "—"}</TD>
+                        <TD className="text-slate-400">
+                          {req.serviceHeadRemarks || req.storeManagerRemarks || "—"}
+                        </TD>
+                        <TD>
+                          <MaterialRequestActions req={req} onDone={() => void refetch()} />
+                        </TD>
                       </>
                     ) : (
                       <>

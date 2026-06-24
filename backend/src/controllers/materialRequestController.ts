@@ -2,13 +2,15 @@ import type { Response } from "express";
 import type { AuthRequest } from "../middleware/auth";
 import {
   assertMaterialRequestAccess,
+  confirmMaterialPayment,
   createMaterialRequest,
   getMaterialRequestById,
   getMaterialRequestStats,
   listMaterialRequests,
+  serviceHeadReview,
   updateMaterialRequestStatus,
 } from "../services/materialRequestService";
-import { isAdminRole } from "../utils/teamScope";
+import { isAdminRole, isAccountant, isServiceHead } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
 
 export async function createMaterialRequestHandler(req: AuthRequest, res: Response) {
@@ -30,15 +32,18 @@ export async function listMaterialRequestsHandler(req: AuthRequest, res: Respons
   const parsedPage = Number(page ?? "1") || 1;
   const parsedLimit = Number(limit ?? "20") || 20;
 
-  const isStoreOrAdmin =
-    req.user?.role === "store_manager" || isAdminRole(req.user?.role);
+  const isPrivileged =
+    req.user?.role === "store_manager" ||
+    isAdminRole(req.user?.role) ||
+    isServiceHead(req.user) ||
+    isAccountant(req.user);
 
   const result = await listMaterialRequests({
     q,
     status,
     page: parsedPage,
     limit: parsedLimit,
-    ...(isStoreOrAdmin ? {} : { requestedById: req.user?.id }),
+    ...(isPrivileged ? {} : { requestedById: req.user?.id }),
   });
 
   res.json({
@@ -50,11 +55,14 @@ export async function listMaterialRequestsHandler(req: AuthRequest, res: Respons
 }
 
 export async function materialRequestStatsHandler(req: AuthRequest, res: Response) {
-  const isStoreOrAdmin =
-    req.user?.role === "store_manager" || isAdminRole(req.user?.role);
+  const isPrivileged =
+    req.user?.role === "store_manager" ||
+    isAdminRole(req.user?.role) ||
+    isServiceHead(req.user) ||
+    isAccountant(req.user);
 
   const stats = await getMaterialRequestStats(
-    isStoreOrAdmin ? undefined : { requestedById: req.user?.id }
+    isPrivileged ? undefined : { requestedById: req.user?.id }
   );
   res.json(stats);
 }
@@ -63,6 +71,37 @@ export async function readMaterialRequestHandler(req: AuthRequest, res: Response
   const request = await getMaterialRequestById(req.params.id as string);
   await assertMaterialRequestAccess(req.user, request);
   res.json({ request });
+}
+
+export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) {
+  const request = await serviceHeadReview(
+    req.params.id as string,
+    req.body.decision,
+    {
+      name: req.user?.name ?? "Service Head",
+      role: req.user?.role ?? "sub_admin",
+      subAdminType: req.user?.subAdminType,
+    },
+    req.body.serviceHeadRemarks
+  );
+
+  res.json({
+    message:
+      req.body.decision === "APPROVED"
+        ? "Material request approved"
+        : "Material request denied",
+    request,
+  });
+}
+
+export async function confirmMaterialPaymentHandler(req: AuthRequest, res: Response) {
+  const request = await confirmMaterialPayment(req.params.id as string, {
+    name: req.user?.name ?? "Accounts",
+    role: req.user?.role ?? "accountant",
+    subAdminType: req.user?.subAdminType,
+  });
+
+  res.json({ message: "Payment confirmed — forwarded to Store Manager", request });
 }
 
 export async function updateMaterialRequestStatusHandler(req: AuthRequest, res: Response) {

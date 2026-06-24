@@ -24,7 +24,7 @@ export type TaskStatus =
   | "Need Material";
 export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
-const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["In Progress", "Completed"];
+const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["In Progress", "Completed", "Need Material"];
 
 export function blocksComplaintTaskAssignment(status?: string | null) {
   return status === "In Progress" || status === "Completed";
@@ -648,7 +648,7 @@ async function applyStatusChange(
   }
 
   if (status === "Need Re-visit" || status === "Need Material") {
-    task.status = "Pending";
+    task.status = status;
     task.isLocked = false;
     return;
   }
@@ -667,6 +667,7 @@ export async function patchTaskStatusById(
     materialName?: string;
     quantity?: number;
     unit?: string;
+    revisitDate?: Date;
   }
 ) {
   const task = await Task.findById(id);
@@ -698,8 +699,11 @@ export async function patchTaskStatusById(
         throw new ApiError(403, "You can mark tasks as Completed, Need Re-visit, or Need Material");
       }
     } else if (startStatuses.includes(status)) {
-      if (!["Pending", "Overdue"].includes(task.status)) {
-        throw new ApiError(400, "Only pending tasks can be started");
+      if (!["Pending", "Overdue", "Need Re-visit"].includes(task.status)) {
+        throw new ApiError(400, "Only pending or re-visit tasks can be started");
+      }
+      if (task.status === "Need Material") {
+        throw new ApiError(400, "Cannot start task while waiting for material approval");
       }
     } else {
       throw new ApiError(403, "You can only start tasks or update in-progress tasks");
@@ -713,8 +717,7 @@ export async function patchTaskStatusById(
   const allowReopen = isAdminRole(actor.role) && status === "Pending" && task.status === "Completed";
   await applyStatusChange(task, status, { allowReopen });
 
-  const historyStatus =
-    status === "Need Re-visit" || status === "Need Material" ? "Pending" : status;
+  const historyStatus = status;
 
   const actionLabel =
     status === "In Progress"
@@ -722,14 +725,11 @@ export async function patchTaskStatusById(
       : status === "Completed"
         ? "Task Completed"
         : status === "Need Re-visit"
-          ? "Marked Need Re-visit (Pending)"
+          ? "Need Re-visit"
           : status === "Need Material"
-            ? "Marked Need Material (Pending)"
+            ? "Need Material"
             : `Status Updated to ${status}`;
 
-  if (!task.history) {
-    task.history = [];
-  }
   task.history.push({
     action: actionLabel,
     by: actor.name ?? "User",
@@ -744,17 +744,22 @@ export async function patchTaskStatusById(
     task.remarks = options.notes;
   }
 
+  if (status === "Need Re-visit" && options?.revisitDate) {
+    task.dueDate = options.revisitDate;
+    task.dueDateKey = dateKeyFromValue(options.revisitDate);
+  }
+
   await task.save();
 
-  if (status === "Need Material" && options?.materialName && options?.quantity && options?.unit) {
+  if (status === "Need Material" && options?.materialName && options?.quantity) {
     await createMaterialRequest({
       materialName: options.materialName,
       quantity: options.quantity,
-      unit: options.unit,
+      unit: options.unit?.trim() || "—",
       remarks: options.notes ?? `Material needed for task ${task.taskId}`,
       imageUrl: options?.photoUrl ?? "",
       taskId: task.taskId,
-      complaintId: task.complaintId,
+      complaintId: task.complaintId ?? undefined,
       requestedBy: actor.name ?? "User",
       requestedById: actor.id,
       department: task.assignedTeamName ?? "",

@@ -52,31 +52,19 @@ import { readUser } from "@/lib/storage";
 import { canManageComplaints } from "@/lib/permissions";
 import { blocksTaskAssignment } from "@/lib/task-constants";
 import type { Complaint } from "@/lib/types";
+import {
+  getComplaintWorkflowStage,
+  workflowDisplayStatuses,
+  workflowStageBadgeClass,
+  type WorkflowStage,
+} from "@/lib/workflow";
 import { cn } from "@/lib/utils";
 
-const DISPLAY_STATUSES = [
-  "All",
-  "Pending",
-  "Assigned",
-  "In Progress",
-  "Completed",
-  "Re-visit",
-  "Material Required",
-  "Delayed",
-] as const;
+const DISPLAY_STATUSES = workflowDisplayStatuses;
 
 type DisplayStatusFilter = (typeof DISPLAY_STATUSES)[number];
 
-type WorkflowStatus =
-  | "Pending Review"
-  | "Pending"
-  | "Assigned"
-  | "In Progress"
-  | "Completed"
-  | "Re-visit"
-  | "Material Required"
-  | "Delayed"
-  | "Declined";
+type WorkflowStatus = WorkflowStage | "Delayed";
 
 function getDefaultDateRange() {
   const now = new Date();
@@ -96,39 +84,13 @@ function isDelayIssue(complaint: Complaint) {
 }
 
 function getDisplayStatus(complaint: Complaint): WorkflowStatus {
-  if (complaint.taskScheduleStatus === "Need Re-visit") return "Re-visit";
-  if (complaint.taskScheduleStatus === "Need Material") return "Material Required";
-  if (complaint.status === "Completed") return "Completed";
-  if (complaint.status === "Pending Assignment") return "Pending";
-  if (complaint.status === "Assigned") return "Assigned";
-  if (complaint.status === "In Progress") return "In Progress";
-  if (complaint.status === "Pending Review") return "Pending Review";
-  if (complaint.status === "Declined") return "Declined";
   if (isDelayIssue(complaint)) return "Delayed";
-  if (complaint.taskScheduleStatus === "In Progress") return "In Progress";
-  if (complaint.taskScheduleStatus === "Pending") return "Pending";
-  return "Pending";
+  return getComplaintWorkflowStage(complaint);
 }
 
 function statusBadgeClass(status: WorkflowStatus) {
-  switch (status) {
-    case "Completed":
-      return "bg-emerald-500/15 text-emerald-400";
-    case "Assigned":
-    case "In Progress":
-      return "bg-blue-500/15 text-blue-400";
-    case "Pending":
-    case "Pending Review":
-      return "bg-amber-500/15 text-amber-400";
-    case "Re-visit":
-    case "Material Required":
-    case "Delayed":
-      return "bg-rose-500/15 text-rose-400";
-    case "Declined":
-      return "bg-slate-500/15 text-slate-400";
-    default:
-      return "bg-slate-500/15 text-slate-400";
-  }
+  if (status === "Delayed") return "bg-rose-500/15 text-rose-400";
+  return workflowStageBadgeClass[status as WorkflowStage] ?? "bg-slate-500/15 text-slate-400";
 }
 
 function formatComplaintDate(value?: string) {

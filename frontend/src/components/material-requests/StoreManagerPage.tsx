@@ -91,6 +91,9 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
   const [action, setAction] = useState<"WAITING" | "OUT_OF_STOCK" | "GRANTED" | null>(null);
 
   const requests = data?.items ?? [];
+  const storeQueue = requests.filter((r) =>
+    ["AWAITING_STORE", "WAITING"].includes(r.status)
+  );
   const materialAlerts = alertsData?.materialAlerts ?? [];
 
   const handleAction = async () => {
@@ -137,8 +140,8 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
             ) : (
               <>
                 <StatCard label="Total Requests" value={stats?.total ?? 0} icon={Package} iconClass="bg-blue-500/15 text-blue-400" />
-                <StatCard label="Pending Requests" value={stats?.pending ?? 0} icon={Clock} iconClass="bg-amber-500/15 text-amber-400" />
-                <StatCard label="Waiting Requests" value={stats?.waiting ?? 0} icon={AlertTriangle} iconClass="bg-orange-500/15 text-orange-400" />
+                <StatCard label="Awaiting Store" value={stats?.awaitingStore ?? 0} icon={Clock} iconClass="bg-cyan-500/15 text-cyan-400" />
+                <StatCard label="Waiting Stock" value={stats?.waiting ?? 0} icon={AlertTriangle} iconClass="bg-orange-500/15 text-orange-400" />
                 <StatCard label="Out Of Stock" value={stats?.outOfStock ?? 0} icon={XCircle} iconClass="bg-red-500/15 text-red-400" />
                 <StatCard label="Granted Requests" value={stats?.granted ?? 0} icon={CheckCircle2} iconClass="bg-emerald-500/15 text-emerald-400" />
               </>
@@ -181,7 +184,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
           <div className="border-b border-white/10 px-5 py-4">
             <h2 className="text-lg font-semibold text-white">Material Requests</h2>
             <p className="text-sm text-slate-400">
-              {requests.length} request{requests.length !== 1 ? "s" : ""} total
+              {storeQueue.length} ready for store action
             </p>
           </div>
           {isLoading ? (
@@ -195,11 +198,10 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
                 Retry
               </Button>
             </div>
-          ) : requests.length === 0 ? (
+          ) : storeQueue.length === 0 ? (
             <p className="py-16 text-center text-slate-400">
-              No material requests yet. Team users can submit from{" "}
-              <strong className="text-white">Material Requests</strong> or{" "}
-              <strong className="text-white">My Tasks → Need Material</strong>.
+              No material requests awaiting store release. Requests appear here after Service Head
+              approval and payment confirmation.
             </p>
           ) : (
             <TableElement>
@@ -217,7 +219,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
                 </TR>
               </THead>
               <tbody>
-                {requests.map((req) => (
+                {storeQueue.map((req) => (
                   <TR key={req._id}>
                     <TD>
                       <RequestImage url={req.imageUrl} alt={req.materialName} />

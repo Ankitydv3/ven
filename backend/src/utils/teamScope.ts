@@ -71,6 +71,19 @@ export function isTeamRole(role?: string) {
   return role === "team" || role === "team_lead";
 }
 
+export function isServiceHead(user?: { role?: string; subAdminType?: string }) {
+  if (!user?.role) return false;
+  if (user.role === "super_admin" || user.role === "admin") return true;
+  return user.role === "sub_admin" && user.subAdminType === "plant_head";
+}
+
+export function isAccountant(user?: { role?: string; subAdminType?: string }) {
+  if (!user?.role) return false;
+  if (user.role === "accountant") return true;
+  if (user.role === "super_admin" || user.role === "admin") return true;
+  return user.role === "sub_admin" && user.subAdminType === "accountant";
+}
+
 /** Task visibility filter — team members see own tasks; team leads see team tasks. */
 export function taskVisibilityFilter(user?: JwtUser): Record<string, unknown> {
   if (!user || isAdminRole(user.role)) return {};

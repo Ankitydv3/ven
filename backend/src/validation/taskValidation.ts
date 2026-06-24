@@ -43,6 +43,11 @@ export const taskStatusSchema = z.object({
   materialName: z.string().trim().optional(),
   quantity: z.coerce.number().positive().optional(),
   unit: z.string().trim().optional(),
+  revisitDate: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val ? parseDateKey(dateKeyFromValue(val)) : undefined)),
 }).superRefine((data, ctx) => {
   if (data.status === "Need Material") {
     if (!data.materialName?.trim()) {
@@ -51,9 +56,12 @@ export const taskStatusSchema = z.object({
     if (!data.quantity || data.quantity <= 0) {
       ctx.addIssue({ code: "custom", message: "Quantity is required", path: ["quantity"] });
     }
-    if (!data.unit?.trim()) {
-      ctx.addIssue({ code: "custom", message: "Unit is required", path: ["unit"] });
+    if (!data.photoUrl?.trim()) {
+      ctx.addIssue({ code: "custom", message: "Photo is required", path: ["photoUrl"] });
     }
+  }
+  if (data.status === "Need Re-visit" && !data.revisitDate) {
+    ctx.addIssue({ code: "custom", message: "Re-visit date is required", path: ["revisitDate"] });
   }
 });
 

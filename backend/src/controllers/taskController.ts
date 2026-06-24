@@ -102,6 +102,7 @@ export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
     materialName: req.body.materialName,
     quantity: req.body.quantity,
     unit: req.body.unit,
+    revisitDate: req.body.revisitDate,
   });
   res.json({ message: "Task status updated", task });
 }

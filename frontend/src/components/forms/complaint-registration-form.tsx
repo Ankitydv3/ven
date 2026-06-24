@@ -1,20 +1,23 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createComplaint } from "@/services/complaints";
+import { createComplaint, lookupOrdersByPhone } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
 import { complaintIssueTypes } from "@/lib/constants";
 import { phoneInputProps, sanitizePhoneDigits, blockNonDigitPhoneKeys } from "@/lib/phone";
 import { portalInputClass, portalLabelClass, portalTextareaClass } from "@/lib/portal-styles";
+import { cn } from "@/lib/utils";
+
+type LookupOrder = Awaited<ReturnType<typeof lookupOrdersByPhone>>["items"][number];
 
 const schema = z
   .object({
@@ -54,6 +57,10 @@ export function ComplaintRegistrationForm({
   const [submittedComplaint, setSubmittedComplaint] = useState<Complaint | null>(null);
   const [picture, setPicture] = useState<File | null>(null);
   const [quotation, setQuotation] = useState<File | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupDone, setLookupDone] = useState(false);
+  const [matchedOrders, setMatchedOrders] = useState<LookupOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const defaultValues = useMemo(
     () => ({
@@ -77,8 +84,63 @@ export function ComplaintRegistrationForm({
   });
 
   const selectedComplaintType = form.watch("complaintType");
+  const mobileNumber = form.watch("mobileNumber");
+
+  const resetLookup = useCallback(() => {
+    setLookupDone(false);
+    setMatchedOrders([]);
+    setSelectedOrderId(null);
+    form.setValue("orderId", "");
+  }, [form]);
+
+  const applyOrderSelection = useCallback(
+    (order: LookupOrder) => {
+      setSelectedOrderId(order.orderId);
+      form.setValue("orderId", order.orderId, { shouldValidate: true });
+      form.setValue("name", order.customerName, { shouldValidate: true });
+      form.setValue("email", order.email ?? "", { shouldValidate: true });
+      const fullAddress = [order.address, order.city, order.state, order.pincode]
+        .filter(Boolean)
+        .join(", ");
+      form.setValue("address", fullAddress, { shouldValidate: true });
+    },
+    [form]
+  );
+
+  const handlePhoneLookup = useCallback(async () => {
+    const phone = sanitizePhoneDigits(mobileNumber);
+    if (phone.length !== 10) {
+      toast.error("Enter a valid 10-digit mobile number first");
+      return;
+    }
+
+    setLookupLoading(true);
+    resetLookup();
+    try {
+      const result = await lookupOrdersByPhone(phone);
+      setMatchedOrders(result.items);
+      setLookupDone(true);
+      if (result.items.length === 0) {
+        toast.error("No orders found for this phone number");
+      } else if (result.items.length === 1) {
+        applyOrderSelection(result.items[0]);
+        toast.success("Customer verified — order details filled in");
+      } else {
+        toast.success(`Found ${result.items.length} orders — please select one`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to verify phone number");
+    } finally {
+      setLookupLoading(false);
+    }
+  }, [mobileNumber, resetLookup, applyOrderSelection]);
 
   const onSubmit = form.handleSubmit((values) => {
+    if (!selectedOrderId) {
+      toast.error("Please verify your phone number and select an order");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const formData = new FormData();
@@ -105,6 +167,7 @@ export function ComplaintRegistrationForm({
         form.reset(defaultValues);
         setPicture(null);
         setQuotation(null);
+        resetLookup();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Unable to submit complaint");
       }
@@ -147,42 +210,123 @@ export function ComplaintRegistrationForm({
 
   return (
     <form className="grid gap-6 md:grid-cols-2" onSubmit={onSubmit}>
+      <div className="md:col-span-2 space-y-3 rounded-xl border border-[#185FA5]/20 bg-[#185FA5]/5 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <FormLabel>Mobile Number *</FormLabel>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            {...phoneInputProps}
+            value={mobileNumber}
+            onChange={(e) => {
+              const next = sanitizePhoneDigits(e.target.value);
+              form.setValue("mobileNumber", next, { shouldValidate: true, shouldDirty: true });
+              if (next !== sanitizePhoneDigits(mobileNumber)) {
+                resetLookup();
+              }
+            }}
+            onKeyDown={blockNonDigitPhoneKeys}
+            onPaste={(e) => {
+              e.preventDefault();
+              const pasted = sanitizePhoneDigits(e.clipboardData.getData("text"));
+              form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true });
+              resetLookup();
+            }}
+            onBlur={() => {
+              if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) {
+                void handlePhoneLookup();
+              }
+            }}
+            placeholder="Enter 10-digit mobile number"
+            className={inputClass}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={lookupLoading || sanitizePhoneDigits(mobileNumber).length !== 10}
+            onClick={() => void handlePhoneLookup()}
+            className="shrink-0 rounded-xl border-[#185FA5]/30"
+          >
+            {lookupLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Search className="mr-1.5 h-4 w-4" />
+                Check in Orders
+              </>
+            )}
+          </Button>
+        </div>
+        <FormFieldError message={form.formState.errors.mobileNumber?.message} />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          We verify your phone against existing orders before you can register a complaint.
+        </p>
+
+        {lookupDone && matchedOrders.length === 0 && (
+          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-400">
+            No orders found for this number. Only registered customers can file a complaint.
+          </p>
+        )}
+
+        {matchedOrders.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#185FA5] dark:text-blue-300">
+              Select your order
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {matchedOrders.map((order) => {
+                const selected = selectedOrderId === order.orderId;
+                return (
+                  <button
+                    key={order.orderId}
+                    type="button"
+                    onClick={() => applyOrderSelection(order)}
+                    className={cn(
+                      "rounded-xl border p-3 text-left transition",
+                      selected
+                        ? "border-emerald-500/50 bg-emerald-500/10"
+                        : "border-white/10 bg-white/[0.03] hover:border-[#185FA5]/40"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-sm">{order.customerName}</p>
+                        <p className="mt-0.5 font-mono text-xs text-slate-400">{order.orderId}</p>
+                      </div>
+                      {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400 line-clamp-2">
+                      {[order.address, order.city].filter(Boolean).join(", ")}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {order.materialType} · {order.paid ? "Paid" : "Unpaid"}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-1.5">
         <FormLabel>Name *</FormLabel>
-        <Input {...form.register("name")} placeholder="Enter customer name" className={inputClass} />
+        <Input
+          {...form.register("name")}
+          placeholder="Filled from order after verification"
+          className={inputClass}
+          readOnly={Boolean(selectedOrderId)}
+        />
         <FormFieldError message={form.formState.errors.name?.message} />
       </div>
 
       <div className="space-y-1.5">
         <FormLabel>Order ID *</FormLabel>
-        <Input {...form.register("orderId")} placeholder="Enter order ID" className={inputClass} />
-        <FormFieldError message={form.formState.errors.orderId?.message} />
-      </div>
-
-      <div className="space-y-1.5">
-        <FormLabel>Mobile Number *</FormLabel>
         <Input
-          {...phoneInputProps}
-          value={form.watch("mobileNumber")}
-          onChange={(e) =>
-            form.setValue("mobileNumber", sanitizePhoneDigits(e.target.value), {
-              shouldValidate: true,
-              shouldDirty: true,
-            })
-          }
-          onKeyDown={blockNonDigitPhoneKeys}
-          onPaste={(e) => {
-            e.preventDefault();
-            const pasted = e.clipboardData.getData("text");
-            form.setValue("mobileNumber", sanitizePhoneDigits(pasted), {
-              shouldValidate: true,
-              shouldDirty: true,
-            });
-          }}
-          placeholder="Enter mobile number"
+          {...form.register("orderId")}
+          placeholder="Select an order above"
           className={inputClass}
+          readOnly
         />
-        <FormFieldError message={form.formState.errors.mobileNumber?.message} />
+        <FormFieldError message={form.formState.errors.orderId?.message} />
       </div>
 
       <div className="space-y-1.5">
@@ -284,7 +428,7 @@ export function ComplaintRegistrationForm({
       <div className="md:col-span-2 pt-4">
         <Button
           type="submit"
-          disabled={pending || form.formState.isSubmitting}
+          disabled={pending || form.formState.isSubmitting || !selectedOrderId}
           className={
             variant === "portal"
               ? "h-12 w-full rounded-xl border-none text-white"

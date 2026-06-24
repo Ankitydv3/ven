@@ -1,6 +1,9 @@
 import Task from "../models/Task";
+import Order from "../models/Order";
 import { createTask, syncComplaintTaskStatus, updateTaskById, assertComplaintEligibleForTaskAssignment } from "../services/taskService";
 import { hasFeedbackForComplaint, submitComplaintFeedback } from "../services/feedbackService";
+import { getActiveMaterialRequestsByComplaintIds } from "../services/materialRequestService";
+import { resolveWorkflowStage, workflowStageFilter } from "../services/workflowService";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
@@ -9,8 +12,13 @@ import type { AuthRequest } from "../middleware/auth";
 import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import * as userService from "../services/userService";
 import { resolveTeamByName } from "../services/teamService";
+import { lookupOrdersByPhone } from "../services/orderService";
 
 const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
+
+function normalizePhoneDigits(phone: string) {
+  return phone.replace(/\D/g, "").slice(-10);
+}
 
 function buildDelayFilter() {
   return {
@@ -77,6 +85,38 @@ function applyDisplayStatusFilter(filter: Record<string, unknown>, displayStatus
   }
 }
 
+async function applyWorkflowDisplayStatusFilter(filter: Record<string, unknown>, displayStatus: string) {
+  const stage = workflowStageFilter(displayStatus);
+  if (!stage) return false;
+
+  const complaints = await Complaint.find({ status: { $ne: "Declined" } })
+    .select("complaintId status")
+    .lean();
+  const complaintIds = complaints.map((c) => c.complaintId);
+
+  const [tasks, materialMap] = await Promise.all([
+    Task.find({ complaintId: { $in: complaintIds } }).select("complaintId status").lean(),
+    getActiveMaterialRequestsByComplaintIds(complaintIds),
+  ]);
+
+  const taskByComplaint = new Map(tasks.map((t) => [t.complaintId, t]));
+  const matchingIds = complaints
+    .filter((c) => {
+      const task = taskByComplaint.get(c.complaintId);
+      const material = materialMap.get(c.complaintId);
+      const workflowStage = resolveWorkflowStage({
+        complaintStatus: c.status,
+        taskStatus: task?.status ?? null,
+        materialRequestStatus: material?.status ?? null,
+      });
+      return workflowStage === stage;
+    })
+    .map((c) => c.complaintId);
+
+  filter.complaintId = { $in: matchingIds.length > 0 ? matchingIds : ["__none__"] };
+  return true;
+}
+
 async function applyTaskDisplayStatusFilter(filter: Record<string, unknown>, displayStatus: string) {
   const taskStatus =
     displayStatus === "Re-visit"
@@ -109,6 +149,16 @@ function buildHistoryEntry(action: string, user: { name: string; role: string; t
   };
 }
 
+export async function lookupOrdersForComplaint(req: Request, res: Response) {
+  const phone = String(req.query.phone ?? "").trim();
+  const orders = await lookupOrdersByPhone(phone);
+  res.json({
+    phone: normalizePhoneDigits(phone),
+    found: orders.length > 0,
+    items: orders,
+  });
+}
+
 export async function createComplaint(req: Request, res: Response) {
   const payload = req.body as Record<string, string>;
   const files = req.files as { picture?: Express.Multer.File[]; quotation?: Express.Multer.File[] } | undefined;
@@ -127,6 +177,18 @@ export async function createComplaint(req: Request, res: Response) {
 
   if (!clientName) throw new ApiError(400, "Name is required");
   if (!orderId) throw new ApiError(400, "Order ID is required");
+
+  const order = await Order.findOne({ orderId });
+  if (!order) {
+    throw new ApiError(400, "Order not found. Please select a valid order from your phone lookup.");
+  }
+
+  const orderPhone = normalizePhoneDigits(order.phone);
+  const complaintPhone = normalizePhoneDigits(mobileNumber);
+  if (orderPhone !== complaintPhone) {
+    throw new ApiError(400, "Mobile number does not match the selected order record.");
+  }
+
   if (!mobileNumber) throw new ApiError(400, "Mobile number is required");
   if (!address) throw new ApiError(400, "Address is required");
   if (!complaintType) throw new ApiError(400, "Complaint type is required");
@@ -233,9 +295,12 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   const filter: Record<string, unknown> = {};
 
   if (displayStatus && displayStatus !== "All") {
-    const appliedTaskFilter = await applyTaskDisplayStatusFilter(filter, displayStatus);
-    if (!appliedTaskFilter) {
-      applyDisplayStatusFilter(filter, displayStatus);
+    const appliedWorkflowFilter = await applyWorkflowDisplayStatusFilter(filter, displayStatus);
+    if (!appliedWorkflowFilter) {
+      const appliedTaskFilter = await applyTaskDisplayStatusFilter(filter, displayStatus);
+      if (!appliedTaskFilter) {
+        applyDisplayStatusFilter(filter, displayStatus);
+      }
     }
   } else {
     if (scope === "pending_review") {
@@ -292,9 +357,12 @@ export async function listComplaints(req: AuthRequest, res: Response) {
       displayStatus && displayStatus !== "All"
         ? await (async () => {
             const clause: Record<string, unknown> = {};
-            const appliedTaskFilter = await applyTaskDisplayStatusFilter(clause, displayStatus);
-            if (!appliedTaskFilter) {
-              applyDisplayStatusFilter(clause, displayStatus);
+            const appliedWorkflowFilter = await applyWorkflowDisplayStatusFilter(clause, displayStatus);
+            if (!appliedWorkflowFilter) {
+              const appliedTaskFilter = await applyTaskDisplayStatusFilter(clause, displayStatus);
+              if (!appliedTaskFilter) {
+                applyDisplayStatusFilter(clause, displayStatus);
+              }
             }
             return clause;
           })()
@@ -344,20 +412,32 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   ]);
 
   const complaintIds = items.map((item) => item.complaintId);
-  const linkedTasks = complaintIds.length
-    ? await Task.find({ complaintId: { $in: complaintIds } })
-        .select("complaintId taskId status dueDate dueDateKey")
-        .lean()
-    : [];
+  const [linkedTasks, materialByComplaint] = await Promise.all([
+    complaintIds.length
+      ? Task.find({ complaintId: { $in: complaintIds } })
+          .select("complaintId taskId status dueDate dueDateKey")
+          .lean()
+      : Promise.resolve([]),
+    getActiveMaterialRequestsByComplaintIds(complaintIds),
+  ]);
   const taskByComplaintId = new Map(linkedTasks.map((task) => [task.complaintId, task]));
 
   const enrichedItems = items.map((item) => {
     const task = taskByComplaintId.get(item.complaintId);
+    const materialRequest = materialByComplaint.get(item.complaintId);
+    const workflowStage = resolveWorkflowStage({
+      complaintStatus: item.status,
+      taskStatus: task?.status ?? null,
+      materialRequestStatus: materialRequest?.status ?? null,
+    });
     return {
       ...item.toObject(),
       taskScheduleStatus: task?.status ?? null,
       taskScheduleDueDate: task?.dueDateKey ?? task?.dueDate ?? null,
       taskId: task?.taskId ?? null,
+      materialRequestStatus: materialRequest?.status ?? null,
+      materialRequestId: materialRequest?.requestId ?? null,
+      workflowStage,
     };
   });
 

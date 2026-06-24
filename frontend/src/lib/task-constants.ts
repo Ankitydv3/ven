@@ -12,7 +12,11 @@ export const taskStatuses = [
 export const taskPriorities = ["All", "Low", "Medium", "High", "Critical"] as const;
 
 export function blocksTaskAssignment(taskScheduleStatus?: string | null) {
-  return taskScheduleStatus === "In Progress" || taskScheduleStatus === "Completed";
+  return (
+    taskScheduleStatus === "In Progress" ||
+    taskScheduleStatus === "Completed" ||
+    taskScheduleStatus === "Need Material"
+  );
 }
 
 

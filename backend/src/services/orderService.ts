@@ -67,6 +67,28 @@ export async function createOrder(payload: OrderPayload) {
   return order;
 }
 
+function normalizePhoneDigits(phone: string) {
+  return phone.replace(/\D/g, "").slice(-10);
+}
+
+export async function lookupOrdersByPhone(phone: string) {
+  const digits = normalizePhoneDigits(phone);
+  if (digits.length !== 10) {
+    throw new ApiError(400, "Enter a valid 10-digit mobile number");
+  }
+
+  const orders = await Order.find({
+    $or: [{ phone: digits }, { phone: { $regex: `${digits}$` } }],
+  })
+    .sort({ createdAt: -1 })
+    .select(
+      "orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt"
+    )
+    .lean();
+
+  return orders;
+}
+
 export async function getOrders(options: OrderListOptions) {
   const filter: Record<string, unknown> = {};
 
