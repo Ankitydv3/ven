@@ -235,6 +235,7 @@ export interface Complaint {
   assignedUserId?: string;
   assignedUserName?: string;
   status: ComplaintStatus;
+  paymentStatus?: "Pending" | "Paid" | "Partially Paid";
   remarks?: string;
   completionRemarks?: string;
   resolutionDetails?: string;

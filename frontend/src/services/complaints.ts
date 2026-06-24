@@ -6,8 +6,32 @@ export async function createComplaint(payload: Record<string, string>) {
   return data;
 }
 
-export async function fetchComplaints(params: { q?: string; status?: string; page?: number; limit?: number; scope?: string }) {
+export async function fetchComplaints(params: {
+  q?: string;
+  status?: string;
+  displayStatus?: string;
+  page?: number;
+  limit?: number;
+  scope?: string;
+  team?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
   const { data } = await api.get<{ items: Complaint[]; total: number; page: number; limit: number }>("/complaints", { params });
+  return data;
+}
+
+export async function fetchComplaintStats(params: {
+  startDate?: string;
+  endDate?: string;
+  team?: string;
+}) {
+  const { data } = await api.get<{
+    total: number;
+    resolved: number;
+    unresolved: number;
+    issuePending: number;
+  }>("/complaints/stats", { params });
   return data;
 }
 
@@ -15,6 +39,14 @@ export async function assignComplaint(complaintId: string, assignedUserId: strin
   const { data } = await api.patch<{ complaint: Complaint }>(`/complaints/${complaintId}/assign`, {
     assignedUserId,
   });
+  return data;
+}
+
+export async function assignComplaintTeam(complaintId: string, team: string) {
+  const { data } = await api.patch<{ complaint: Complaint; message: string }>(
+    `/complaints/${complaintId}/assign-team`,
+    { team }
+  );
   return data;
 }
 

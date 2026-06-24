@@ -8,6 +8,74 @@ import { ApiError } from "../utils/ApiError";
 import type { AuthRequest } from "../middleware/auth";
 import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import * as userService from "../services/userService";
+import { resolveTeamByName } from "../services/teamService";
+
+const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
+
+function buildDelayFilter() {
+  return {
+    $or: [
+      { title: /delay|delayed|late|overdue/i },
+      { description: /delay|delayed|late|overdue/i },
+      { deadline: { $lt: new Date() } },
+    ],
+  };
+}
+
+function buildMaterialFilter() {
+  return {
+    $or: [
+      { description: /material|parts|inventory|unavail/i },
+      { title: /material|parts|inventory/i },
+      { remarks: /material|parts|inventory/i },
+    ],
+  };
+}
+
+function buildUnresolvedPaymentFilter() {
+  return { paymentStatus: "Pending" };
+}
+
+function applyDateRangeFilter(filter: Record<string, unknown>, startDate?: string, endDate?: string) {
+  if (!startDate && !endDate) return;
+  const createdAt: Record<string, Date> = {};
+  if (startDate) {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    createdAt.$gte = start;
+  }
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    createdAt.$lte = end;
+  }
+  filter.createdAt = createdAt;
+}
+
+function applyDisplayStatusFilter(filter: Record<string, unknown>, displayStatus?: string) {
+  if (!displayStatus || displayStatus === "All") return;
+
+  if (displayStatus === "Resolved") {
+    filter.status = "Completed";
+    return;
+  }
+
+  if (displayStatus === "Unresolved") {
+    filter.status = { $in: OPEN_COMPLAINT_STATUSES };
+    filter.$nor = [buildDelayFilter(), buildMaterialFilter(), buildUnresolvedPaymentFilter()];
+    return;
+  }
+
+  filter.status = { $in: OPEN_COMPLAINT_STATUSES };
+
+  if (displayStatus === "Delayed") {
+    Object.assign(filter, buildDelayFilter());
+  } else if (displayStatus === "Material Unavailable") {
+    Object.assign(filter, buildMaterialFilter());
+  } else if (displayStatus === "Payment Pending") {
+    Object.assign(filter, buildUnresolvedPaymentFilter());
+  }
+}
 
 function buildHistoryEntry(action: string, user: { name: string; role: string; team?: string }, extra?: Record<string, string>) {
   return {
@@ -42,23 +110,73 @@ export async function createComplaint(req: Request, res: Response) {
   });
 }
 
-export async function listComplaints(req: AuthRequest, res: Response) {
-  const { q, status, page = "1", limit = "10", team, scope = "reviewed" } = req.query as Record<string, string>;
-  const filter: Record<string, unknown> = {};
+export async function getComplaintStats(req: AuthRequest, res: Response) {
+  const { startDate, endDate, team } = req.query as Record<string, string>;
+  const filter: Record<string, unknown> = { status: { $ne: "Declined" } };
 
-  if (scope === "pending_review") {
-    filter.status = "Pending Review";
-  } else if (scope === "reviewed") {
-    filter.status = { $ne: "Pending Review" };
-  }
-
-  if (status && status !== "All") {
-    filter.status = status;
-  }
-
-  if (team) {
+  if (team && team !== "All Teams") {
     filter.assignedTeam = team;
   }
+
+  applyDateRangeFilter(filter, startDate, endDate);
+
+  if (req.user && isTeamRole(req.user.role)) {
+    const teamFilter = complaintTeamFilter(req.user);
+    if (Object.keys(teamFilter).length > 0) {
+      Object.assign(filter, teamFilter);
+    }
+  }
+
+  const [total, resolved, unresolved, issuePending] = await Promise.all([
+    Complaint.countDocuments(filter),
+    Complaint.countDocuments({ ...filter, status: "Completed" }),
+    Complaint.countDocuments({
+      ...filter,
+      status: { $in: OPEN_COMPLAINT_STATUSES },
+    }),
+    Complaint.countDocuments({
+      ...filter,
+      status: { $in: OPEN_COMPLAINT_STATUSES },
+      $or: [buildDelayFilter(), buildMaterialFilter(), buildUnresolvedPaymentFilter()],
+    }),
+  ]);
+
+  res.json({ total, resolved, unresolved, issuePending });
+}
+
+export async function listComplaints(req: AuthRequest, res: Response) {
+  const {
+    q,
+    status,
+    displayStatus,
+    page = "1",
+    limit = "10",
+    team,
+    scope = "reviewed",
+    startDate,
+    endDate,
+  } = req.query as Record<string, string>;
+  const filter: Record<string, unknown> = {};
+
+  if (displayStatus && displayStatus !== "All") {
+    applyDisplayStatusFilter(filter, displayStatus);
+  } else {
+    if (scope === "pending_review") {
+      filter.status = "Pending Review";
+    } else if (scope === "reviewed") {
+      filter.status = { $ne: "Pending Review" };
+    }
+
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+  }
+
+  if (team && team !== "All Teams") {
+    filter.assignedTeam = team;
+  }
+
+  applyDateRangeFilter(filter, startDate, endDate);
 
   if (q) {
     filter.$or = [
@@ -94,9 +212,15 @@ export async function listComplaints(req: AuthRequest, res: Response) {
       accessOr.length > 0 ? { $or: accessOr } : { assignedTeam: "__none__" };
 
     const statusFilter =
-      status && status !== "All"
-        ? { status }
-        : { status: { $in: ["Assigned", "In Progress", "Completed"] } };
+      displayStatus && displayStatus !== "All"
+        ? (() => {
+            const clause: Record<string, unknown> = {};
+            applyDisplayStatusFilter(clause, displayStatus);
+            return clause;
+          })()
+        : status && status !== "All"
+          ? { status }
+          : { status: { $in: ["Assigned", "In Progress", "Completed"] } };
 
     const andClauses: Record<string, unknown>[] = [statusFilter, teamAccess];
 
@@ -110,8 +234,21 @@ export async function listComplaints(req: AuthRequest, res: Response) {
       });
     }
 
-    if (team) {
+    if (team && team !== "All Teams") {
       andClauses.push({ assignedTeam: team });
+    }
+
+    if (startDate || endDate) {
+      const dateClause: Record<string, unknown> = {};
+      applyDateRangeFilter(dateClause, startDate, endDate);
+      andClauses.push(dateClause);
+    }
+
+    const preservedKeys = ["createdAt", "assignedTeam"];
+    for (const key of preservedKeys) {
+      if (filter[key] !== undefined && !andClauses.some((clause) => key in clause)) {
+        andClauses.push({ [key]: filter[key] });
+      }
     }
 
     for (const key of Object.keys(filter)) {
@@ -258,6 +395,78 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
 
   res.json({
     message: "Complaint assigned and task scheduled",
+    complaint,
+  });
+}
+
+export async function assignComplaintTeam(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { team } = req.body as { team?: string };
+
+  if (!team?.trim()) {
+    throw new ApiError(400, "Team is required");
+  }
+
+  const teamDoc = await resolveTeamByName(team);
+  if (!teamDoc) {
+    throw new ApiError(400, "Selected team does not exist. Create the team first.");
+  }
+
+  const complaint = await Complaint.findById(id);
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+
+  if (complaint.status === "Pending Review") {
+    throw new ApiError(400, "Complaint must be confirmed from Alerts before assignment");
+  }
+
+  if (complaint.status === "Declined") {
+    throw new ApiError(400, "Declined complaints cannot be assigned");
+  }
+
+  const isReassign = Boolean(complaint.assignedTeam);
+  const wasCompleted = complaint.status === "Completed";
+  const previousTeam = complaint.assignedTeam;
+
+  complaint.assignedTeam = teamDoc.teamName;
+  complaint.assignedUserId = undefined;
+  complaint.assignedUserName = "";
+  complaint.assignedBy = req.user?.name ?? "Admin";
+  complaint.assignedDate = new Date();
+
+  if (!wasCompleted && complaint.status !== "In Progress") {
+    complaint.status = "Assigned";
+  }
+
+  complaint.history.push(
+    buildHistoryEntry(
+      isReassign ? "Team Reassigned" : "Complaint Assigned",
+      req.user ?? { name: "Admin", role: "admin", team: teamDoc.teamName },
+      {
+        status: complaint.status,
+        details: isReassign
+          ? `Reassigned from ${previousTeam ?? "unassigned"} to ${teamDoc.teamName}`
+          : `Assigned to ${teamDoc.teamName}`,
+      }
+    )
+  );
+
+  await complaint.save();
+
+  const existingTask = await Task.findOne({ complaintId: complaint.complaintId });
+  if (existingTask) {
+    existingTask.assignedTeamName = teamDoc.teamName;
+    existingTask.assignedTeamId = teamDoc._id;
+    if (wasCompleted || isReassign) {
+      existingTask.assignedUserId = undefined;
+      existingTask.assignedUserName = "";
+    }
+    await existingTask.save();
+  }
+
+  res.json({
+    message: isReassign ? "Team reassigned successfully" : "Team assigned successfully",
     complaint,
   });
 }

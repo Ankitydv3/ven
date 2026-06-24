@@ -48,7 +48,7 @@ function FieldError({ message }: { message?: string }) {
   return <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{message}</p>;
 }
 
-export function ComplaintRegistrationForm() {
+export function ComplaintRegistrationForm({ onSuccess }: { onSuccess?: (complaint: Complaint) => void }) {
   const [pending, startTransition] = useTransition();
   const [submittedComplaint, setSubmittedComplaint] = useState<Complaint | null>(null);
 
@@ -81,6 +81,7 @@ export function ComplaintRegistrationForm() {
           description: values.title === "Other" ? values.description.trim() : values.title,
         });
         setSubmittedComplaint(response.complaint);
+        onSuccess?.(response.complaint);
         toast.success("Complaint submitted successfully");
         form.reset(defaultValues);
       } catch (error) {
