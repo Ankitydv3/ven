@@ -8,7 +8,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ className, variant = "default", size = "default", ...props }: ButtonProps) {
   const variants = {
-    default: "bg-teal-600 text-white hover:bg-teal-500 shadow-lg shadow-teal-600/20",
+    default: "bg-[#185FA5] text-white hover:bg-[#0C447C] shadow-lg shadow-[#185FA5]/20",
     secondary: "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900",
     outline: "border border-white/15 bg-white/50 text-slate-900 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white",
     ghost: "bg-transparent text-slate-900 hover:bg-slate-900/5 dark:text-white dark:hover:bg-white/10",
@@ -25,7 +25,7 @@ export function Button({ className, variant = "default", size = "default", ...pr
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#378ADD]/50 disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],
         className

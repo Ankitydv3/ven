@@ -93,7 +93,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
       </div>
     );
   }
@@ -162,7 +162,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                   </div>
                   <div>
                     <Label>Attach Image</Label>
-                    <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-5 hover:border-teal-500/40">
+                    <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-5 hover:border-blue-500/40">
                       <Upload className="mb-2 h-5 w-5 text-slate-400" />
                       <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
                       <input

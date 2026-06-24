@@ -194,7 +194,7 @@ export function AddPaymentModal({
           className="relative overflow-hidden rounded-2xl bg-white p-6 dark:bg-slate-900"
         >
           {/* Decorative gradient */}
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gradient-to-br from-emerald-500/5 to-teal-500/5 blur-2xl" />
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gradient-to-br from-emerald-500/5 to-blue-500/5 blur-2xl" />
 
           <DialogHeader className="relative">
             <div className="flex items-center gap-2">
@@ -429,7 +429,7 @@ export function AddPaymentModal({
             </div>
 
             {/* Total */}
-            <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-4 border border-emerald-500/20">
+            <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-4 border border-emerald-500/20">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -473,7 +473,7 @@ export function AddPaymentModal({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 flex-1 rounded-xl bg-gradient-to-r from-[#2F6B63] to-[#4F9B8C] text-white shadow-lg shadow-[#2F6B63]/20 transition-all hover:shadow-[#2F6B63]/40"
+                className="h-11 flex-1 rounded-xl bg-gradient-to-r from-[#185FA5] to-[#378ADD] text-white shadow-lg shadow-[#185FA5]/20 transition-all hover:shadow-[#185FA5]/40"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

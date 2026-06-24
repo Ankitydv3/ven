@@ -103,7 +103,7 @@ function TaskListCard({
       className={cn(
         "w-full rounded-xl border p-4 text-left transition-all",
         selected
-          ? "border-teal-500/50 bg-teal-500/10 shadow-lg shadow-teal-500/10"
+          ? "border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/10"
           : "border-white/[0.08] bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
       )}
     >
@@ -283,7 +283,7 @@ function TaskDetailPanel({
       <div className="grid flex-1 gap-5 lg:grid-cols-[1fr_280px]">
         <div className="space-y-5">
           <section className={cn(panelClass, "p-5")}>
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-teal-400">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-400">
               Customer Details
             </h3>
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
@@ -303,7 +303,7 @@ function TaskDetailPanel({
           </section>
 
           <section className={cn(panelClass, "p-5")}>
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-teal-400">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-400">
               Service Details
             </h3>
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
@@ -340,7 +340,7 @@ function TaskDetailPanel({
           </section>
 
           <section className={cn(panelClass, "p-5")}>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-teal-400">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-blue-400">
               Complaint Description
             </h3>
             <p className="text-sm leading-relaxed text-slate-300">{description}</p>
@@ -355,7 +355,7 @@ function TaskDetailPanel({
 
           {showProgressForm && (
             <section className={cn(panelClass, "p-5")}>
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-teal-400">
+              <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-400">
                 Update Task Status
               </h3>
               <div className="space-y-4">
@@ -429,7 +429,7 @@ function TaskDetailPanel({
                 )}
                 <div>
                   <label className="mb-1.5 block text-xs text-slate-400">Add Photo</label>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-6 transition hover:border-teal-500/40 hover:bg-white/[0.06]">
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-6 transition hover:border-blue-500/40 hover:bg-white/[0.06]">
                     <Upload className="mb-2 h-6 w-6 text-slate-400" />
                     <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
                     <input
@@ -467,7 +467,7 @@ function TaskDetailPanel({
         </div>
 
         <aside className={cn(panelClass, "p-5")}>
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-teal-400">
+          <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-400">
             Task Timeline
           </h3>
           <div className="space-y-4">
@@ -585,7 +585,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
       </div>
     );
   }

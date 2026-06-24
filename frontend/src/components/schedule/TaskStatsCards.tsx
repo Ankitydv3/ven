@@ -54,10 +54,10 @@ const cards = [
     key: "completionRate",
     label: "Completion Rate",
     icon: TrendingUp,
-    iconClass: "text-teal-400 bg-teal-500/15",
+    iconClass: "text-blue-400 bg-blue-500/15",
     getValue: (s: TaskStats) => `${s.completionRate}%`,
     getSub: () => "All assigned tasks",
-    subClass: "text-teal-400",
+    subClass: "text-blue-400",
     isPercent: true,
   },
 ] as const;

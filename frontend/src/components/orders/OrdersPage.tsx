@@ -421,7 +421,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none">
           <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">dashboard overview</p>
+              <p className="text-xs font-medium tracking-wide text-[#378ADD] mb-1">dashboard overview</p>
               <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
                 Orders List
               </CardTitle>
@@ -472,7 +472,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   </Button>
                   <Button
                     onClick={() => router.push("/admin/orders/new")}
-                    className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
+                    className="bg-[#185FA5] hover:bg-[#378ADD] text-white"
                   >
                     <Plus className="mr-2 h-4 w-4" /> Add Order
                   </Button>
@@ -491,7 +491,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Search by ID, name, phone, email..."
-                    className="pl-9 border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#4F9B8C]/30"
+                    className="pl-9 border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
                   />
                   {search && (
                     <button
@@ -516,7 +516,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="All">All Materials</option>
                     <option value="Aluminium">Aluminium</option>
@@ -533,7 +533,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="All">All Payments</option>
                     <option value="Paid">Paid Only</option>
@@ -550,7 +550,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="All">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -563,7 +563,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 <Button
                   onClick={handleSearchTrigger}
                   type="button"
-                  className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white border-none w-full"
+                  className="bg-[#185FA5] hover:bg-[#378ADD] text-white border-none w-full"
                 >
                   <Search className="h-4 w-4 mr-2" /> Search
                 </Button>
@@ -709,7 +709,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                           <button
                             type="button"
                             onClick={() => openCustomerTasks(order)}
-                            className="flex flex-col text-left transition hover:text-[#4F9B8C]"
+                            className="flex flex-col text-left transition hover:text-[#378ADD]"
                           >
                             <span className="font-semibold text-slate-900 underline-offset-2 hover:underline dark:text-white">
                               {order.customerName}
@@ -806,7 +806,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 w-8 p-0 text-slate-500 dark:text-[#7BE3CF] hover:bg-slate-100 dark:hover:bg-[#7BE3CF]/[0.08]"
+                                className="h-8 w-8 p-0 text-slate-500 dark:text-[#85B7EB] hover:bg-slate-100 dark:hover:bg-[#85B7EB]/[0.08]"
                                 onClick={() => setEditTarget(order)}
                               >
                                 <Edit2 className="h-4 w-4" />
@@ -876,7 +876,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                           tabIndex={0}
                           onClick={() => openCustomerTasks(order)}
                           onKeyDown={(e) => e.key === "Enter" && openCustomerTasks(order)}
-                          className="font-semibold text-slate-900 underline-offset-2 hover:text-[#4F9B8C] hover:underline dark:text-white mt-1 cursor-pointer"
+                          className="font-semibold text-slate-900 underline-offset-2 hover:text-[#378ADD] hover:underline dark:text-white mt-1 cursor-pointer"
                         >
                           {order.customerName}
                         </p>
@@ -901,21 +901,21 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                   <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500 dark:text-white/60">
                     <div>
-                      <span className="block text-[10px] uppercase text-[#4F9B8C]">Material</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Material</span>
                       <span className="font-medium">{order.materialType}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#4F9B8C]">Location</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Location</span>
                       <span className="font-medium">
                         {order.city}, {order.state}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#4F9B8C]">Delivery Date</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Delivery Date</span>
                       <span>{new Date(order.deliveryDate).toLocaleDateString()}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#4F9B8C]">Payment</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Payment</span>
                       <span
                         className={`font-semibold ${
                           order.paymentStatus === "Paid"
@@ -942,7 +942,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-slate-200 dark:border-white/[0.1] text-[#2F6B63] dark:text-[#7BE3CF]"
+                          className="border-slate-200 dark:border-white/[0.1] text-[#185FA5] dark:text-[#85B7EB]"
                           onClick={() => setEditTarget(order)}
                         >
                           <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
@@ -1014,13 +1014,13 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 {/* Visual Header Summary */}
                 <div className="grid grid-cols-3 gap-2 p-4 rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.02]">
                   <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-[#4F9B8C]">
+                    <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
                       Material
                     </span>
                     <span className="font-medium text-sm">{viewTarget.materialType}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-[#4F9B8C]">
+                    <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
                       Payment Status
                     </span>
                     <Badge
@@ -1032,7 +1032,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     </Badge>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-[#4F9B8C]">
+                    <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
                       Workflow Status
                     </span>
                     <Badge
@@ -1051,7 +1051,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                 {/* Customer Section */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#4F9B8C] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#378ADD] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
                     Customer Information
                   </h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1063,7 +1063,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                           onClick={() => {
                             if (viewTarget) openCustomerTasks(viewTarget);
                           }}
-                          className="font-medium text-[#4F9B8C] underline-offset-2 hover:underline"
+                          className="font-medium text-[#378ADD] underline-offset-2 hover:underline"
                         >
                           {viewTarget.customerName}
                         </button>
@@ -1090,7 +1090,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                 {/* Delivery details */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#4F9B8C] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#378ADD] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
                     Site Delivery Address
                   </h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1119,7 +1119,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                 {/* Logistics section */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#4F9B8C] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-[#378ADD] border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
                     Logistics & Configuration
                   </h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1164,7 +1164,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             <DialogFooter>
               <Button
                 onClick={() => setViewTarget(null)}
-                className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
+                className="bg-[#185FA5] hover:bg-[#378ADD] text-white"
               >
                 Close details
               </Button>
@@ -1193,7 +1193,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editCustomerName"
                     value={editForm.customerName}
                     onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.customerName && (
                     <p className="text-[10px] text-red-500">{editErrors.customerName}</p>
@@ -1207,7 +1207,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editPhone"
                     value={editForm.phone}
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.phone && <p className="text-[10px] text-red-500">{editErrors.phone}</p>}
                 </div>
@@ -1220,7 +1220,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     type="email"
                     value={editForm.email}
                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.email && <p className="text-[10px] text-red-500">{editErrors.email}</p>}
                 </div>
@@ -1241,7 +1241,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="Aluminium" className="bg-app text-white">Aluminium</option>
                     <option value="uPVC" className="bg-app text-white">uPVC</option>
@@ -1255,7 +1255,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editAddress"
                     value={editForm.address}
                     onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.address && (
                     <p className="text-[10px] text-red-500">{editErrors.address}</p>
@@ -1269,7 +1269,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editCity"
                     value={editForm.city}
                     onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.city && <p className="text-[10px] text-red-500">{editErrors.city}</p>}
                 </div>
@@ -1281,7 +1281,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editState"
                     value={editForm.state}
                     onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.state && <p className="text-[10px] text-red-500">{editErrors.state}</p>}
                 </div>
@@ -1293,7 +1293,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editPincode"
                     value={editForm.pincode}
                     onChange={(e) => setEditForm({ ...editForm, pincode: e.target.value })}
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.pincode && (
                     <p className="text-[10px] text-red-500">{editErrors.pincode}</p>
@@ -1310,7 +1310,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     onChange={(e) =>
                       setEditForm({ ...editForm, deliveryDate: e.target.value })
                     }
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.deliveryDate && (
                     <p className="text-[10px] text-red-500">{editErrors.deliveryDate}</p>
@@ -1327,7 +1327,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     onChange={(e) =>
                       setEditForm({ ...editForm, amount: Number(e.target.value) || 0 })
                     }
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#4F9B8C]/30"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                 </div>
 
@@ -1342,7 +1342,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="" className="bg-app text-white">Unassigned</option>
                     {teamOptions.map((teamName) => (
@@ -1364,7 +1364,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
+                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
                   >
                     <option value="Pending" className="bg-app text-white">Pending</option>
                     <option value="In Progress" className="bg-app text-white">In Progress</option>
@@ -1383,7 +1383,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     id="editPaid"
                     onClick={() => setEditForm({ ...editForm, paid: !editForm.paid })}
                     className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      editForm.paid ? "bg-[#2F6B63]" : "bg-slate-200 dark:bg-white/[0.1]"
+                      editForm.paid ? "bg-[#185FA5]" : "bg-slate-200 dark:bg-white/[0.1]"
                     }`}
                   >
                     <span
@@ -1408,7 +1408,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 <Button
                   type="submit"
                   disabled={updateOrderMutation.isPending}
-                  className="bg-[#2F6B63] hover:bg-[#4F9B8C] text-white"
+                  className="bg-[#185FA5] hover:bg-[#378ADD] text-white"
                 >
                   {updateOrderMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

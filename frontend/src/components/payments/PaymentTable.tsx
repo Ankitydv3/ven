@@ -181,7 +181,7 @@ export function PaymentTable() {
                     transition={{ delay: index * 0.05 }}
                     className="border-t border-slate-100 transition hover:bg-slate-50/50 dark:border-white/5 dark:hover:bg-white/5"
                   >
-                    <TD className="font-mono text-xs font-semibold text-[#2F6B63] dark:text-[#7BE3CF]">
+                    <TD className="font-mono text-xs font-semibold text-[#185FA5] dark:text-[#85B7EB]">
                       {payment.paymentId}
                     </TD>
                     <TD className="font-mono text-xs text-slate-500">

@@ -1,8 +1,12 @@
 import { api } from "@/lib/api";
 import type { Complaint } from "@/lib/types";
 
-export async function createComplaint(payload: Record<string, string>) {
-  const { data } = await api.post<{ complaintId: string; complaint: Complaint; message: string }>("/complaints", payload);
+export async function createComplaint(payload: FormData | Record<string, string>) {
+  const { data } = await api.post<{ complaintId: string; complaint: Complaint; message: string }>(
+    "/complaints",
+    payload,
+    payload instanceof FormData ? { headers: { "Content-Type": "multipart/form-data" } } : undefined
+  );
   return data;
 }
 

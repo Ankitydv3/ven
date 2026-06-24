@@ -92,21 +92,64 @@ function buildHistoryEntry(action: string, user: { name: string; role: string; t
 
 export async function createComplaint(req: Request, res: Response) {
   const payload = req.body as Record<string, string>;
+  const files = req.files as { picture?: Express.Multer.File[]; quotation?: Express.Multer.File[] } | undefined;
   const complaintId = await generateComplaintId();
-  const description = payload.description?.trim() || payload.title?.trim() || "No description provided";
+
+  const clientName = payload.clientName?.trim() || payload.name?.trim();
+  const orderId = payload.orderId?.trim() || "";
+  const address = payload.address?.trim() || payload.location?.trim() || "";
+  const salesPerson = payload.salesPerson?.trim() || "";
+  const email = payload.email?.trim() || "";
+  const mobileNumber = payload.mobileNumber?.trim() || "";
+  const availableDate = payload.availableDate?.trim() || "";
+  const availableTime = payload.availableTime?.trim() || "";
+
+  if (!clientName) throw new ApiError(400, "Name is required");
+  if (!orderId) throw new ApiError(400, "Order ID is required");
+  if (!mobileNumber) throw new ApiError(400, "Mobile number is required");
+  if (!address) throw new ApiError(400, "Address is required");
+
+  const pictureUrl = files?.picture?.[0] ? `/uploads/complaints/${files.picture[0].filename}` : "";
+  const quotationUrl = files?.quotation?.[0] ? `/uploads/complaints/${files.quotation[0].filename}` : "";
+
+  const availability = [availableDate && `Date: ${availableDate}`, availableTime && `Time: ${availableTime}`]
+    .filter(Boolean)
+    .join(", ");
+
+  const descriptionParts = [address, availability, salesPerson && `Sales person: ${salesPerson}`].filter(Boolean);
+  const description = descriptionParts.join(" | ") || "No description provided";
+  const title = `Order ${orderId}`;
 
   const complaint = await Complaint.create({
-    ...payload,
+    clientName,
+    contactPerson: salesPerson,
+    mobileNumber,
+    email,
+    orderId,
+    salesPerson,
+    title,
     description,
+    priority: payload.priority?.trim() || "Medium",
+    location: address,
+    pictureUrl,
+    quotationUrl,
+    availableDate,
+    availableTime,
     complaintId,
     status: "Pending Review",
-    history: [buildHistoryEntry("Complaint Submitted", { name: payload.contactPerson ?? "Customer", role: "customer" }, { status: "Pending Review", details: payload.title ?? "" })]
+    history: [
+      buildHistoryEntry(
+        "Complaint Submitted",
+        { name: clientName, role: "customer" },
+        { status: "Pending Review", details: title }
+      ),
+    ],
   });
 
   res.status(201).json({
     message: "Complaint Submitted Successfully",
     complaintId: complaint.complaintId,
-    complaint
+    complaint,
   });
 }
 

@@ -114,7 +114,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
       </div>
     );
   }
@@ -155,7 +155,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
             </div>
             <Link
               href="/store/alerts"
-              className="text-sm text-teal-400 hover:text-teal-300 hover:underline"
+              className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
             >
               View all alerts →
             </Link>

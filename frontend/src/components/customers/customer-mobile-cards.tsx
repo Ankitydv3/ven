@@ -57,7 +57,7 @@ export function CustomerMobileCards({
           key={customer._id}
           className={cn(
             glassCardClass,
-            "group p-4 transition-colors hover:border-[#4F9B8C]/30 dark:hover:border-[#4F9B8C]/20"
+            "group p-4 transition-colors hover:border-[#378ADD]/30 dark:hover:border-[#378ADD]/20"
           )}
         >
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -94,7 +94,7 @@ export function CustomerMobileCards({
           </div>
 
           <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 dark:border-white/[0.08]">
-            <Badge variant="info" className="border-[#4F9B8C]/20 bg-[#4F9B8C]/10 text-[#2F6B63] dark:text-[#4F9B8C]">
+            <Badge variant="info" className="border-[#378ADD]/20 bg-[#378ADD]/10 text-[#185FA5] dark:text-[#378ADD]">
               <ShoppingBag className="mr-1 h-3 w-3" />
               {customer.totalComplaints} orders
             </Badge>

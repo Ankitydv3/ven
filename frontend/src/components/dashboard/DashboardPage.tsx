@@ -55,11 +55,11 @@ import type { Task } from "@/lib/task.types";
 /* ═══════════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════════ */
-const ACCENT = "#7BE3CF";          // teal brand
-const ACCENT2 = "#4F9B8C";
+const ACCENT = "#85B7EB";          // teal brand
+const ACCENT2 = "#378ADD";
 const SURFACE = "rgba(255,255,255,0.035)";
-const BORDER = "rgba(123,227,207,0.10)";
-const GLOW = "rgba(123,227,207,0.18)";
+const BORDER = "rgba(133,183,235,0.10)";
+const GLOW = "rgba(133,183,235,0.18)";
 
 const tooltipStyle = {
   borderRadius: "14px",
@@ -79,7 +79,7 @@ const KPI_COLORS = {
   received:   { gradient: ["#A855F7","#7C3AED"], glow: "rgba(168,85,247,0.30)", text: "text-purple-400" },
   resolved:   { gradient: ["#22C55E","#15803D"], glow: "rgba(34,197,94,0.30)",  text: "text-emerald-400" },
   unresolved: { gradient: ["#F97316","#C2410C"], glow: "rgba(249,115,22,0.30)", text: "text-orange-400" },
-  paid:       { gradient: ["#7BE3CF","#4F9B8C"], glow: `${GLOW}`,              text: "text-teal-300" },
+  paid:       { gradient: ["#85B7EB","#378ADD"], glow: `${GLOW}`,              text: "text-blue-300" },
 };
 
 const REASON_COLORS: Record<string, string> = {
@@ -147,7 +147,7 @@ function GlassCard({
       {/* subtle top-edge shimmer */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ background: "linear-gradient(90deg,transparent,rgba(123,227,207,0.35),transparent)" }}
+        style={{ background: "linear-gradient(90deg,transparent,rgba(133,183,235,0.35),transparent)" }}
       />
       {children}
     </div>
@@ -336,7 +336,7 @@ function ComplaintsDonut({ data }: { data: DashboardPageData }) {
    BAR CHART — categories
 ═══════════════════════════════════════════════════════ */
 function CategoriesBar({ data }: { data: DashboardPageData["categories"] }) {
-  const barColors = ["#7BE3CF","#A855F7","#3B82F6","#F97316","#22C55E"];
+  const barColors = ["#85B7EB","#A855F7","#3B82F6","#F97316","#22C55E"];
 
   const enriched = data.map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
 

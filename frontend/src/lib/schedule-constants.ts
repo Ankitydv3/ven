@@ -42,10 +42,10 @@ const TEAM_COLOR_PALETTE = [
     dot: "bg-pink-500",
   },
   {
-    bg: "bg-teal-500/15",
-    border: "border-teal-500/40",
-    text: "text-teal-600 dark:text-teal-300",
-    dot: "bg-teal-500",
+    bg: "bg-blue-500/15",
+    border: "border-blue-500/40",
+    text: "text-blue-600 dark:text-blue-300",
+    dot: "bg-blue-500",
   },
   {
     bg: "bg-purple-500/15",
@@ -94,9 +94,9 @@ export const glassCardClass =
   "rounded-2xl border border-slate-200 bg-white/80 shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-app/80 dark:shadow-black/20";
 
 export const primaryButtonClass =
-  "bg-[#2F6B63] text-white shadow-md shadow-[#2F6B63]/25 hover:bg-[#285e57]";
+  "bg-[#185FA5] text-white shadow-md shadow-[#185FA5]/25 hover:bg-[#0C447C]";
 
-export const accentTextClass = "text-[#2F6B63] dark:text-[#4F9B8C]";
+export const accentTextClass = "text-[#185FA5] dark:text-[#378ADD]";
 
 export const HOUR_HEIGHT = 56;
 export const CALENDAR_START_HOUR = 8;

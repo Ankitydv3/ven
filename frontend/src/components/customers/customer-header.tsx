@@ -54,7 +54,7 @@ export function CustomerHeader({
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search customers..."
               aria-label="Search customers"
-              className="h-11 w-full rounded-xl border-slate-200 bg-white pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:border-[#4F9B8C] focus-visible:ring-[#4F9B8C]/20 dark:border-white/[0.08] dark:bg-app/60 dark:text-white dark:placeholder:text-white/40"
+              className="h-11 w-full rounded-xl border-slate-200 bg-white pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:border-[#378ADD] focus-visible:ring-[#378ADD]/20 dark:border-white/[0.08] dark:bg-app/60 dark:text-white dark:placeholder:text-white/40"
             />
           </div>
 

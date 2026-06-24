@@ -99,7 +99,7 @@ export function CustomerRatingDialog({
                 <button
                   key={star}
                   type="button"
-                  className="rounded-lg p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  className="rounded-lg p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
                   onClick={() => setRating(star)}
@@ -116,7 +116,7 @@ export function CustomerRatingDialog({
                 </button>
               ))}
             </div>
-            <p className="text-sm font-medium text-teal-400">
+            <p className="text-sm font-medium text-blue-400">
               {activeRating > 0 ? RATING_LABELS[activeRating] : "Select customer rating"}
             </p>
           </div>
@@ -148,7 +148,7 @@ export function CustomerRatingDialog({
           <Button
             onClick={handleSubmit}
             disabled={submitting || rating < 1}
-            className="bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700"
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
           >
             {submitting ? (
               <>

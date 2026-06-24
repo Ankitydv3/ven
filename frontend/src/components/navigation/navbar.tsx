@@ -122,8 +122,8 @@ export function Navbar() {
                 className={cn(
                   "relative rounded-full px-4 py-2 text-sm font-medium transition-all duration-300",
                   active
-                    ? "bg-app text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-[#2F6B63] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#7BE3CF]",
+                    ? "bg-app text-white shadow-[0_4px_14px_-4px_rgba(24,95,165,0.5)]"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-[#185FA5] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#85B7EB]",
                 )}
               >
                 {l.label}
@@ -216,8 +216,8 @@ export function Navbar() {
                     ? "translate-y-0 opacity-100"
                     : "-translate-y-1 opacity-0",
                   active
-                    ? "bg-[#2F6B63] text-white"
-                    : "text-slate-700 hover:bg-slate-50 hover:text-[#2F6B63] dark:text-white/70 dark:hover:bg-white/[0.05] dark:hover:text-[#7BE3CF]",
+                    ? "bg-[#185FA5] text-white"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-[#185FA5] dark:text-white/70 dark:hover:bg-white/[0.05] dark:hover:text-[#85B7EB]",
                 )}
               >
                 {l.label}

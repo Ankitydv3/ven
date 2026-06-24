@@ -63,7 +63,7 @@ export function CustomerViewDialog({ customer, open, onOpenChange }: CustomerVie
             <Badge variant="info" className={cn("font-mono", accentTextClass)}>
               {customer.customerId}
             </Badge>
-            <Badge variant="info" className="bg-[#4F9B8C]/10 text-[#2F6B63] dark:text-[#4F9B8C]">
+            <Badge variant="info" className="bg-[#378ADD]/10 text-[#185FA5] dark:text-[#378ADD]">
               <ShoppingBag className="mr-1 h-3 w-3" />
               {customer.totalComplaints} Total Orders
             </Badge>

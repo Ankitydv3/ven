@@ -3,10 +3,18 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { assignComplaint, assignComplaintTeam, completeComplaint, confirmComplaint, createComplaint, declineComplaint, getComplaintStats, listComplaints, startComplaint, submitFeedback, trackComplaint, updateComplaint } from "../controllers/complaintController";
 import { getRecentComplaints } from "../controllers/dashboardController";
 import { authRequired, requireAdminPortalRole, requireRole } from "../middleware/auth";
+import { complaintUpload } from "../middleware/complaintUpload";
 
 const router = Router();
 
-router.post("/", asyncHandler(createComplaint));
+router.post(
+  "/",
+  complaintUpload.fields([
+    { name: "picture", maxCount: 1 },
+    { name: "quotation", maxCount: 1 },
+  ]),
+  asyncHandler(createComplaint)
+);
 router.get("/", authRequired, asyncHandler(listComplaints));
 router.get("/stats", authRequired, asyncHandler(getComplaintStats));
 router.get("/recent", authRequired, asyncHandler(getRecentComplaints));

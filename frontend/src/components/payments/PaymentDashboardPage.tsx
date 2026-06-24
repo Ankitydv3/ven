@@ -63,7 +63,7 @@ export function PaymentDashboardPage() {
               </Button>
             </Link>
             <Button
-              className="h-10 rounded-xl bg-gradient-to-r from-[#2F6B63] to-[#4F9B8C] text-white shadow-lg shadow-[#2F6B63]/20 transition-all hover:shadow-[#2F6B63]/40"
+              className="h-10 rounded-xl bg-gradient-to-r from-[#185FA5] to-[#378ADD] text-white shadow-lg shadow-[#185FA5]/20 transition-all hover:shadow-[#185FA5]/40"
               onClick={() => setAddModalOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />

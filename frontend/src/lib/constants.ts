@@ -1,4 +1,3 @@
-/** Global app background / surface color */
 export const APP_BG = "#020a17";
 
 export const complaintStatuses = [

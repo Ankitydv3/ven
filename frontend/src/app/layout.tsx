@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Manrope, Space_Grotesk, Geist } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import Navbar from "@/components/navigation/navbar";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -35,7 +34,6 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", manrope.variable, spaceGrotesk.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
-        <Navbar />
         <Providers>{children}</Providers>
       </body>
     </html>

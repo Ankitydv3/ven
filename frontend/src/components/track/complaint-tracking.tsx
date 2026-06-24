@@ -58,7 +58,7 @@ function FloatingParticles() {
       {particles.map((p) => (
         <motion.div
           key={p.id}
-          className="absolute rounded-full bg-teal-400/20"
+          className="absolute rounded-full bg-blue-400/20"
           style={{
             width: p.size,
             height: p.size,
@@ -253,7 +253,7 @@ function Timeline({ complaint }: { complaint: Complaint }) {
                   }}
                   className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-lg transition-all duration-300 ${
                     isActive 
-                      ? `border-teal-500 bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-teal-500/30` 
+                      ? `border-blue-500 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-blue-500/30` 
                       : "border-slate-700/50 bg-slate-800/50 text-slate-500 backdrop-blur-sm"
                   }`}
                 >
@@ -271,7 +271,7 @@ function Timeline({ complaint }: { complaint: Complaint }) {
                 {/* Floating pulse ring */}
                 {isActive && (
                   <motion.div 
-                    className="absolute inset-0 rounded-full border-2 border-teal-500/30"
+                    className="absolute inset-0 rounded-full border-2 border-blue-500/30"
                     animate={{
                       scale: [1, 1.5, 1],
                       opacity: [0.5, 0, 0.5],
@@ -304,7 +304,7 @@ function Timeline({ complaint }: { complaint: Complaint }) {
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 20 }}
                     >
-                      <Sparkles className="h-3 w-3 text-teal-400" />
+                      <Sparkles className="h-3 w-3 text-blue-400" />
                     </motion.div>
                   )}
                 </div>
@@ -322,7 +322,11 @@ function Timeline({ complaint }: { complaint: Complaint }) {
   );
 }
 
-export default function ComplaintTracking() {
+type ComplaintTrackingProps = {
+  embedded?: boolean;
+};
+
+export default function ComplaintTracking({ embedded = false }: ComplaintTrackingProps) {
   const [trackingId, setTrackingId] = useState("");
   const [trackingComplaint, setTrackingComplaint] = useState<Complaint | null>(null);
   const [hasFeedback, setHasFeedback] = useState(false);
@@ -390,12 +394,22 @@ export default function ComplaintTracking() {
   }, []);
 
   return (
-    <div className="relative mx-auto max-w-4xl space-y-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 min-h-screen overflow-hidden">
-      <FloatingParticles />
+    <div
+      className={
+        embedded
+          ? "relative space-y-4"
+          : "relative mx-auto max-w-4xl space-y-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 min-h-screen overflow-hidden"
+      }
+    >
+      {!embedded && <FloatingParticles />}
       
       {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      {!embedded && (
+        <>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+        </>
+      )}
 
       {/* Search Card with floating elements */}
       <motion.div
@@ -403,18 +417,22 @@ export default function ComplaintTracking() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="relative overflow-hidden border-slate-800/60 bg-slate-900/80 backdrop-blur-xl shadow-2xl shadow-slate-950/50">
-          {/* Card glow border */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/10 via-purple-500/10 to-teal-500/10 pointer-events-none" />
+        <Card className={embedded
+          ? "relative overflow-hidden border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          : "relative overflow-hidden border-slate-800/60 bg-slate-900/80 backdrop-blur-xl shadow-2xl shadow-slate-950/50"
+        }>
+          {!embedded && (
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 pointer-events-none" />
+          )}
           
           <CardHeader className="relative space-y-4 pb-6">
             <div className="flex items-center gap-4">
               <motion.div 
-                className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/20 shadow-lg shadow-teal-500/10"
+                className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/20 shadow-lg shadow-blue-500/10"
                 whileHover={{ rotate: 180 }}
                 transition={{ duration: 0.6 }}
               >
-                <ScanSearch className="h-6 w-6 text-teal-400" />
+                <ScanSearch className="h-6 w-6 text-blue-400" />
                 <motion.div 
                   className="absolute -top-1 -right-1"
                   animate={{ 
@@ -423,15 +441,18 @@ export default function ComplaintTracking() {
                   }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <Sparkles className="h-3 w-3 text-teal-400" />
+                  <Sparkles className="h-3 w-3 text-blue-400" />
                 </motion.div>
               </motion.div>
               
               <div>
-                <CardTitle className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">
+                <CardTitle className={embedded
+                  ? "text-xl font-semibold text-[#042C53] dark:text-white"
+                  : "text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent"
+                }>
                   Track Complaint
                 </CardTitle>
-                <CardDescription className="text-slate-400 text-sm">
+                <CardDescription className={embedded ? "text-slate-500 text-sm" : "text-slate-400 text-sm"}>
                   Enter your unique complaint ID to view real-time status updates.
                   <span className="inline-block ml-2 px-2 py-0.5 bg-slate-800/50 rounded text-xs text-slate-500 border border-slate-700/50">
                     ⌘K
@@ -443,7 +464,7 @@ export default function ComplaintTracking() {
 
           <CardContent className="relative space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="tracking-id" className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              <Label htmlFor="tracking-id" className={embedded ? "text-xs font-medium uppercase tracking-wider text-slate-500" : "text-xs font-medium uppercase tracking-wider text-slate-400"}>
                 Complaint ID
               </Label>
               <div className="relative">
@@ -462,7 +483,10 @@ export default function ComplaintTracking() {
                   value={trackingId}
                   onChange={(e) => setTrackingId(e.target.value)}
                   placeholder="e.g., CMP-2026-001"
-                  className="h-12 pl-9 font-mono text-sm tracking-wide bg-slate-800/50 border-slate-700/50 text-slate-100 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-teal-500/50 transition-all duration-300"
+                  className={embedded
+                    ? "h-12 pl-9 font-mono text-sm tracking-wide"
+                    : "h-12 pl-9 font-mono text-sm tracking-wide bg-slate-800/50 border-slate-700/50 text-slate-100 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-500/50 transition-all duration-300"
+                  }
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   onKeyDown={(e) => e.key === "Enter" && handleTrack()}
@@ -485,13 +509,13 @@ export default function ComplaintTracking() {
               whileTap={{ scale: 0.98 }}
             >
               <Button
-                className="relative h-12 w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white font-medium shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all duration-300 overflow-hidden group"
+                className="relative h-12 w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all duration-300 overflow-hidden group"
                 onClick={handleTrack}
                 type="button"
                 disabled={trackingLoading}
               >
                 <motion.div 
-                  className="absolute inset-0 bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"
+                  className="absolute inset-0 bg-gradient-to-r from-blue-400 via-blue-400 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"
                   animate={{
                     x: ["-100%", "100%"],
                   }}
@@ -520,15 +544,15 @@ export default function ComplaintTracking() {
             {/* Trust indicators */}
             <div className="flex items-center justify-center gap-6 pt-2">
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Shield className="h-3 w-3 text-teal-500" />
+                <Shield className="h-3 w-3 text-blue-500" />
                 <span>256-bit encrypted</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Clock className="h-3 w-3 text-teal-500" />
+                <Clock className="h-3 w-3 text-blue-500" />
                 <span>Real-time updates</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Star className="h-3 w-3 text-teal-500" />
+                <Star className="h-3 w-3 text-blue-500" />
                 <span>24/7 support</span>
               </div>
             </div>
@@ -548,7 +572,7 @@ export default function ComplaintTracking() {
             <Card className="relative overflow-hidden border-slate-800/60 bg-slate-900/80 backdrop-blur-xl shadow-2xl shadow-slate-950/50">
               {/* Animated border */}
               <motion.div 
-                className="absolute inset-0 rounded-xl p-[1px] bg-gradient-to-r from-teal-500/30 via-purple-500/30 to-teal-500/30"
+                className="absolute inset-0 rounded-xl p-[1px] bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-blue-500/30"
                 animate={{
                   background: [
                     "linear-gradient(0deg, rgba(20,184,166,0.3), rgba(139,92,246,0.3), rgba(20,184,166,0.3))",
@@ -571,8 +595,8 @@ export default function ComplaintTracking() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.2 }}
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-600/20">
-                        <Hash className="h-4 w-4 text-teal-400" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/20">
+                        <Hash className="h-4 w-4 text-blue-400" />
                       </div>
                       <CardTitle className="text-lg font-mono tracking-tight text-slate-100">
                         {trackingComplaint.complaintId}
@@ -594,7 +618,7 @@ export default function ComplaintTracking() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
                   >
-                    <Badge className="bg-gradient-to-r from-teal-500/20 to-teal-600/20 text-teal-400 border-teal-500/30 shadow-lg shadow-teal-500/10">
+                    <Badge className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400 border-blue-500/30 shadow-lg shadow-blue-500/10">
                       <Calendar className="mr-1.5 h-3 w-3" />
                       {new Date().toLocaleDateString()}
                     </Badge>
@@ -609,7 +633,7 @@ export default function ComplaintTracking() {
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-8 rounded-xl border border-teal-500/20 bg-teal-500/10 p-4 text-center"
+                    className="mt-8 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-center"
                   >
                     <Star className="mx-auto mb-2 h-6 w-6 text-amber-400" />
                     <p className="text-sm font-medium text-slate-200">
@@ -619,7 +643,7 @@ export default function ComplaintTracking() {
                       We&apos;d love to hear about your experience.
                     </p>
                     <Button
-                      className="mt-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+                      className="mt-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                       onClick={() =>
                         openFeedback(
                           feedbackTargetFromComplaint(trackingComplaint, () => setHasFeedback(true))

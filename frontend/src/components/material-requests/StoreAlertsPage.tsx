@@ -24,7 +24,7 @@ export function StoreAlertsPage() {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
       </div>
     );
   }
@@ -79,9 +79,9 @@ export function StoreAlertsPage() {
 
         <div className={cn(panelClass, "p-5")}>
           <div className="mb-4 flex items-center gap-2">
-            <Package className="h-5 w-5 text-teal-400" />
+            <Package className="h-5 w-5 text-blue-400" />
             <h2 className="text-lg font-semibold text-white">All Material Requests</h2>
-            <Badge className="bg-teal-500/20 text-teal-300">{requests.length}</Badge>
+            <Badge className="bg-blue-500/20 text-blue-300">{requests.length}</Badge>
           </div>
 
           {requestsLoading ? (
@@ -115,7 +115,7 @@ export function StoreAlertsPage() {
                     )}
                     <div className="flex-1 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-teal-300">{req.requestId}</span>
+                        <span className="font-mono text-blue-300">{req.requestId}</span>
                         <Badge className="bg-amber-500/20 text-amber-300">{req.status}</Badge>
                       </div>
                       <p className="mt-1 font-semibold text-white">{req.materialName}</p>

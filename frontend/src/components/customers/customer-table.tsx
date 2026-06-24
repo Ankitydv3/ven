@@ -130,7 +130,7 @@ export function CustomerTable({
           "hidden min-h-[280px] flex-col items-center justify-center p-10 text-center md:flex"
         )}
       >
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4F9B8C]/10">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#378ADD]/10">
           <Users className={cn("h-6 w-6", accentTextClass)} />
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">No customers found</h3>
@@ -182,7 +182,7 @@ export function CustomerTable({
                   </Badge>
                 </TD>
                 <TD>
-                  <Badge variant="info" className="bg-[#4F9B8C]/10 text-[#2F6B63] dark:text-[#4F9B8C]">
+                  <Badge variant="info" className="bg-[#378ADD]/10 text-[#185FA5] dark:text-[#378ADD]">
                     {customer.totalComplaints}
                   </Badge>
                 </TD>

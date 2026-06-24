@@ -227,10 +227,16 @@ export interface Complaint {
   contactPerson: string;
   mobileNumber: string;
   email: string;
+  orderId?: string;
+  salesPerson?: string;
   title: string;
   description: string;
   priority: Priority;
   location: string;
+  pictureUrl?: string;
+  quotationUrl?: string;
+  availableDate?: string;
+  availableTime?: string;
   assignedTeam?: string;
   assignedUserId?: string;
   assignedUserName?: string;

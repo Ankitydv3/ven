@@ -185,7 +185,7 @@ export function CustomerPage({ role = "team" }: CustomerPageProps) {
                   "flex flex-col items-center justify-center p-10 text-center md:hidden"
                 )}
               >
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4F9B8C]/10">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#378ADD]/10">
                   <SearchX className={cn("h-6 w-6", accentTextClass)} />
                 </div>
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white">
