@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import {
   Bell,
   LogOut,
-  Shield,
   Workflow,
   Menu,
   X,
@@ -30,6 +29,13 @@ import {
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { clearSession, readUser } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { navGroups, type NavItem } from "@/lib/constants";
@@ -151,7 +157,20 @@ function NavGroupItem({
   );
 }
 
-export function DashboardShell({ 
+function getRoleBadgeLabel(role: "admin" | "team" | "store", team?: string) {
+  if (role === "admin") return "Admin Mode";
+  if (role === "store") return "Store Manager";
+  return team ?? "Team Mode";
+}
+
+function getUserInitials(name?: string) {
+  if (!name?.trim()) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+export function DashboardShell({
   role, 
   title, 
   subtitle, 
@@ -196,6 +215,14 @@ export function DashboardShell({
     };
   }, [isMobileMenuOpen]);
 
+  const roleBadgeLabel = getRoleBadgeLabel(role, user?.team);
+  const userInitials = getUserInitials(user?.name);
+
+  const handleSignOut = () => {
+    clearSession();
+    window.location.href = "/login";
+  };
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
@@ -205,17 +232,11 @@ export function DashboardShell({
         <img
               src="/okna.png"
               alt="Complaint Flow OS"
-              className="w-28 sm:w-36 md:w-44 lg:w-52 h-10 object-contain"
+              className="w-28 sm:w-36 md:w-44 lg:w-52 h-20 object-contain"
             />
         </div>
         
-        <div className="flex-shrink-0 mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
-          <Badge variant="info" className="mb-3 bg-blue-500/20 text-blue-300 border-blue-500/20">
-            {role === "admin" ? "Admin Mode" : role === "store" ? "Store Manager" : user?.team ?? "Team Mode"}
-          </Badge>
-          <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
-          <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
-        </div>
+      
 
         <nav className="flex-1 overflow-y-auto pb-4 space-y-2">
           {navItems.map((item) => (
@@ -279,7 +300,7 @@ export function DashboardShell({
 
               <div className="flex-shrink-0 mt-4 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
                 <Badge variant="info" className="mb-3 bg-blue-500/20 text-blue-300 border-blue-500/20">
-                  {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
+                  {roleBadgeLabel}
                 </Badge>
                 <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
                 <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
@@ -343,19 +364,47 @@ export function DashboardShell({
                   </Badge>
                 )}
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 whitespace-nowrap"
-                onClick={() => {
-                  clearSession();
-                  window.location.href = "/login";
-                }}
-              >
-                <LogOut className="h-4 w-4 mr-1.5" /> 
-                <span className="hidden sm:inline">Sign out</span>
-                <span className="sm:hidden">Exit</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-white/10 bg-white/5 pl-1.5 pr-2.5 text-white hover:bg-white/10"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/20 text-xs font-semibold text-blue-300">
+                      {userInitials}
+                    </span>
+                    <span className="hidden max-w-[120px] truncate sm:inline">
+                      {user?.name ?? "Profile"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-64 rounded-2xl border border-white/10 bg-app p-2 text-white shadow-xl"
+                >
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <Badge
+                      variant="info"
+                      className="mb-2 bg-blue-500/20 text-blue-300 border-blue-500/20"
+                    >
+                      {roleBadgeLabel}
+                    </Badge>
+                    <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
+                    <p className="text-xs text-slate-400 truncate">{user?.email ?? "Signed in"}</p>
+                  </div>
+                  <DropdownMenuSeparator className="my-2 bg-white/10" />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="rounded-xl px-3 py-2.5 text-red-400 focus:bg-red-500/10 focus:text-red-300 cursor-pointer"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
