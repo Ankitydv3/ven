@@ -48,12 +48,7 @@ export const navGroups: { admin: NavItem[]; team: NavItem[]; store: NavItem[] } 
     { href: "/team/dashboard", label: "Dashboard" },
     
     { href: "/team/complaints", label: "Complaints" },
-    {
-      label: "Orders",
-      children: [
-        { href: "/team/orders", label: "All Orders" },
-      ],
-    },
+    { href: "/team/orders", label: "All Orders" },
      { href: "/team/my-tasks", label: "My Tasks" },
     { href: "/team/material-requests", label: "Material Requests" },
     { href: "/team/reports", label: "Reports" },
