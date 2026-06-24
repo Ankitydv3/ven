@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { navGroups, type NavItem } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePendingAlertsCount } from "@/hooks/useAlerts";
+import { DashboardSearch } from "@/components/layout/dashboard-search";
 
 // Icon mapping for nav items
 const iconMap: Record<string, any> = {
@@ -293,8 +294,8 @@ export function DashboardShell({
       {/* Main Content - Full scrollable */}
       <div className="flex min-h-screen flex-col overflow-y-auto">
         <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-[#020817]/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 min-w-0 lg:flex-1">
               {/* Mobile Menu Button */}
               <Button
                 variant="ghost"
@@ -307,15 +308,20 @@ export function DashboardShell({
 
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
-                  <Shield className="h-3.5 w-3.5 flex-shrink-0" /> 
-                  <span className="truncate">Secure workflow platform</span>
+                  
                 </div>
                 <h1 className="font-heading text-xl sm:text-2xl font-semibold text-white truncate">{title}</h1>
                 <p className="text-sm text-slate-300 truncate">{subtitle}</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            {role === "admin" ? (
+              <div className="w-full lg:max-w-xl lg:flex-1 lg:px-4">
+                <DashboardSearch navItems={navItems} />
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0 lg:justify-end">
               <ThemeToggle />
               <Button
                 variant="outline"

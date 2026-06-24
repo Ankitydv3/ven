@@ -307,33 +307,7 @@ function ComplaintsOverview({ data }: { data: DashboardPageData }) {
 /* ---------------------------------------------------------
    Monthly trend — line chart only (matches image, no fills)
 --------------------------------------------------------- */
-function MonthlyTrend({ data }: { data: DashboardPageData["monthlyTrend"] }) {
-  return (
-    <SectionCard title="Monthly Trend">
-      <div className="h-[280px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148,163,184,0.16)" vertical={false} />
-          <XAxis dataKey="month" stroke="#94A3B8" tickLine={false} axisLine={false} />
-          <YAxis stroke="#94A3B8" tickLine={false} axisLine={false} allowDecimals={false} />
-          <Tooltip contentStyle={tooltipStyle} />
-          <Legend />
-          <Line type="monotone" dataKey="orders" name="Orders" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3 }} />
-          <Line
-            type="monotone"
-            dataKey="complaintsReceived"
-            name="Complaints Received"
-            stroke="#A855F7"
-            strokeWidth={2.5}
-            dot={{ r: 3 }}
-          />
-          <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3 }} />
-        </LineChart>
-      </ResponsiveContainer>
-      </div>
-    </SectionCard>
-  );
-}
+
 
 /* ---------------------------------------------------------
    Top Complaint Categories — horizontal progress bars
@@ -578,9 +552,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
   return (
     <DashboardShell
       role={role}
-      title="Dashboard"
-      subtitle="Overview of service operations and performance."
-    >
+   >
       <div className="space-y-8">
         {isLoading || !data ? (
           <LoadingState />
@@ -654,20 +626,6 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
               <UnresolvedByReason data={data.unresolvedReasons} />
             </motion.div>
   
-            {/* Charts */}
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="grid gap-6 xl:grid-cols-3"
-            >
-              <ComplaintsOverview data={data} />
-  
-              <div className="xl:col-span-2">
-                <MonthlyTrend data={data.monthlyTrend} />
-              </div>
-            </motion.div>
   
             {/* Categories */}
             <motion.div
