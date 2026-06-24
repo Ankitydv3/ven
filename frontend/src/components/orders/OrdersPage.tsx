@@ -654,28 +654,27 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             <TableElement>
               <THead>
                 <tr className="border-b border-slate-100 dark:border-white/[0.06]">
-                  <TH className="w-[12%]">Order ID</TH>
-                  <TH className="w-[22%]">Customer</TH>
-                  <TH className="w-[12%]">Material</TH>
-                  <TH className="w-[15%]">Location</TH>
-                  <TH className="w-[12%]">Delivery Date</TH>
-                  <TH className="w-[10%]">Payment</TH>
-                  <TH className="w-[10%]">Status</TH>
-                  <TH className="text-right w-[7%]">Actions</TH>
+                  <TH className="w-[10%]">Order ID</TH>
+                  <TH className="w-[18%]">Customer Name</TH>
+                  <TH className="w-[25%]">Address</TH>
+                  <TH className="w-[12%]">Material Type</TH>
+                  <TH className="w-[12%]">Order Date</TH>
+                  <TH className="w-[13%]">Unpaid Service Available</TH>
+                  <TH className="text-right w-[10%]">Actions</TH>
                 </tr>
               </THead>
               <tbody>
                 {isLoading ? (
                   Array.from({ length: 4 }).map((_, idx) => (
                     <TR key={idx}>
-                      <TD colSpan={8}>
+                      <TD colSpan={7}>
                         <Skeleton className="h-10 rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
                       </TD>
                     </TR>
                   ))
                 ) : items.length === 0 ? (
                   <TR>
-                    <TD colSpan={8}>
+                    <TD colSpan={7}>
                       <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
                         <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">
                           No orders found
@@ -700,95 +699,60 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   items.map((order) => (
                     <TR key={order._id}>
                       {/* Order ID */}
-                      <TD className="font-mono font-medium text-[#04342C] dark:text-white">
+                      <TD className="font-medium text-[#04342C] dark:text-white">
                         {order.orderId}
                       </TD>
 
                       {/* Customer Details */}
                       <TD>
-                        {role === "team" ? (
-                          <button
-                            type="button"
-                            onClick={() => openCustomerTasks(order)}
-                            className="flex flex-col text-left transition hover:text-[#378ADD]"
-                          >
-                            <span className="font-semibold text-slate-900 underline-offset-2 hover:underline dark:text-white">
-                              {order.customerName}
-                            </span>
-                            <span className="text-xs text-slate-400 dark:text-slate-400">
-                              {order.phone} • {order.email}
-                            </span>
-                          </button>
-                        ) : (
-                          <div className="flex flex-col text-left">
-                            <span className="font-semibold text-slate-900 dark:text-white">
-                              {order.customerName}
-                            </span>
-                            <span className="text-xs text-slate-400 dark:text-slate-400">
-                              {order.phone} • {order.email}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-slate-900 dark:text-white">
+                            {order.customerName}
+                          </span>
+                          <span className="text-xs text-slate-400 dark:text-slate-400">
+                            {order.phone}
+                          </span>
+                        </div>
+                      </TD>
+
+                      {/* Address */}
+                      <TD className="text-slate-700 dark:text-white/70 text-sm">
+                        {order.address}, {order.city}, {order.state} {order.pincode}
                       </TD>
 
                       {/* Material Type */}
                       <TD>
-                        <span
-                          className={`inline-flex items-center gap-1.5 text-sm ${
+                        <Badge
+                          className={`rounded-md border-0 font-medium px-3 py-1 ${
                             order.materialType === "Aluminium"
-                              ? "text-cyan-600 dark:text-cyan-400"
-                              : "text-amber-600 dark:text-amber-400"
+                              ? "bg-blue-900/40 text-blue-400"
+                              : "bg-purple-900/40 text-purple-400"
                           }`}
                         >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              order.materialType === "Aluminium" ? "bg-cyan-400" : "bg-amber-400"
-                            }`}
-                          />
                           {order.materialType}
-                        </span>
+                        </Badge>
                       </TD>
 
-                      {/* Location */}
-                      <TD className="text-slate-700 dark:text-white/70">
-                        {order.city}, {order.state}
-                      </TD>
-
-                      {/* Delivery Date */}
+                      {/* Order Date (Delivery Date) */}
                       <TD className="text-slate-500 dark:text-white/60">
-                        {new Date(order.deliveryDate).toLocaleDateString("en-US", {
-                          year: "numeric",
+                        {new Date(order.deliveryDate).toLocaleDateString("en-GB", {
+                          day: "2-digit",
                           month: "short",
-                          day: "numeric"
+                          year: "numeric"
                         })}
                       </TD>
 
-                      {/* Payment status badge */}
+                      {/* Unpaid Service Available */}
                       <TD>
-                        {order.paymentStatus === "Paid" ? (
-                          <Badge className="bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 rounded-full border-0 font-normal">
-                            Paid
+                        {order.unpaidServiceAvailable ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded px-4 py-1 border-emerald-500/20 font-bold">
+                            YES
                           </Badge>
                         ) : (
-                          <Badge className="bg-rose-500/20 text-rose-500 hover:bg-rose-500/20 rounded-full border-0 font-normal">
-                            Unpaid
+                          <Badge className="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded px-4 py-1 border-rose-500/20 font-bold">
+                            NO
                           </Badge>
                         )}
-                      </TD>
-
-                      {/* Status */}
-                      <TD>
-                        <Badge
-                          className={`rounded-full border-0 font-normal ${
-                            order.status === "Completed"
-                              ? "bg-emerald-500/20 text-emerald-500"
-                              : order.status === "In Progress"
-                              ? "bg-amber-500/20 text-amber-550 dark:text-amber-400"
-                              : "bg-blue-500/20 text-blue-500"
-                          }`}
-                        >
-                          {order.status || "Pending"}
-                        </Badge>
                       </TD>
 
                       {/* Actions */}
@@ -871,33 +835,13 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <p className="font-mono text-sm font-semibold text-[#04342C] dark:text-white">
                         {order.orderId}
                       </p>
-                      {role === "team" ? (
-                        <p
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openCustomerTasks(order)}
-                          onKeyDown={(e) => e.key === "Enter" && openCustomerTasks(order)}
-                          className="font-semibold text-slate-900 underline-offset-2 hover:text-[#378ADD] hover:underline dark:text-white mt-1 cursor-pointer"
-                        >
-                          {order.customerName}
-                        </p>
-                      ) : (
-                        <p className="font-semibold text-slate-900 dark:text-white mt-1">
-                          {order.customerName}
-                        </p>
-                      )}
+                      <p className="font-semibold text-slate-900 dark:text-white mt-1">
+                        {order.customerName}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-400">
+                        {order.phone}
+                      </p>
                     </div>
-                    <Badge
-                      className={`rounded-full border-0 font-normal ${
-                        order.status === "Completed"
-                          ? "bg-emerald-500/20 text-emerald-500"
-                          : order.status === "In Progress"
-                          ? "bg-amber-500/20 text-amber-550 dark:text-amber-400"
-                          : "bg-blue-500/20 text-blue-500"
-                      }`}
-                    >
-                      {order.status || "Pending"}
-                    </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500 dark:text-white/60">
@@ -916,15 +860,15 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <span>{new Date(order.deliveryDate).toLocaleDateString()}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#378ADD]">Payment</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Service Available</span>
                       <span
                         className={`font-semibold ${
-                          order.paymentStatus === "Paid"
+                          order.unpaidServiceAvailable
                             ? "text-emerald-500"
                             : "text-rose-500"
                         }`}
                       >
-                        {order.paymentStatus}
+                        {order.unpaidServiceAvailable ? "YES" : "NO"}
                       </span>
                     </div>
                   </div>
@@ -1013,7 +957,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             {viewTarget && (
               <div className="py-4 space-y-6">
                 {/* Visual Header Summary */}
-                <div className="grid grid-cols-3 gap-2 p-4 rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.02]">
+                <div className="grid grid-cols-2 gap-2 p-4 rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.02]">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
                       Material
@@ -1022,30 +966,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   </div>
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
-                      Payment Status
+                      Service Available
                     </span>
                     <Badge
                       className={`mt-0.5 rounded-full border-0 font-normal ${
-                        viewTarget.paymentStatus === "Paid" ? "bg-emerald-500/20 text-emerald-500" : "bg-rose-500/20 text-rose-500"
+                        viewTarget.unpaidServiceAvailable ? "bg-emerald-500/20 text-emerald-500" : "bg-rose-500/20 text-rose-500"
                       }`}
                     >
-                      {viewTarget.paymentStatus}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-[#378ADD]">
-                      Workflow Status
-                    </span>
-                    <Badge
-                      className={`mt-0.5 rounded-full border-0 font-normal ${
-                        viewTarget.status === "Completed"
-                          ? "bg-emerald-500/20 text-emerald-500"
-                          : viewTarget.status === "In Progress"
-                          ? "bg-amber-500/20 text-amber-500"
-                          : "bg-blue-500/20 text-blue-500"
-                      }`}
-                    >
-                      {viewTarget.status}
+                      {viewTarget.unpaidServiceAvailable ? "YES" : "NO"}
                     </Badge>
                   </div>
                 </div>
@@ -1142,20 +1070,6 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       </span>
                       <span className="font-medium text-slate-800 dark:text-white">
                         {viewTarget.unpaidServiceAvailable ? "Yes, Available" : "No, Unavailable"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-slate-400 dark:text-slate-500">Amount</span>
-                      <span className="font-medium text-slate-800 dark:text-white">
-                        ₹{viewTarget.amount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-slate-400 dark:text-slate-500">
-                        Assigned Team
-                      </span>
-                      <span className="font-medium text-slate-800 dark:text-white">
-                        {viewTarget.assignedTeam || "—"}
                       </span>
                     </div>
                   </div>
@@ -1320,84 +1234,6 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     <p className="text-[10px] text-red-500">{editErrors.deliveryDate}</p>
                   )}
                 </div>
-
-                {/* Amount */}
-                <div className="space-y-1">
-                  <Label htmlFor="editAmount">Order Amount (₹)</Label>
-                  <Input
-                    id="editAmount"
-                    type="number"
-                    value={editForm.amount}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, amount: Number(e.target.value) || 0 })
-                    }
-                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
-                  />
-                </div>
-
-                {/* Assigned Team */}
-                <div className="space-y-1">
-                  <Label htmlFor="editAssignedTeam">Assigned Team</Label>
-                  <select
-                    id="editAssignedTeam"
-                    value={editForm.assignedTeam}
-                    onChange={(e) => setEditForm({ ...editForm, assignedTeam: e.target.value })}
-                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-app
-                               py-2 px-3 text-sm
-                               text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
-                  >
-                    <option value="" className="bg-app text-white">Unassigned</option>
-                    {teamOptions.map((teamName) => (
-                      <option key={teamName} value={teamName} className="bg-app text-white">
-                        {teamName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Workflow Status */}
-                <div className="space-y-1">
-                  <Label htmlFor="editStatus">Workflow Status</Label>
-                  <select
-                    id="editStatus"
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-app
-                               py-2 px-3 text-sm
-                               text-slate-900 dark:text-white
-                               focus:outline-none focus:ring-2 focus:ring-[#378ADD]/30"
-                  >
-                    <option value="Pending" className="bg-app text-white">Pending</option>
-                    <option value="In Progress" className="bg-app text-white">In Progress</option>
-                    <option value="Completed" className="bg-app text-white">Completed</option>
-                  </select>
-                </div>
-
-                {/* Paid Toggle */}
-                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.02]">
-                  <div>
-                    <Label htmlFor="editPaid" className="text-sm font-semibold">Payment Completed</Label>
-                    <p className="text-[10px] text-slate-500 dark:text-white/40">Mark if order is settled.</p>
-                  </div>
-                  <button
-                    type="button"
-                    id="editPaid"
-                    onClick={() => setEditForm({ ...editForm, paid: !editForm.paid })}
-                    className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      editForm.paid ? "bg-[#185FA5]" : "bg-slate-200 dark:bg-white/[0.1]"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        editForm.paid ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
               </div>
 
               <DialogFooter className="gap-2 border-t border-slate-100 dark:border-white/[0.06] pt-4">
