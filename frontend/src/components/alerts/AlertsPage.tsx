@@ -36,7 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
-import type { Complaint, Priority, TeamReport } from "@/lib/types";
+import type { AlertsResponse, Complaint, Priority, TeamReport } from "@/lib/types";
 import { useAlerts, useConfirmComplaint, useDeclineComplaint } from "@/hooks/useAlerts";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -46,6 +46,36 @@ function priorityClass(priority?: Priority | string) {
   if (priority === "High") return "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/20";
   if (priority === "Medium") return "bg-[#F59E0B]/15 text-[#FBBF24] border-[#F59E0B]/20";
   return "bg-[#22C55E]/15 text-[#4ADE80] border-[#22C55E]/20";
+}
+
+function TaskAlertRow({ alert, tasksHref }: { alert: NonNullable<AlertsResponse["taskAlerts"]>[number]; tasksHref: string }) {
+  return (
+    <div className="rounded-2xl border border-[rgba(59,130,246,0.12)] bg-[rgba(10,20,35,0.5)] px-4 py-4">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#3B82F6]/15 text-[#60A5FA]">
+          <TriangleAlert className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-white">{alert.title}</p>
+            <Badge className="rounded-full border-0 bg-[#3B82F6]/15 px-2 py-0 text-[10px] font-medium text-[#60A5FA]">
+              {alert.type.replace(/_/g, " ")}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-[#94A3B8]">{alert.message}</p>
+          <p className="mt-2 text-xs text-[#64748B]">
+            {alert.taskId} · {format(new Date(alert.createdAt), "dd MMM yyyy, hh:mm a")}
+          </p>
+          <Link
+            href={`${tasksHref}?q=${encodeURIComponent(alert.taskId)}`}
+            className="mt-3 inline-block text-sm font-medium text-[#3B82F6] hover:underline"
+          >
+            Open in My Tasks →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TeamReportRow({ report }: { report: TeamReport }) {
@@ -212,6 +242,8 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
 
   const reportsHref = isAdmin ? "/admin/reports" : "/team/reports";
   const complaintsHref = isAdmin ? "/admin/complaints" : "/team/complaints";
+  const tasksHref = isAdmin ? "/admin/my-tasks" : "/team/my-tasks";
+  const taskAlerts = data?.taskAlerts ?? [];
 
   const handleConfirm = async (complaint: Complaint) => {
     setActionId(complaint._id);
@@ -338,6 +370,35 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
             </div>
           </div>
         </div>
+
+        {!isAdmin && (
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-white">Your Task Alerts</h2>
+              {taskAlerts.length > 0 && (
+                <Badge className="rounded-full border-0 bg-[#3B82F6]/15 px-2.5 py-0.5 text-xs font-medium text-[#60A5FA]">
+                  {taskAlerts.length} new
+                </Badge>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {taskAlerts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[rgba(59,130,246,0.15)] py-12 text-center text-sm text-[#64748B]">
+                  No new task alerts. Assigned work appears here and in{" "}
+                  <Link href={tasksHref} className="text-[#3B82F6] hover:underline">
+                    My Tasks
+                  </Link>
+                  .
+                </div>
+              ) : (
+                taskAlerts.map((alert) => (
+                  <TaskAlertRow key={alert._id} alert={alert} tasksHref={tasksHref} />
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
         {showTeamReports && (
           <section className="space-y-4">

@@ -40,28 +40,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-import { KpiCard } from "@/components/reports/KpiCard";
 import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useComplaints, useComplaintStats } from "@/hooks/useComplaints";
 import { useTeams } from "@/hooks/use-teams";
 import { useSession } from "@/hooks/use-session";
-import { assignComplaintTeam } from "@/services/complaints";
+import { assignComplaint } from "@/services/complaints";
+import { fetchAssignableUsers } from "@/services/users";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 import { canManageComplaints } from "@/lib/permissions";
+import { blocksTaskAssignment } from "@/lib/task-constants";
 import type { Complaint } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const DISPLAY_STATUSES = [
   "All",
-  "Unresolved",
-  "Resolved",
+  "Pending",
+  "Assigned",
+  "In Progress",
+  "Completed",
+  "Re-visit",
+  "Material Required",
   "Delayed",
-  "Material Unavailable",
-  "Payment Pending",
 ] as const;
 
-type DisplayStatus = (typeof DISPLAY_STATUSES)[number];
+type DisplayStatusFilter = (typeof DISPLAY_STATUSES)[number];
+
+type WorkflowStatus =
+  | "Pending Review"
+  | "Pending"
+  | "Assigned"
+  | "In Progress"
+  | "Completed"
+  | "Re-visit"
+  | "Material Required"
+  | "Delayed"
+  | "Declined";
 
 function getDefaultDateRange() {
   const now = new Date();
@@ -80,29 +95,37 @@ function isDelayIssue(complaint: Complaint) {
   return /delay|delayed|late|overdue/.test(text);
 }
 
-function isMaterialIssue(complaint: Complaint) {
-  const text = `${complaint.title} ${complaint.description} ${complaint.remarks ?? ""}`.toLowerCase();
-  return /material|parts|inventory|unavail/.test(text);
-}
-
-function getDisplayStatus(complaint: Complaint): DisplayStatus {
-  if (complaint.status === "Completed") return "Resolved";
-  if (complaint.paymentStatus === "Pending") return "Payment Pending";
+function getDisplayStatus(complaint: Complaint): WorkflowStatus {
+  if (complaint.taskScheduleStatus === "Need Re-visit") return "Re-visit";
+  if (complaint.taskScheduleStatus === "Need Material") return "Material Required";
+  if (complaint.status === "Completed") return "Completed";
+  if (complaint.status === "Pending Assignment") return "Pending";
+  if (complaint.status === "Assigned") return "Assigned";
+  if (complaint.status === "In Progress") return "In Progress";
+  if (complaint.status === "Pending Review") return "Pending Review";
+  if (complaint.status === "Declined") return "Declined";
   if (isDelayIssue(complaint)) return "Delayed";
-  if (isMaterialIssue(complaint)) return "Material Unavailable";
-  return "Unresolved";
+  if (complaint.taskScheduleStatus === "In Progress") return "In Progress";
+  if (complaint.taskScheduleStatus === "Pending") return "Pending";
+  return "Pending";
 }
 
-function statusBadgeClass(status: DisplayStatus) {
+function statusBadgeClass(status: WorkflowStatus) {
   switch (status) {
-    case "Resolved":
+    case "Completed":
       return "bg-emerald-500/15 text-emerald-400";
-    case "Unresolved":
-      return "bg-orange-500/15 text-orange-400";
+    case "Assigned":
+    case "In Progress":
+      return "bg-blue-500/15 text-blue-400";
+    case "Pending":
+    case "Pending Review":
+      return "bg-amber-500/15 text-amber-400";
+    case "Re-visit":
+    case "Material Required":
     case "Delayed":
-    case "Material Unavailable":
-    case "Payment Pending":
       return "bg-rose-500/15 text-rose-400";
+    case "Declined":
+      return "bg-slate-500/15 text-slate-400";
     default:
       return "bg-slate-500/15 text-slate-400";
   }
@@ -121,16 +144,28 @@ function buildPageNumbers(current: number, total: number) {
     .sort((a, b) => a - b);
 }
 
-function canAssignTeam(complaint: Complaint) {
-  return !["Pending Review", "Declined"].includes(complaint.status);
+function canAssignComplaint(complaint: Complaint) {
+  return (
+    !["Pending Review", "Declined", "Completed", "In Progress"].includes(complaint.status) &&
+    !blocksTaskAssignment(complaint.taskScheduleStatus)
+  );
 }
 
-function assignTeamLockReason(complaint: Complaint) {
+function assignLockReason(complaint: Complaint) {
   if (complaint.status === "Pending Review") {
-    return "Confirm this complaint from Alerts before assigning a team";
+    return "Confirm this complaint from Alerts before assigning";
   }
   if (complaint.status === "Declined") {
     return "Declined complaints cannot be assigned";
+  }
+  if (complaint.status === "Completed") {
+    return "Completed complaints cannot be reassigned";
+  }
+  if (complaint.status === "In Progress") {
+    return "Cannot reassign a complaint that is in progress";
+  }
+  if (blocksTaskAssignment(complaint.taskScheduleStatus)) {
+    return `Linked task is ${complaint.taskScheduleStatus}. Cancel or reopen first.`;
   }
   return "";
 }
@@ -153,55 +188,75 @@ function teamBadgeClass(teamName: string) {
 
 export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
+  const queryClient = useQueryClient();
   const sessionUser = readUser();
   const canManage = canManageComplaints(sessionUser?.role);
   const { data: teams = [] } = useTeams();
   const teamOptions = useMemo(() => ["All Teams", ...teams.map((t) => t.teamName)], [teams]);
-  const assignableTeams = useMemo(() => teams.map((t) => t.teamName), [teams]);
 
   const defaults = useMemo(() => getDefaultDateRange(), []);
   const [dateRange, setDateRange] = useState(defaults);
   const [draftDateRange, setDraftDateRange] = useState(defaults);
+  const [dateFilterActive, setDateFilterActive] = useState(false);
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
 
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [displayStatus, setDisplayStatus] = useState<DisplayStatus>("All");
+  const [displayStatus, setDisplayStatus] = useState<DisplayStatusFilter>("All");
   const [teamFilter, setTeamFilter] = useState("All Teams");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [showNewComplaint, setShowNewComplaint] = useState(false);
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [pending, startTransition] = useTransition();
   const limit = 10;
 
+  const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: fetchAssignableUsers,
+    enabled: Boolean(assignTarget),
+  });
+
   useEffect(() => {
     if (!assignTarget) return;
-    setSelectedTeam(assignTarget.assignedTeam ?? assignableTeams[0] ?? "");
-  }, [assignTarget, assignableTeams]);
+    if (
+      assignTarget.assignedUserId &&
+      assignableUsers.some((u) => u._id === assignTarget.assignedUserId)
+    ) {
+      setSelectedUserId(assignTarget.assignedUserId);
+    } else if (assignableUsers.length > 0) {
+      setSelectedUserId(assignableUsers[0]._id);
+    } else {
+      setSelectedUserId("");
+    }
+  }, [assignTarget, assignableUsers]);
+
+  const selectedUser = assignableUsers.find((u) => u._id === selectedUserId);
 
   const listParams = useMemo(
     () => ({
       q: appliedSearch || undefined,
       displayStatus: displayStatus !== "All" ? displayStatus : undefined,
       team: teamFilter !== "All Teams" ? teamFilter : undefined,
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
+      ...(dateFilterActive
+        ? { startDate: dateRange.startDate, endDate: dateRange.endDate }
+        : {}),
       page,
       limit,
       scope: "reviewed" as const,
     }),
-    [appliedSearch, displayStatus, teamFilter, dateRange, page, limit]
+    [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit]
   );
 
   const statsParams = useMemo(
     () => ({
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
+      ...(dateFilterActive
+        ? { startDate: dateRange.startDate, endDate: dateRange.endDate }
+        : {}),
       team: teamFilter !== "All Teams" ? teamFilter : undefined,
     }),
-    [dateRange, teamFilter]
+    [dateFilterActive, dateRange, teamFilter]
   );
 
   const { data, isLoading, refetch } = useComplaints(listParams);
@@ -222,39 +277,33 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
     return count;
   }, [appliedSearch, displayStatus, teamFilter]);
 
-  const dateLabel = formatDateRangeLabel(dateRange.startDate, dateRange.endDate);
+  const dateLabel = dateFilterActive
+    ? formatDateRangeLabel(dateRange.startDate, dateRange.endDate)
+    : "All dates";
 
   const kpiCards = useMemo(
     () => [
       {
-        label: "Total Complaints",
+        label: "Total",
         value: stats?.total ?? 0,
-        growth: "—",
-        trend: "up" as const,
         icon: ClipboardList,
         color: "blue" as const,
       },
       {
         label: "Resolved",
         value: stats?.resolved ?? 0,
-        growth: "—",
-        trend: "up" as const,
         icon: CheckCircle2,
         color: "green" as const,
       },
       {
         label: "Unresolved",
         value: stats?.unresolved ?? 0,
-        growth: "—",
-        trend: "down" as const,
         icon: AlertTriangle,
         color: "orange" as const,
       },
       {
-        label: "Delayed / Material / Payment Pending",
+        label: "Issues",
         value: stats?.issuePending ?? 0,
-        growth: "—",
-        trend: "down" as const,
         icon: Clock,
         color: "red" as const,
       },
@@ -264,6 +313,15 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
 
   const applyDateRange = () => {
     setDateRange(draftDateRange);
+    setDateFilterActive(true);
+    setPage(1);
+    setDateMenuOpen(false);
+  };
+
+  const clearDateRange = () => {
+    setDateFilterActive(false);
+    setDraftDateRange(defaults);
+    setDateRange(defaults);
     setPage(1);
     setDateMenuOpen(false);
   };
@@ -273,27 +331,29 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
     setPage(1);
   };
 
-  const handleAssignTeam = () => {
-    if (!assignTarget || !selectedTeam) return;
-    if (!canAssignTeam(assignTarget)) {
-      toast.error(assignTeamLockReason(assignTarget));
+  const handleAssign = () => {
+    if (!assignTarget || !selectedUserId) return;
+    if (!canAssignComplaint(assignTarget)) {
+      toast.error(assignLockReason(assignTarget));
       return;
     }
 
     startTransition(async () => {
       try {
-        const isReassign = Boolean(assignTarget.assignedTeam);
-        await assignComplaintTeam(assignTarget._id, selectedTeam);
+        const isReassign = Boolean(assignTarget.assignedUserId || assignTarget.assignedTeam);
+        await assignComplaint(assignTarget._id, selectedUserId);
         toast.success(
           isReassign
-            ? `Reassigned to ${selectedTeam}`
-            : `Assigned to ${selectedTeam}`
+            ? `Reassigned to ${selectedUser?.name ?? "user"}`
+            : `Assigned to ${selectedUser?.name ?? "user"}`
         );
         setAssignTarget(null);
-        setSelectedTeam("");
+        setSelectedUserId("");
         await refetch();
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        await queryClient.invalidateQueries({ queryKey: ["alerts"] });
       } catch (err) {
-        toast.error(getApiErrorMessage(err, "Team assignment failed"));
+        toast.error(getApiErrorMessage(err, "Assignment failed"));
       }
     });
   };
@@ -307,20 +367,111 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
       subtitle="Manage and assign complaints to service teams."
     >
       <div className="mx-auto w-full max-w-[1680px] space-y-6">
-        {/* Toolbar: date range + new complaint */}
+        {/* ── Compact KPI + Date Range + New Complaint ── */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end"
+          className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <div className="flex flex-wrap items-center gap-2.5 sm:ml-auto">
+          {/* KPI cards — compact horizontal row */}
+          <div className="flex flex-wrap w-full items-stretch gap-2">
+  {statsLoading
+    ? Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="flex-1 min-w-[100px] h-[62px] rounded-xl bg-white/[0.04]" />
+      ))
+    : kpiCards.map((kpi, i) => {
+        const colorMap = {
+          blue: "from-blue-500/20 to-blue-600/10 border-blue-500/20",
+          green: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/20",
+          orange: "from-orange-500/20 to-orange-600/10 border-orange-500/20",
+          red: "from-rose-500/20 to-rose-600/10 border-rose-500/20",
+        };
+        const iconColorMap = {
+          blue: "text-blue-400",
+          green: "text-emerald-400",
+          orange: "text-orange-400",
+          red: "text-rose-400",
+        };
+        return (
+          <div
+            key={kpi.label}
+            className={cn(
+              "flex-1 min-w-[100px] flex items-center gap-3 rounded-xl border bg-gradient-to-br px-4 py-3",
+              colorMap[kpi.color]
+            )}
+          >
+            <div className={cn("rounded-lg p-1.5", iconColorMap[kpi.color])}>
+              <kpi.icon className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                {kpi.label}
+              </p>
+              <p className="text-lg font-semibold text-white leading-none">
+                {kpi.value}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+</div>
+
+          {/* Date range + New Complaint */}
+          
+        </motion.div>
+
+        {/* Filters */}
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 lg:p-5">
+          <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_auto_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Search complaints..."
+                className="h-10 rounded-xl border-white/10 bg-white/5 pl-9 text-white placeholder:text-white/30"
+              />
+            </div>
+
+            <select
+              value={displayStatus}
+              onChange={(e) => {
+                setDisplayStatus(e.target.value as DisplayStatusFilter);
+                setPage(1);
+              }}
+              className="h-10 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {DISPLAY_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-app text-white">
+                  {s === "All" ? "All Status" : s}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={teamFilter}
+              onChange={(e) => {
+                setTeamFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-10 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {teamOptions.map((team) => (
+                <option key={team} value={team} className="bg-app text-white">
+                  {team}
+                </option>
+              ))}
+            </select>
+{/* //Date */}
+            <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu open={dateMenuOpen} onOpenChange={setDateMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-10 rounded-xl border-white/10 bg-white/5 text-sm text-white hover:bg-white/10"
+                  className="h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs text-white hover:bg-white/10"
                 >
-                  <Calendar className="mr-2 h-4 w-4 text-blue-400" />
+                  <Calendar className="mr-1.5 h-3.5 w-3.5 text-blue-400" />
                   {dateLabel}
                 </Button>
               </DropdownMenuTrigger>
@@ -357,6 +508,15 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                   >
                     Apply range
                   </Button>
+                  {dateFilterActive && (
+                    <Button
+                      variant="outline"
+                      onClick={clearDateRange}
+                      className="w-full rounded-xl border-white/10 text-white hover:bg-white/10"
+                    >
+                      Show all dates
+                    </Button>
+                  )}
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -364,89 +524,15 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
             {canManage && (
               <Button
                 onClick={() => setShowNewComplaint(true)}
-                className="h-10 rounded-xl bg-blue-600 text-sm text-white shadow-sm hover:bg-blue-500"
+                className="h-9 rounded-xl bg-blue-600 px-4 text-xs text-white shadow-sm hover:bg-blue-500"
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 New Complaint
               </Button>
             )}
           </div>
-        </motion.div>
 
-        {/* KPI cards */}
-        <div className={cn("grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4", statsLoading && "opacity-70")}>
-          {statsLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-[120px] rounded-3xl bg-white/[0.04]" />
-              ))
-            : kpiCards.map((kpi, i) => <KpiCard key={kpi.label} {...kpi} index={i} />)}
-        </div>
-
-        {/* Filters */}
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 lg:p-5">
-          <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_auto_auto]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder="Search complaints..."
-                className="h-10 rounded-xl border-white/10 bg-white/5 pl-9 text-white placeholder:text-white/30"
-              />
-            </div>
-
-            <select
-              value={displayStatus}
-              onChange={(e) => {
-                setDisplayStatus(e.target.value as DisplayStatus);
-                setPage(1);
-              }}
-              className="h-10 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              {DISPLAY_STATUSES.map((s) => (
-                <option key={s} value={s} className="bg-app text-white">
-                  {s === "All" ? "All Status" : s}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={teamFilter}
-              onChange={(e) => {
-                setTeamFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              {teamOptions.map((team) => (
-                <option key={team} value={team} className="bg-app text-white">
-                  {team}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters((v) => !v)}
-              className="relative h-10 rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge className="ml-2 h-5 min-w-5 rounded-full bg-rose-600 px-1.5 text-[10px]">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              onClick={handleSearch}
-              className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-500"
-            >
-              <Search className="mr-2 h-4 w-4" />
-              Search
-            </Button>
+            
           </div>
 
           {showFilters && activeFilterCount > 0 && (
@@ -512,7 +598,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                         const isPaid =
                           complaint.paymentStatus === "Paid" ||
                           complaint.paymentStatus === "Partially Paid";
-                        const canAssign = canManage && canAssignTeam(complaint);
+                        const canAssign = canManage && canAssignComplaint(complaint);
 
                         return (
                           <TR key={complaint._id} className="border-b border-white/[0.06] last:border-0">
@@ -565,7 +651,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                                   size="sm"
                                   variant="outline"
                                   disabled={!canAssign}
-                                  title={!canAssign ? assignTeamLockReason(complaint) : undefined}
+                                  title={!canAssign ? assignLockReason(complaint) : undefined}
                                   onClick={() => canAssign && setAssignTarget(complaint)}
                                   className="h-8 rounded-lg border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 disabled:opacity-40"
                                 >
@@ -602,7 +688,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                 const isPaid =
                   complaint.paymentStatus === "Paid" ||
                   complaint.paymentStatus === "Partially Paid";
-                const canAssign = canManage && canAssignTeam(complaint);
+                const canAssign = canManage && canAssignComplaint(complaint);
 
                 return (
                   <div
@@ -663,7 +749,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                         ) : (
                           <>
                             <Users className="mr-1.5 h-3.5 w-3.5" />
-                            Assign Team
+                            Assign
                           </>
                         )}
                       </Button>
@@ -730,25 +816,25 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
         </div>
       </div>
 
-      {/* Assign team dialog */}
+      {/* Assign user dialog */}
       <Dialog
         open={Boolean(assignTarget)}
         onOpenChange={(open) => {
           if (!open) {
             setAssignTarget(null);
-            setSelectedTeam("");
+            setSelectedUserId("");
           }
         }}
       >
         <DialogContent className="sm:max-w-[480px] border-white/10 bg-app text-white">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">
-              {assignTarget?.assignedTeam ? "Reassign team" : "Assign team"}
+              {assignTarget?.assignedUserId || assignTarget?.assignedTeam
+                ? "Reassign complaint"
+                : "Assign complaint"}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              {assignTarget?.status === "Completed"
-                ? "This complaint is completed. You can still move it to another service team."
-                : "Select a service team to handle this complaint."}
+              Select a team member to handle this complaint. A task will be created in their My Tasks.
             </DialogDescription>
           </DialogHeader>
 
@@ -761,30 +847,35 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
               <p className="mt-0.5 text-xs text-slate-400">{assignTarget?.clientName}</p>
             </div>
 
-            {assignTarget?.assignedTeam && (
+            {(assignTarget?.assignedUserName || assignTarget?.assignedTeam) && (
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                 <p className="text-xs font-medium text-amber-400">Currently assigned</p>
-                <p className="font-semibold text-white">{assignTarget.assignedTeam}</p>
+                <p className="font-semibold text-white">
+                  {assignTarget.assignedUserName
+                    ? `${assignTarget.assignedUserName} · ${assignTarget.assignedTeam ?? "No team"}`
+                    : assignTarget.assignedTeam}
+                </p>
               </div>
             )}
 
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-400">
-                {assignTarget?.assignedTeam ? "Select new team" : "Select team"}
+                {assignTarget?.assignedUserId ? "Select new assignee" : "Select team member"}
               </Label>
               <select
-                value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value)}
-                disabled={assignableTeams.length === 0}
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                disabled={usersLoading || assignableUsers.length === 0}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
-                {assignableTeams.length === 0 ? (
-                  <option className="bg-app">No teams available</option>
+                {usersLoading ? (
+                  <option className="bg-app">Loading users…</option>
+                ) : assignableUsers.length === 0 ? (
+                  <option className="bg-app">No team users available</option>
                 ) : (
-                  assignableTeams.map((teamName) => (
-                    <option key={teamName} value={teamName} className="bg-app text-white">
-                      {teamName}
-                      {assignTarget?.assignedTeam === teamName ? " (Current)" : ""}
+                  assignableUsers.map((user) => (
+                    <option key={user._id} value={user._id} className="bg-app text-white">
+                      {user.name} · {user.teamName ?? user.team ?? "No team"}
                     </option>
                   ))
                 )}
@@ -801,17 +892,17 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
               Cancel
             </Button>
             <Button
-              onClick={handleAssignTeam}
+              onClick={handleAssign}
               disabled={
                 pending ||
-                !selectedTeam ||
-                assignableTeams.length === 0 ||
-                selectedTeam === assignTarget?.assignedTeam
+                !selectedUserId ||
+                assignableUsers.length === 0 ||
+                selectedUserId === assignTarget?.assignedUserId
               }
               className="rounded-xl bg-blue-600 text-white hover:bg-blue-500"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {assignTarget?.assignedTeam ? "Reassign Team" : "Assign Team"}
+              {assignTarget?.assignedUserId ? "Reassign" : "Assign"}
             </Button>
           </DialogFooter>
         </DialogContent>

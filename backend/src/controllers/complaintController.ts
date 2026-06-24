@@ -32,10 +32,6 @@ function buildMaterialFilter() {
   };
 }
 
-function buildUnresolvedPaymentFilter() {
-  return { paymentStatus: "Pending" };
-}
-
 function applyDateRangeFilter(filter: Record<string, unknown>, startDate?: string, endDate?: string) {
   if (!startDate && !endDate) return;
   const createdAt: Record<string, Date> = {};
@@ -55,26 +51,49 @@ function applyDateRangeFilter(filter: Record<string, unknown>, startDate?: strin
 function applyDisplayStatusFilter(filter: Record<string, unknown>, displayStatus?: string) {
   if (!displayStatus || displayStatus === "All") return;
 
-  if (displayStatus === "Resolved") {
+  if (displayStatus === "Completed" || displayStatus === "Resolved") {
     filter.status = "Completed";
     return;
   }
 
-  if (displayStatus === "Unresolved") {
-    filter.status = { $in: OPEN_COMPLAINT_STATUSES };
-    filter.$nor = [buildDelayFilter(), buildMaterialFilter(), buildUnresolvedPaymentFilter()];
+  if (displayStatus === "Pending") {
+    filter.status = "Pending Assignment";
     return;
   }
 
-  filter.status = { $in: OPEN_COMPLAINT_STATUSES };
+  if (displayStatus === "Assigned") {
+    filter.status = "Assigned";
+    return;
+  }
+
+  if (displayStatus === "In Progress") {
+    filter.status = "In Progress";
+    return;
+  }
 
   if (displayStatus === "Delayed") {
+    filter.status = { $in: OPEN_COMPLAINT_STATUSES };
     Object.assign(filter, buildDelayFilter());
-  } else if (displayStatus === "Material Unavailable") {
-    Object.assign(filter, buildMaterialFilter());
-  } else if (displayStatus === "Payment Pending") {
-    Object.assign(filter, buildUnresolvedPaymentFilter());
   }
+}
+
+async function applyTaskDisplayStatusFilter(filter: Record<string, unknown>, displayStatus: string) {
+  const taskStatus =
+    displayStatus === "Re-visit"
+      ? "Need Re-visit"
+      : displayStatus === "Material Required"
+        ? "Need Material"
+        : null;
+
+  if (!taskStatus) return false;
+
+  const complaintIds = await Task.find({
+    status: taskStatus,
+    complaintId: { $exists: true, $ne: "" },
+  }).distinct("complaintId");
+
+  filter.complaintId = { $in: complaintIds.length > 0 ? complaintIds : ["__none__"] };
+  return true;
 }
 
 function buildHistoryEntry(action: string, user: { name: string; role: string; team?: string }, extra?: Record<string, string>) {
@@ -192,7 +211,7 @@ export async function getComplaintStats(req: AuthRequest, res: Response) {
     Complaint.countDocuments({
       ...filter,
       status: { $in: OPEN_COMPLAINT_STATUSES },
-      $or: [buildDelayFilter(), buildMaterialFilter(), buildUnresolvedPaymentFilter()],
+      $or: [buildDelayFilter(), buildMaterialFilter()],
     }),
   ]);
 
@@ -214,7 +233,10 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   const filter: Record<string, unknown> = {};
 
   if (displayStatus && displayStatus !== "All") {
-    applyDisplayStatusFilter(filter, displayStatus);
+    const appliedTaskFilter = await applyTaskDisplayStatusFilter(filter, displayStatus);
+    if (!appliedTaskFilter) {
+      applyDisplayStatusFilter(filter, displayStatus);
+    }
   } else {
     if (scope === "pending_review") {
       filter.status = "Pending Review";
@@ -268,9 +290,12 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 
     const statusFilter =
       displayStatus && displayStatus !== "All"
-        ? (() => {
+        ? await (async () => {
             const clause: Record<string, unknown> = {};
-            applyDisplayStatusFilter(clause, displayStatus);
+            const appliedTaskFilter = await applyTaskDisplayStatusFilter(clause, displayStatus);
+            if (!appliedTaskFilter) {
+              applyDisplayStatusFilter(clause, displayStatus);
+            }
             return clause;
           })()
         : status && status !== "All"

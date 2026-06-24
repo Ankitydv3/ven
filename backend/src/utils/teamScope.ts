@@ -18,6 +18,7 @@ export function complaintTeamFilter(user?: JwtUser): Record<string, unknown> {
   if (user?.role === "team" || user?.role === "team_lead") {
     const team = resolveTeamUserTeam(user);
     if (user.id) {
+      const assigneeId = userObjectId(user.id);
       const legacyTeamFilter = team
         ? {
             $and: [
@@ -28,7 +29,7 @@ export function complaintTeamFilter(user?: JwtUser): Record<string, unknown> {
         : { assignedUserId: "__unassigned_user__" };
 
       return {
-        $or: [{ assignedUserId: user.id }, legacyTeamFilter],
+        $or: [{ assignedUserId: assigneeId }, legacyTeamFilter],
       };
     }
     if (team) {

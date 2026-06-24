@@ -54,7 +54,7 @@ export function usePendingAlertsCount(role: "admin" | "team" | "store" = "admin"
     select: (data) => {
       if (isStore) return data.counts.materialAlerts ?? 0;
       if (isAdmin) return (data.counts.pendingReview ?? 0) + (data.counts.materialAlerts ?? 0);
-      return data.counts.teamsWithPending;
+      return data.counts.taskAlerts ?? 0;
     },
   });
 }

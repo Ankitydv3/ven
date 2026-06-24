@@ -90,6 +90,7 @@ export async function getAlertsData(filters?: {
   }
   if (filters?.scopeFilter?.assignedUserId) {
     alertFilter.userId = filters.scopeFilter.assignedUserId;
+    alertFilter.read = false;
   }
 
   const [pendingComplaints, taskAgg, taskAlerts, materialAlerts] = await Promise.all([

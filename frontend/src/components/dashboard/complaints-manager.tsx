@@ -7,7 +7,7 @@ import {
   Shield, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { assignComplaint, fetchComplaints } from "@/services/complaints";
 import { fetchAssignableUsers } from "@/services/users";
 import { getApiErrorMessage } from "@/lib/api";
@@ -67,6 +67,7 @@ function RowSkeleton() {
 
 /* ─── Main ─────────────────────────────────────────────────────── */
 export function ComplaintsManager() {
+  const queryClient = useQueryClient();
   const sessionUser = readUser();
   const canManage = canManageComplaints(sessionUser?.role);
   const [items, setItems] = useState<Complaint[]>([]);
@@ -140,6 +141,8 @@ export function ComplaintsManager() {
         setAssignTarget(null);
         setSelectedUserId("");
         await load();
+        void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        void queryClient.invalidateQueries({ queryKey: ["alerts"] });
       } catch (err) {
         toast.error(getApiErrorMessage(err, "Assignment failed"));
       }
