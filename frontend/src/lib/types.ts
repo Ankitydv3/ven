@@ -148,6 +148,9 @@ export interface Order {
 
   deliveryDate: string;
 
+  complaintType?: string;
+  complaintDescription?: string;
+
   unpaidServiceAvailable: boolean;
   paymentStatus: "Paid" | "Unpaid";
 

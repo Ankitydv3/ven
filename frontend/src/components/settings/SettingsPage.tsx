@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { readUser, updateSessionUser } from "@/lib/storage";
 import { updateUser } from "@/services/users";
 
@@ -131,7 +132,12 @@ export function SettingsPage({ role = "admin" }: SettingsPageProps) {
 
           <div className="space-y-2">
             <Label htmlFor="profile-mobile">Phone Number</Label>
-            <Input id="profile-mobile" className={inputClass} {...profileForm.register("mobile")} />
+            <Input
+              id="profile-mobile"
+              className={inputClass}
+              {...phoneInputProps}
+              {...profileForm.register("mobile", { setValueAs: sanitizePhoneDigits })}
+            />
             {profileForm.formState.errors.mobile && (
               <p className="text-sm text-red-400">{profileForm.formState.errors.mobile.message}</p>
             )}

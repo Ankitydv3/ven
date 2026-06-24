@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { complaintIssueTypes, type ComplaintIssueType } from "@/lib/constants";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 
 export default function NewOrderPage() {
   const { ready } = useSession("admin");
@@ -26,6 +29,8 @@ export default function NewOrderPage() {
   state: "",
   pincode: "",
   materialType: "Aluminium" as "Aluminium" | "uPVC",
+  complaintType: "" as ComplaintIssueType | "",
+  complaintDescription: "",
   deliveryDate: new Date().toISOString().split("T")[0]
 });
 
@@ -58,6 +63,10 @@ export default function NewOrderPage() {
     if (!formData.state.trim()) newErrors.state = "State is required";
     if (!formData.pincode.trim()) newErrors.pincode = "Pincode is required";
     if (!formData.deliveryDate) newErrors.deliveryDate = "Delivery date is required";
+    if (!formData.complaintType) newErrors.complaintType = "Complaint type is required";
+    if (formData.complaintType === "Other" && formData.complaintDescription.trim().length < 10) {
+      newErrors.complaintDescription = "Please provide a description for other complaint types";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -126,8 +135,11 @@ export default function NewOrderPage() {
                   <Label htmlFor="phone" className="text-slate-700 dark:text-white/80">Phone Number</Label>
                   <Input
                     id="phone"
+                    {...phoneInputProps}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: sanitizePhoneDigits(e.target.value) })
+                    }
                     placeholder="10-digit mobile number"
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
                   />
@@ -164,6 +176,53 @@ export default function NewOrderPage() {
                     <option value="uPVC" className="bg-app text-white">uPVC</option>
                   </select>
                 </div>
+
+                {/* Complaint Type */}
+                <div className="space-y-2">
+                  <Label htmlFor="complaintType" className="text-slate-700 dark:text-white/80">Complaint Type</Label>
+                  <select
+                    id="complaintType"
+                    value={formData.complaintType}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        complaintType: e.target.value as ComplaintIssueType | "",
+                        complaintDescription: e.target.value === "Other" ? formData.complaintDescription : "",
+                      })
+                    }
+                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                               bg-white dark:bg-app
+                               py-2 px-3 text-sm
+                               text-slate-900 dark:text-white"
+                  >
+                    <option value="" className="bg-app text-white">Select complaint type</option>
+                    {complaintIssueTypes.map((issue) => (
+                      <option key={issue} value={issue} className="bg-app text-white">
+                        {issue}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.complaintType && <p className="text-xs text-red-500">{errors.complaintType}</p>}
+                </div>
+
+                {formData.complaintType === "Other" && (
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="complaintDescription" className="text-slate-700 dark:text-white/80">
+                      Complaint Description *
+                    </Label>
+                    <Textarea
+                      id="complaintDescription"
+                      value={formData.complaintDescription}
+                      onChange={(e) => setFormData({ ...formData, complaintDescription: e.target.value })}
+                      placeholder="Please describe the complaint in detail..."
+                      rows={4}
+                      className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
+                    />
+                    {errors.complaintDescription && (
+                      <p className="text-xs text-red-500">{errors.complaintDescription}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Address */}
                 <div className="md:col-span-2 space-y-2">

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import {
   Select,
   SelectContent,
@@ -247,7 +248,8 @@ export function AddPaymentModal({
                   Mobile Number <span className="text-rose-500">*</span>
                 </Label>
                 <Input
-                  {...form.register("mobile")}
+                  {...phoneInputProps}
+                  {...form.register("mobile", { setValueAs: sanitizePhoneDigits })}
                   placeholder="9876543210"
                   className={cn(
                     "h-10 rounded-xl border-slate-200 dark:border-white/10 dark:bg-slate-800/50",

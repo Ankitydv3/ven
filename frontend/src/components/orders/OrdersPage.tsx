@@ -32,6 +32,7 @@ import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import {
   Dialog,
   DialogContent,
@@ -1205,8 +1206,11 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <Label htmlFor="editPhone">Phone Number</Label>
                   <Input
                     id="editPhone"
+                    {...phoneInputProps}
                     value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, phone: sanitizePhoneDigits(e.target.value) })
+                    }
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.phone && <p className="text-[10px] text-red-500">{editErrors.phone}</p>}

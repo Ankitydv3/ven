@@ -103,11 +103,17 @@ export async function createComplaint(req: Request, res: Response) {
   const mobileNumber = payload.mobileNumber?.trim() || "";
   const availableDate = payload.availableDate?.trim() || "";
   const availableTime = payload.availableTime?.trim() || "";
+  const complaintType = payload.complaintType?.trim() || payload.title?.trim() || "";
+  const complaintDescription = payload.complaintDescription?.trim() || "";
 
   if (!clientName) throw new ApiError(400, "Name is required");
   if (!orderId) throw new ApiError(400, "Order ID is required");
   if (!mobileNumber) throw new ApiError(400, "Mobile number is required");
   if (!address) throw new ApiError(400, "Address is required");
+  if (!complaintType) throw new ApiError(400, "Complaint type is required");
+  if (complaintType === "Other" && complaintDescription.length < 10) {
+    throw new ApiError(400, "Please provide a description for other complaint types");
+  }
 
   const pictureUrl = files?.picture?.[0] ? `/uploads/complaints/${files.picture[0].filename}` : "";
   const quotationUrl = files?.quotation?.[0] ? `/uploads/complaints/${files.quotation[0].filename}` : "";
@@ -116,9 +122,15 @@ export async function createComplaint(req: Request, res: Response) {
     .filter(Boolean)
     .join(", ");
 
-  const descriptionParts = [address, availability, salesPerson && `Sales person: ${salesPerson}`].filter(Boolean);
+  const descriptionParts = [
+    complaintType === "Other" ? complaintDescription : null,
+    address,
+    availability,
+    salesPerson && `Sales person: ${salesPerson}`,
+    `Order: ${orderId}`,
+  ].filter(Boolean);
   const description = descriptionParts.join(" | ") || "No description provided";
-  const title = `Order ${orderId}`;
+  const title = complaintType;
 
   const complaint = await Complaint.create({
     clientName,

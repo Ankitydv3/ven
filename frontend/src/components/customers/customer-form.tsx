@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import {
   Select,
   SelectContent,
@@ -160,9 +161,9 @@ export function CustomerForm({
           <RequiredLabel htmlFor="phone">Phone Number</RequiredLabel>
           <Input
             id="phone"
-            {...form.register("phone")}
+            {...phoneInputProps}
+            {...form.register("phone", { setValueAs: sanitizePhoneDigits })}
             placeholder="10-digit phone"
-            inputMode="numeric"
             aria-invalid={!!fieldErrors.phone}
             aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
             className={fieldClass("phone")}
@@ -257,9 +258,11 @@ export function CustomerForm({
           <OptionalLabel htmlFor="alternatePhone">Alternate Phone</OptionalLabel>
           <Input
             id="alternatePhone"
-            {...form.register("alternatePhone")}
+            {...phoneInputProps}
+            {...form.register("alternatePhone", {
+              setValueAs: (v) => sanitizePhoneDigits(String(v ?? "")),
+            })}
             placeholder="Optional"
-            inputMode="numeric"
             aria-invalid={!!fieldErrors.alternatePhone}
             className={fieldClass("alternatePhone")}
           />

@@ -76,8 +76,9 @@ export function PortalScreen() {
   const meta = tabMeta[activeTab];
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-app md:flex-row">
+    <div className="flex h-screen w-full overflow-hidden flex-col bg-app md:flex-row">
       {/* Left — tabs + dynamic form */}
+      <PortalImagePanel />
       <div className="relative flex w-full flex-col md:h-screen md:w-1/2">
         <div
           className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full opacity-30 blur-[120px]"
@@ -151,7 +152,7 @@ export function PortalScreen() {
       </div>
 
       {/* Right — fixed image */}
-      <PortalImagePanel />
+      
     </div>
   );
 }

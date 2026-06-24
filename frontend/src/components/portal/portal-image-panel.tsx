@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export function PortalImagePanel() {
   return (
-    <div className="relative h-64 w-full md:h-auto md:w-1/2">
+    <div className="relative h-screen w-full md:h-auto md:w-1/2">
       <Image
         src="/web-site-4-1.png"
         alt="Portal visual"

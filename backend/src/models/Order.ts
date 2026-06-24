@@ -95,7 +95,25 @@ const orderSchema = new Schema(
     category: {
       type: String,
       default: "General"
-    }
+    },
+
+    complaintType: {
+      type: String,
+      enum: [
+        "Locking issue",
+        "Leakage issue",
+        "Difficulty in moving",
+        "Alignment issue",
+        "Other",
+      ],
+      trim: true,
+    },
+
+    complaintDescription: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,

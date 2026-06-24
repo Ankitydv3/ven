@@ -1,7 +1,7 @@
 import type { UserRole } from "./types";
 import { isAdminPortalRole } from "./rbac";
 
-export const LOGIN_PATH = "/login";
+export const LOGIN_PATH = "/";
 
 const TEAM_PORTAL_ROLES: UserRole[] = ["team", "team_lead", "manager", "accountant"];
 const STORE_PORTAL_ROLES: UserRole[] = ["store_manager"];

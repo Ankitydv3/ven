@@ -14,6 +14,8 @@ export interface OrderPayload {
   pincode: string;
   materialType: "Aluminium" | "uPVC";
   deliveryDate: Date;
+  complaintType?: string;
+  complaintDescription?: string;
   serviceType?: string;
   status?: string;
   amount?: number;

@@ -18,6 +18,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ManagedUser, UserRole } from "@/lib/types";
 import { CREATE_USER_ROLES, getCreatableRoles, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
+import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { useTeams } from "@/hooks/use-teams";
 
 const createSchema = z
@@ -157,7 +158,12 @@ export function UserFormDialog({
 
           <div className="space-y-2">
             <Label htmlFor="mobile">Phone Number *</Label>
-            <Input id="mobile" className={inputClass} {...form.register("mobile")} />
+            <Input
+              id="mobile"
+              className={inputClass}
+              {...phoneInputProps}
+              {...form.register("mobile", { setValueAs: sanitizePhoneDigits })}
+            />
             {form.formState.errors.mobile && <p className="text-sm text-red-400">{form.formState.errors.mobile.message}</p>}
           </div>
 

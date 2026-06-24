@@ -1,12 +1,13 @@
-import { Suspense } from "react";
-import { PortalScreen } from "@/components/portal/portal-screen";
+import { redirect } from "next/navigation";
 
-export default function LoginPage() {
-  return (
-    <main>
-      <Suspense fallback={null}>
-        <PortalScreen />
-      </Suspense>
-    </main>
-  );
+type LoginPageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  if (params.tab) {
+    redirect(`/?tab=${params.tab}`);
+  }
+  redirect("/");
 }

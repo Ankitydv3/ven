@@ -12,18 +12,34 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createComplaint } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
+import { complaintIssueTypes } from "@/lib/constants";
+import { phoneInputProps, sanitizePhoneDigits, blockNonDigitPhoneKeys } from "@/lib/phone";
 import { portalInputClass, portalLabelClass, portalTextareaClass } from "@/lib/portal-styles";
 
-const schema = z.object({
-  name: z.string().min(2, "Name is required"),
-  orderId: z.string().min(1, "Order ID is required"),
-  mobileNumber: z.string().min(10, "Enter a valid mobile number"),
-  salesPerson: z.string().optional(),
-  email: z.union([z.literal(""), z.string().email("Enter a valid email address")]),
-  address: z.string().min(2, "Address is required"),
-  availableDate: z.string().optional(),
-  availableTime: z.string().optional(),
-});
+const schema = z
+  .object({
+    name: z.string().min(2, "Name is required"),
+    orderId: z.string().min(1, "Order ID is required"),
+    mobileNumber: z
+      .string()
+      .regex(/^[0-9]{10}$/, "Enter a valid 10-digit mobile number"),
+    salesPerson: z.string().optional(),
+    email: z.union([z.literal(""), z.string().email("Enter a valid email address")]),
+    complaintType: z.string().min(1, "Please select a complaint type"),
+    complaintDescription: z.string().optional(),
+    address: z.string().min(2, "Address is required"),
+    availableDate: z.string().optional(),
+    availableTime: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.complaintType === "Other" && (data.complaintDescription ?? "").trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please provide a description for other complaint types",
+        path: ["complaintDescription"],
+      });
+    }
+  });
 
 type ComplaintFormValues = z.infer<typeof schema>;
 
@@ -46,6 +62,8 @@ export function ComplaintRegistrationForm({
       mobileNumber: "",
       salesPerson: "",
       email: "",
+      complaintType: "",
+      complaintDescription: "",
       address: "",
       availableDate: "",
       availableTime: "",
@@ -58,6 +76,8 @@ export function ComplaintRegistrationForm({
     defaultValues,
   });
 
+  const selectedComplaintType = form.watch("complaintType");
+
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
@@ -66,6 +86,11 @@ export function ComplaintRegistrationForm({
         formData.append("orderId", values.orderId);
         formData.append("mobileNumber", values.mobileNumber);
         formData.append("address", values.address);
+        formData.append("complaintType", values.complaintType);
+        formData.append("title", values.complaintType);
+        if (values.complaintType === "Other" && values.complaintDescription?.trim()) {
+          formData.append("complaintDescription", values.complaintDescription.trim());
+        }
         if (values.salesPerson?.trim()) formData.append("salesPerson", values.salesPerson.trim());
         if (values.email?.trim()) formData.append("email", values.email.trim());
         if (values.availableDate) formData.append("availableDate", values.availableDate);
@@ -115,6 +140,11 @@ export function ComplaintRegistrationForm({
     return <p className={errorClass}>{message}</p>;
   }
 
+  const selectClass =
+    variant === "portal"
+      ? `${portalInputClass} w-full rounded-lg py-2 px-3`
+      : `${inputClass} w-full rounded-lg py-2 px-3`;
+
   return (
     <form className="grid gap-6 md:grid-cols-2" onSubmit={onSubmit}>
       <div className="space-y-1.5">
@@ -132,8 +162,23 @@ export function ComplaintRegistrationForm({
       <div className="space-y-1.5">
         <FormLabel>Mobile Number *</FormLabel>
         <Input
-          {...form.register("mobileNumber")}
-          type="tel"
+          {...phoneInputProps}
+          value={form.watch("mobileNumber")}
+          onChange={(e) =>
+            form.setValue("mobileNumber", sanitizePhoneDigits(e.target.value), {
+              shouldValidate: true,
+              shouldDirty: true,
+            })
+          }
+          onKeyDown={blockNonDigitPhoneKeys}
+          onPaste={(e) => {
+            e.preventDefault();
+            const pasted = e.clipboardData.getData("text");
+            form.setValue("mobileNumber", sanitizePhoneDigits(pasted), {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          }}
           placeholder="Enter mobile number"
           className={inputClass}
         />
@@ -156,6 +201,42 @@ export function ComplaintRegistrationForm({
         />
         <FormFieldError message={form.formState.errors.email?.message} />
       </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Complaint Type *</FormLabel>
+        <select
+          {...form.register("complaintType")}
+          className={selectClass}
+          onChange={(e) => {
+            form.setValue("complaintType", e.target.value, { shouldValidate: true });
+            if (e.target.value !== "Other") {
+              form.setValue("complaintDescription", "");
+              form.clearErrors("complaintDescription");
+            }
+          }}
+        >
+          <option value="">Select complaint type</option>
+          {complaintIssueTypes.map((issue) => (
+            <option key={issue} value={issue}>
+              {issue}
+            </option>
+          ))}
+        </select>
+        <FormFieldError message={form.formState.errors.complaintType?.message} />
+      </div>
+
+      {selectedComplaintType === "Other" && (
+        <div className="md:col-span-2 space-y-1.5">
+          <FormLabel>Complaint Description *</FormLabel>
+          <Textarea
+            {...form.register("complaintDescription")}
+            placeholder="Please describe the complaint in detail..."
+            rows={4}
+            className={textareaClass}
+          />
+          <FormFieldError message={form.formState.errors.complaintDescription?.message} />
+        </div>
+      )}
 
       <div className="md:col-span-2 space-y-1.5">
         <FormLabel>Address *</FormLabel>

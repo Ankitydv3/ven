@@ -220,7 +220,7 @@ export function DashboardShell({
 
   const handleSignOut = () => {
     clearSession();
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   return (
