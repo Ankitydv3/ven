@@ -1,4 +1,6 @@
 import { api } from "@/lib/api";
+import { toDateKey } from "@/lib/task-constants";
+import type { Task } from "@/lib/task.types";
 import type { DashboardResponse } from "@/lib/types";
 import type {
   DashboardCategoryPoint,
@@ -9,7 +11,6 @@ import type {
   DashboardTaskSummary,
   DashboardTrendPoint,
   RecentComplaintItem,
-  RecentOrder
 } from "@/lib/types";
 
 export async function fetchDashboard() {
@@ -18,13 +19,19 @@ export async function fetchDashboard() {
 }
 
 export async function fetchDashboardPage() {
-  const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, dashboardMain] = await Promise.all([
+  const todayKey = toDateKey(new Date());
+  const [summary, monthlyTrend, unresolvedReasons, resolvedReasons, complaintOverview, categories, todaysSiteVisits, recentComplaints, dashboardMain] = await Promise.all([
     api.get<DashboardKpiSummary>("/dashboard/summary").then((response) => response.data),
     api.get<{ monthlyTrend: DashboardTrendPoint[] }>("/dashboard/monthly-trend").then((response) => response.data.monthlyTrend),
     api.get<{ unresolvedReasons: DashboardReasonPoint[] }>("/dashboard/unresolved-reasons").then((response) => response.data.unresolvedReasons),
+    api.get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons").then((response) => response.data.resolvedReasons),
     api.get<DashboardOverviewPoint>("/dashboard/complaint-overview").then((response) => response.data),
     api.get<{ categories: DashboardCategoryPoint[] }>("/dashboard/top-categories").then((response) => response.data.categories),
-    api.get<{ recentOrders: RecentOrder[] }>("/orders/recent").then((response) => response.data.recentOrders),
+    api
+      .get<{ items: Task[] }>("/tasks", {
+        params: { dueDate: todayKey, limit: 10, sortBy: "dueDate", sortOrder: "asc" },
+      })
+      .then((response) => response.data.items),
     api.get<{ recentComplaints: RecentComplaintItem[] }>("/complaints/recent").then((response) => response.data.recentComplaints),
     api.get<DashboardResponse>("/dashboard").then((response) => response.data),
   ]);
@@ -42,9 +49,10 @@ export async function fetchDashboardPage() {
     summary,
     monthlyTrend,
     unresolvedReasons,
+    resolvedReasons,
     complaintOverview,
     categories,
-    recentOrders,
+    todaysSiteVisits,
     recentComplaints,
     teamStats: dashboardMain.teamStats ?? [],
     taskStats,

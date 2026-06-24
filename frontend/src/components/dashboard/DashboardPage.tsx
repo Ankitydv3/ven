@@ -1,21 +1,23 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Line,
-  LineChart,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
   Pie,
   PieChart,
   Cell,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from "recharts";
 import {
   ShoppingCart,
@@ -25,75 +27,151 @@ import {
   Wallet,
   ListTodo,
   Clock,
+  Package,
+  CreditCard,
   Lock,
   Droplets,
   Move,
   AlignCenter,
   MoreHorizontal,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  ArrowUpRight,
+  Zap,
+  RefreshCw,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
 import { useSession } from "@/hooks/use-session";
 import { fetchDashboardPage } from "@/services/dashboard";
 import type { DashboardPageData } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { statusBadgeVariant } from "@/lib/task-constants";
+import type { Task } from "@/lib/task.types";
 
-/* ---------------------------------------------------------
-   Color tokens — match icon bg, donut slices, and legend dots
-   so nothing drifts between components.
---------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════ */
+const ACCENT = "#7BE3CF";          // teal brand
+const ACCENT2 = "#4F9B8C";
+const SURFACE = "rgba(255,255,255,0.035)";
+const BORDER = "rgba(123,227,207,0.10)";
+const GLOW = "rgba(123,227,207,0.18)";
+
+const tooltipStyle = {
+  borderRadius: "14px",
+  border: `1px solid ${BORDER}`,
+  background: "#060f1a",
+  color: "#e2e8f0",
+  fontSize: "12px",
+  boxShadow: `0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px ${BORDER}`,
+  padding: "10px 14px",
+};
+
+/* ═══════════════════════════════════════════════════════
+   COLOR MAPS
+═══════════════════════════════════════════════════════ */
 const KPI_COLORS = {
-  orders: { bg: "bg-blue-500", text: "text-blue-500", ring: "ring-blue-500/20" },
-  received: { bg: "bg-purple-500", text: "text-purple-500", ring: "ring-purple-500/20" },
-  resolved: { bg: "bg-emerald-500", text: "text-emerald-500", ring: "ring-emerald-500/20" },
-  unresolved: { bg: "bg-amber-600", text: "text-amber-600", ring: "ring-amber-600/20" },
-  paid: { bg: "bg-teal-500", text: "text-teal-500", ring: "ring-teal-500/20" },
+  orders:     { gradient: ["#3B82F6","#1D4ED8"], glow: "rgba(59,130,246,0.30)", text: "text-blue-400" },
+  received:   { gradient: ["#A855F7","#7C3AED"], glow: "rgba(168,85,247,0.30)", text: "text-purple-400" },
+  resolved:   { gradient: ["#22C55E","#15803D"], glow: "rgba(34,197,94,0.30)",  text: "text-emerald-400" },
+  unresolved: { gradient: ["#F97316","#C2410C"], glow: "rgba(249,115,22,0.30)", text: "text-orange-400" },
+  paid:       { gradient: ["#7BE3CF","#4F9B8C"], glow: `${GLOW}`,              text: "text-teal-300" },
 };
 
 const REASON_COLORS: Record<string, string> = {
-  "Locking issue": "#3B82F6",
-  "Leakage issue": "#06B6D4",
-  "Difficulty in moving": "#F97316",
-  "Alignment issue": "#A855F7",
-  Others: "#94A3B8",
+  Delayed:                  "#F97316",
+  "Material Unavailability":"#EF4444",
+  "Payment Pending":        "#EAB308",
+  "Locking issue":          "#3B82F6",
+  "Leakage issue":          "#06B6D4",
+  "Difficulty in moving":   "#F97316",
+  "Alignment issue":        "#A855F7",
+  Others:                   "#64748B",
+  Resolved:                 "#22C55E",
 };
+
 const REASON_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  "Locking issue": Lock,
-  "Leakage issue": Droplets,
-  "Difficulty in moving": Move,
-  "Alignment issue": AlignCenter,
-  Others: MoreHorizontal,
+  Delayed:                  Clock,
+  "Material Unavailability":Package,
+  "Payment Pending":        CreditCard,
+  "Locking issue":          Lock,
+  "Leakage issue":          Droplets,
+  "Difficulty in moving":   Move,
+  "Alignment issue":        AlignCenter,
+  Others:                   MoreHorizontal,
 };
 
-const OVERVIEW_COLORS: Record<string, string> = {
-  Resolved: "#22C55E",
-  "Locking issue": "#3B82F6",
-  "Leakage issue": "#06B6D4",
-  "Difficulty in moving": "#F97316",
-  "Alignment issue": "#A855F7",
-  Others: "#94A3B8",
+/* ═══════════════════════════════════════════════════════
+   FADE-UP VARIANTS
+═══════════════════════════════════════════════════════ */
+const fadeUp = {
+  hidden:  { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
-const tooltipStyle = {
-  borderRadius: "12px",
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  background: "#020a17",
-  color: "#fff",
-  fontSize: "12px",
-  boxShadow: "0 18px 50px rgba(2, 10, 23, 0.35)",
+const stagger = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.07 } },
 };
 
-/* ---------------------------------------------------------
-   KPI Card
---------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════
+   GLASS CARD
+═══════════════════════════════════════════════════════ */
+function GlassCard({
+  children,
+  className,
+  glow,
+}: {
+  children: ReactNode;
+  className?: string;
+  glow?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative rounded-2xl border backdrop-blur-sm overflow-hidden",
+        className
+      )}
+      style={{
+        background: SURFACE,
+        borderColor: BORDER,
+        boxShadow: glow
+          ? `0 0 40px ${glow}, 0 1px 0 rgba(255,255,255,0.04) inset`
+          : `0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 24px rgba(0,0,0,0.24)`,
+      }}
+    >
+      {/* subtle top-edge shimmer */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: "linear-gradient(90deg,transparent,rgba(123,227,207,0.35),transparent)" }}
+      />
+      {children}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   SECTION LABEL
+═══════════════════════════════════════════════════════ */
+function SectionLabel({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+  return (
+    <div className="mb-5">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
+        {eyebrow}
+      </p>
+      <h2 className="text-xl font-bold text-white">{title}</h2>
+      {subtitle && <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   KPI CARD — animated gradient border + glow
+═══════════════════════════════════════════════════════ */
 function KpiCard({
   icon: Icon,
   label,
@@ -107,279 +185,481 @@ function KpiCard({
   value: number;
   delta: string;
   positive: boolean;
-  color: { bg: string; text: string; ring: string };
+  color: { gradient: string[]; glow: string; text: string };
 }) {
   return (
-    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-app shadow-sm">
-      <CardContent className="">
-        <div className="flex items-center gap-4">
-  {/* Icon */}
-  <div
-    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${color.bg}`}
-  >
-    <Icon className="h-7 w-7 text-white" />
-  </div>
+    <motion.div variants={fadeUp}>
+      <GlassCard glow={color.glow} className="p-4 lg:p-5 group cursor-default">
+        {/* icon */}
+        <div
+          className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
+          style={{
+            background: `linear-gradient(135deg, ${color.gradient[0]}, ${color.gradient[1]})`,
+            boxShadow: `0 4px 20px ${color.glow}`,
+          }}
+        >
+          <Icon className="h-5 w-5 text-white" />
+        </div>
 
-  {/* Content */}
-  <div className="flex flex-col">
-    <p className="text-sm font-medium text-slate-300">
-      {label}
-    </p>
+        {/* value */}
+        <p className="text-3xl font-bold tracking-tight text-white">
+          {value.toLocaleString()}
+        </p>
+        <p className="mt-1 text-xs font-medium text-slate-400 leading-snug">{label}</p>
 
-    <p className="text-2xl font-bold leading-none text-white">
-      {value.toLocaleString()}
-    </p>
+        {/* delta */}
+        <div className="mt-3 flex items-center gap-1.5">
+          {positive ? (
+            <TrendingUp className={cn("h-3.5 w-3.5", color.text)} />
+          ) : (
+            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+          )}
+          <span
+            className={cn("text-xs font-semibold", positive ? color.text : "text-red-400")}
+          >
+            {delta}
+          </span>
+          <span className="text-xs text-slate-500">vs last month</span>
+        </div>
 
-    <span
-      className={`mt-1 text-sm font-medium ${
-        positive
-          ? "text-emerald-400"
-          : "text-red-400"
-      }`}
-    >
-      {positive ? "↑" : "↓"} {delta}
-      <span className="text-slate-400 font-normal">
-        {" "}vs last month
-      </span>
-    </span>
-  </div>
-</div>
-      </CardContent>
-    </Card>
+        {/* hover accent line */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-0.5 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-b-2xl"
+          style={{ background: `linear-gradient(90deg,${color.gradient[0]},${color.gradient[1]})` }}
+        />
+      </GlassCard>
+    </motion.div>
   );
 }
 
-/* ---------------------------------------------------------
-   Section wrapper
---------------------------------------------------------- */
-function SectionCard({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-app shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base font-semibold text-gray-900 dark:text-white">
-          {title}
-        </CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
+/* ═══════════════════════════════════════════════════════
+   LOADING STATE
+═══════════════════════════════════════════════════════ */
 function LoadingState() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div className="space-y-8 animate-pulse">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-[140px] rounded-2xl" />
+          <div key={i} className="h-[140px] rounded-2xl" style={{ background: SURFACE }} />
         ))}
       </div>
-      <Skeleton className="h-[220px] rounded-2xl" />
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Skeleton className="h-[360px] rounded-2xl" />
-        <Skeleton className="h-[360px] rounded-2xl" />
-        <Skeleton className="h-[360px] rounded-2xl" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="h-[300px] rounded-2xl col-span-2" style={{ background: SURFACE }} />
+        <div className="h-[300px] rounded-2xl" style={{ background: SURFACE }} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-[260px] rounded-2xl" style={{ background: SURFACE }} />
+        <div className="h-[260px] rounded-2xl" style={{ background: SURFACE }} />
       </div>
     </div>
   );
 }
 
-/* ---------------------------------------------------------
-   Unresolved Complaints — By Reason (the missing piece)
---------------------------------------------------------- */
-function UnresolvedByReason({ data }: { data: DashboardPageData["unresolvedReasons"] }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
 
-  return (
-    <SectionCard title="Unresolved Complaints by Issue Type">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {data.map((item) => {
-          const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
-          const color = REASON_COLORS[item.name] ?? "#94A3B8";
 
-          return (
-            <div
-              key={item.name}
-              className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-app"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-xl"
-                  style={{ backgroundColor: `${color}22`, color }}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-slate-400">{item.name}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{item.value}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {total === 0 && (
-        <p className="mt-4 text-sm text-gray-500 dark:text-slate-400">No unresolved complaints right now.</p>
-      )}
-    </SectionCard>
-  );
-}
-
-/* ---------------------------------------------------------
-   Complaints Overview donut (Resolved + each unresolved reason)
---------------------------------------------------------- */
-function ComplaintsOverview({ data }: { data: DashboardPageData }) {
+/* ═══════════════════════════════════════════════════════
+   DONUT — complaints overview
+═══════════════════════════════════════════════════════ */
+function ComplaintsDonut({ data }: { data: DashboardPageData }) {
   const slices = useMemo(() => {
-    const reasons = data.unresolvedReasons.map((r) => ({
-      name: r.name,
-      value: r.value,
-    }));
     return [
       { name: "Resolved", value: data.summary.complaintsResolved },
-      ...reasons,
+      ...data.unresolvedReasons,
     ];
   }, [data]);
 
-  const total = slices.reduce((sum, s) => sum + s.value, 0);
+  const total = slices.reduce((s, i) => s + i.value, 0);
 
   return (
-    <SectionCard title="Complaints Overview">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative mx-auto h-[200px] w-[200px] min-h-[200px] min-w-[200px] shrink-0">
-          <ResponsiveContainer width={200} height={200}>
-            <PieChart>
-              <Pie
-                data={slices}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={64}
-                outerRadius={94}
-                paddingAngle={3}
-                cornerRadius={6}
-                startAngle={90}
-                endAngle={-270}
-              >
-                {slices.map((entry) => (
-                  <Cell
-                    key={entry.name}
-                    fill={OVERVIEW_COLORS[entry.name] ?? "#94A3B8"}
-                    stroke="transparent"
-                  />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-gray-900 dark:text-white">{total}</span>
-            <span className="text-[11px] text-gray-500 dark:text-slate-400">Total Complaints</span>
-          </div>
-        </div>
-        <div className="w-full space-y-1.5">
-          {slices.map((s) => {
-            const pct = total ? ((s.value / total) * 100).toFixed(1) : "0.0";
-            return (
-              <div key={s.name} className="flex items-center gap-2 text-sm">
-                <span
-                  className="h-2.5 w-2.5 rounded-sm"
-                  style={{ backgroundColor: OVERVIEW_COLORS[s.name] ?? "#94A3B8" }}
+    <GlassCard className="p-5 lg:p-6 flex flex-col">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
+        Breakdown
+      </p>
+      <h3 className="text-base font-bold text-white mb-5">Complaints Overview</h3>
+
+      <div className="relative mx-auto h-[180px] w-[180px] shrink-0">
+        <ResponsiveContainer width={180} height={180}>
+          <PieChart>
+            <defs>
+              <filter id="glow-pie">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <Pie
+              data={slices}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={58}
+              outerRadius={82}
+              paddingAngle={3}
+              cornerRadius={5}
+              startAngle={90}
+              endAngle={-270}
+              stroke="none"
+            >
+              {slices.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={REASON_COLORS[entry.name] ?? "#94A3B8"}
                 />
-                <span className="text-gray-700 dark:text-slate-300">{s.name}</span>
-                <span className="ml-auto font-medium text-gray-900 dark:text-white">{s.value}</span>
-                <span className="text-xs text-gray-400 w-14 text-right">({pct}%)</span>
-              </div>
-            );
-          })}
+              ))}
+            </Pie>
+            <Tooltip contentStyle={tooltipStyle} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-white">{total}</span>
+          <span className="text-[10px] text-slate-500 mt-0.5">Total</span>
         </div>
       </div>
-    </SectionCard>
+
+      <div className="mt-5 space-y-2">
+        {slices.map((s) => {
+          const pct = total ? ((s.value / total) * 100).toFixed(1) : "0.0";
+          const color = REASON_COLORS[s.name] ?? "#94A3B8";
+          return (
+            <div key={s.name} className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-slate-400 truncate flex-1 text-xs">{s.name}</span>
+              <span className="text-white font-semibold text-xs">{s.value}</span>
+              <span className="text-slate-500 text-xs w-11 text-right">{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </GlassCard>
   );
 }
 
-/* ---------------------------------------------------------
-   Monthly trend — line chart only (matches image, no fills)
---------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════
+   BAR CHART — categories
+═══════════════════════════════════════════════════════ */
+function CategoriesBar({ data }: { data: DashboardPageData["categories"] }) {
+  const barColors = ["#7BE3CF","#A855F7","#3B82F6","#F97316","#22C55E"];
 
-
-/* ---------------------------------------------------------
-   Top Complaint Categories — horizontal progress bars
---------------------------------------------------------- */
-function TopCategories({ data }: { data: DashboardPageData["categories"] }) {
-  const total = data.reduce((sum, c) => sum + c.value, 0);
-  const barColors = ["#3B82F6", "#A855F7", "#F97316", "#22C55E", "#94A3B8"];
+  const enriched = data.map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
 
   return (
-    <SectionCard title="Top Complaint Categories">
-      <div className="space-y-4">
-        {data.map((cat, i) => {
-          const pct = total ? (cat.value / total) * 100 : 0;
-          return (
-            <div key={cat.name}>
-              <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="text-gray-700 dark:text-slate-300">{cat.name}</span>
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {cat.value}{" "}
-                  <span className="text-xs text-gray-400">({pct.toFixed(1)}%)</span>
-                </span>
+    <GlassCard className="p-5 lg:p-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
+        Distribution
+      </p>
+      <h3 className="text-base font-bold text-white mb-5">Top Complaint Categories</h3>
+
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart
+          data={enriched}
+          layout="vertical"
+          margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
+          barCategoryGap="30%"
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+          <XAxis
+            type="number"
+            tick={{ fill: "#64748b", fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={110}
+          />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+          <Bar dataKey="value" name="Complaints" radius={[0, 6, 6, 0]}>
+            {enriched.map((entry, idx) => (
+              <Cell key={idx} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </GlassCard>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   COMPLAINTS BY REASON — pill toggle + stat cards + donut
+═══════════════════════════════════════════════════════ */
+function ComplaintsByReason({
+  unresolved,
+  resolved,
+}: {
+  unresolved: DashboardPageData["unresolvedReasons"];
+  resolved: DashboardPageData["resolvedReasons"];
+}) {
+  const [view, setView] = useState<"unresolved" | "resolved">("unresolved");
+  const data = view === "unresolved" ? unresolved : resolved;
+  const total = data.reduce((s, i) => s + i.value, 0);
+
+  return (
+    <GlassCard className="p-5 lg:p-6">
+      {/* header */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+            Analysis
+          </p>
+          <h3 className="text-base font-bold text-white">
+            {view === "unresolved" ? "Unresolved" : "Resolved"} Complaints — By Reason
+          </h3>
+        </div>
+
+        {/* toggle */}
+        <div
+          className="inline-flex rounded-full p-1"
+          style={{ background: "rgba(0,0,0,0.35)", border: `1px solid ${BORDER}` }}
+        >
+          {(["resolved", "unresolved"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition-all duration-200",
+                view === v
+                  ? "text-slate-900 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+              style={
+                view === v
+                  ? { background: `linear-gradient(135deg,${ACCENT},${ACCENT2})` }
+                  : {}
+              }
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={view}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.25 }}
+        >
+          {total > 0 ? (
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+              {/* stat cards */}
+              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+                {data.map((item) => {
+                  const color = REASON_COLORS[item.name] ?? "#64748B";
+                  const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
+                  const pct = ((item.value / total) * 100).toFixed(1);
+
+                  return (
+                    <div
+                      key={item.name}
+                      className="rounded-xl p-4"
+                      style={{
+                        background: `${color}10`,
+                        border: `1px solid ${color}25`,
+                      }}
+                    >
+                      <div
+                        className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
+                        style={{
+                          background: `${color}20`,
+                          color,
+                          boxShadow: `0 0 18px ${color}30`,
+                        }}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <p className="text-xs text-slate-400 mb-1 truncate">{item.name}</p>
+                      <p className="text-2xl font-bold text-white leading-none">{item.value}</p>
+                      <p className="mt-1 text-[11px] font-medium" style={{ color }}>
+                        {pct}% of {view}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                <div
+
+              {/* mini donut */}
+              <div className="flex shrink-0 flex-col items-center gap-5 xl:w-[260px]">
+                <div className="relative h-[160px] w-[160px]">
+                  <ResponsiveContainer width={160} height={160}>
+                    <PieChart>
+                      <Pie
+                        data={data}
+                        dataKey="value"
+                        innerRadius={50}
+                        outerRadius={74}
+                        paddingAngle={2}
+                        stroke="none"
+                      >
+                        {data.map((item) => (
+                          <Cell
+                            key={item.name}
+                            fill={REASON_COLORS[item.name] ?? "#64748B"}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-3xl font-bold text-white">{total}</p>
+                    <p className="text-[10px] text-slate-500">Total</p>
+                  </div>
+                </div>
+
+                <div className="w-full space-y-2">
+                  {data.map((item) => {
+                    const color = REASON_COLORS[item.name] ?? "#64748B";
+                    const pct = ((item.value / total) * 100).toFixed(1);
+                    return (
+                      <div key={item.name} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-slate-400 truncate">{item.name}</span>
+                        </div>
+                        <span className="text-slate-300 font-medium ml-2 shrink-0">
+                          {item.value} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              No {view} complaints to display right now.
+            </p>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </GlassCard>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   TASK PROGRESS — visual ring rows
+═══════════════════════════════════════════════════════ */
+function TaskProgressPanel({ stats }: { stats: DashboardPageData["taskStats"] }) {
+  const rows = [
+    { label: "Completed",  value: stats.completed,  total: stats.totalTasks, color: "#22C55E" },
+    { label: "In Progress",value: stats.inProgress, total: stats.totalTasks, color: ACCENT },
+    { label: "Pending",    value: stats.pending,    total: stats.totalTasks, color: "#F97316" },
+    { label: "Overdue",    value: stats.overdue,    total: stats.totalTasks, color: "#EF4444" },
+  ];
+
+  return (
+    <GlassCard className="p-5 lg:p-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
+        Productivity
+      </p>
+      <h3 className="text-base font-bold text-white mb-2">Task Progress</h3>
+
+      {/* completion rate big number */}
+      <div className="mb-6 flex items-end gap-2">
+        <span className="text-4xl font-bold text-white">{stats.completionRate ?? 0}%</span>
+        <span className="mb-1 text-sm text-slate-400">completion rate</span>
+      </div>
+
+      <div className="space-y-4">
+        {rows.map((r) => {
+          const pct = r.total > 0 ? (r.value / r.total) * 100 : 0;
+          return (
+            <div key={r.label}>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="text-slate-400">{r.label}</span>
+                <span className="font-semibold text-white">{r.value}</span>
+              </div>
+              <div
+                className="h-1.5 w-full rounded-full overflow-hidden"
+                style={{ background: "rgba(255,255,255,0.07)" }}
+              >
+                <motion.div
                   className="h-full rounded-full"
-                  style={{ width: `${pct}%`, backgroundColor: barColors[i % barColors.length] }}
+                  style={{ backgroundColor: r.color, boxShadow: `0 0 8px ${r.color}80` }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
                 />
               </div>
             </div>
           );
         })}
       </div>
-    </SectionCard>
+
+      <div className="mt-6 pt-4 border-t" style={{ borderColor: BORDER }}>
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>Total Tasks</span>
+          <span className="text-white font-bold text-sm">{stats.totalTasks}</span>
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 
-/* ---------------------------------------------------------
-   Recent Orders / Complaints tables
---------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════
+   SUMMARY TABLES
+═══════════════════════════════════════════════════════ */
 function SummaryTables({ data }: { data: DashboardPageData }) {
+  function taskBadge(status: string) {
+    return statusBadgeVariant[status] ?? "default";
+  }
+
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <SectionCard title="Recent Orders" >
+    <div className="grid gap-5 xl:grid-cols-2">
+      {/* Site Visits */}
+      <GlassCard className="p-5 lg:p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+              Today
+            </p>
+            <h3 className="text-base font-bold text-white">Site Visits</h3>
+          </div>
+          <span
+            className="rounded-full px-2.5 py-1 text-xs font-semibold"
+            style={{ background: `${ACCENT}18`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+          >
+            {data.todaysSiteVisits.length} scheduled
+          </span>
+        </div>
         <div className="overflow-x-auto">
-          <Table className="bg-transparent">
+          <Table className="bg-transparent min-w-[520px]">
             <TableElement>
               <THead>
                 <tr>
-                  <TH>Order ID</TH>
+                  <TH>Task ID</TH>
                   <TH>Customer</TH>
-                  <TH>Service Type</TH>
+                  <TH>Location</TH>
+                  <TH>Assigned</TH>
                   <TH>Status</TH>
-                  <TH>Date</TH>
                 </tr>
               </THead>
               <tbody>
-                {data.recentOrders.length === 0 ? (
+                {data.todaysSiteVisits.length === 0 ? (
                   <TR>
-                    <TD colSpan={5} className="py-10 text-center text-gray-400">
-                      No recent orders found.
+                    <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm">
+                      No site visits scheduled today.
                     </TD>
                   </TR>
                 ) : (
-                  data.recentOrders.map((order) => (
-                    <TR key={order._id ?? order.orderId}>
-                      <TD className="font-medium text-gray-900 dark:text-white">{order.orderId}</TD>
-                      <TD>{order.customerName}</TD>
-                      <TD>{order.serviceType}</TD>
-                      <TD>
-                        <Badge variant={order.paid ? "success" : "warning"}>{order.status}</Badge>
+                  data.todaysSiteVisits.map((visit: Task) => (
+                    <TR key={visit._id}>
+                      <TD className="font-mono text-xs text-white">{visit.taskId}</TD>
+                      <TD className="text-slate-300">{visit.complaint?.clientName ?? visit.title}</TD>
+                      <TD className="max-w-[130px] truncate text-slate-400 text-xs">
+                        {visit.complaint?.location ?? "—"}
                       </TD>
-                      <TD>{new Date(order.createdAt ?? Date.now()).toLocaleDateString()}</TD>
+                      <TD className="text-slate-300 text-xs">
+                        {visit.assignedUserName ?? visit.assignedTeamName ?? "Unassigned"}
+                      </TD>
+                      <TD>
+                        <Badge variant={taskBadge(visit.status)}>{visit.status}</Badge>
+                      </TD>
                     </TR>
                   ))
                 )}
@@ -387,15 +667,30 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
             </TableElement>
           </Table>
         </div>
-      </SectionCard>
+      </GlassCard>
 
-      <SectionCard title="Recent Complaints" >
+      {/* Recent Complaints */}
+      <GlassCard className="p-5 lg:p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+              Latest
+            </p>
+            <h3 className="text-base font-bold text-white">Recent Complaints</h3>
+          </div>
+          <span
+            className="rounded-full px-2.5 py-1 text-xs font-semibold"
+            style={{ background: `${ACCENT}18`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+          >
+            {data.recentComplaints.length} entries
+          </span>
+        </div>
         <div className="overflow-x-auto">
-          <Table className="bg-transparent">
+          <Table className="bg-transparent min-w-[520px]">
             <TableElement>
               <THead>
                 <tr>
-                  <TH>Complaint ID</TH>
+                  <TH>ID</TH>
                   <TH>Customer</TH>
                   <TH>Reason</TH>
                   <TH>Status</TH>
@@ -405,32 +700,34 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
               <tbody>
                 {data.recentComplaints.length === 0 ? (
                   <TR>
-                    <TD colSpan={5} className="py-10 text-center text-gray-400">
+                    <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm">
                       No recent complaints found.
                     </TD>
                   </TR>
                 ) : (
-                  data.recentComplaints.map((complaint) => (
-                    <TR key={complaint._id ?? complaint.complaintId}>
-                      <TD className="font-medium text-gray-900 dark:text-white">
-                        {complaint.complaintId}
+                  data.recentComplaints.map((c) => (
+                    <TR key={c._id ?? c.complaintId}>
+                      <TD className="font-mono text-xs text-white">{c.complaintId}</TD>
+                      <TD className="text-slate-300">{c.clientName ?? "—"}</TD>
+                      <TD className="text-slate-400 text-xs max-w-[140px] truncate">
+                        {c.title ?? c.reason ?? c.assignedTeam ?? "—"}
                       </TD>
-                      <TD>{complaint.clientName ?? "Customer"}</TD>
-                      <TD>{complaint.title ?? complaint.reason ?? complaint.assignedTeam ?? "—"}</TD>
                       <TD>
                         <Badge
                           variant={
-                            complaint.status === "Completed" || complaint.status === "Resolved"
+                            c.status === "Completed" || c.status === "Resolved"
                               ? "success"
-                              : complaint.status === "In Progress"
+                              : c.status === "In Progress"
                               ? "info"
                               : "warning"
                           }
                         >
-                          {complaint.status}
+                          {c.status}
                         </Badge>
                       </TD>
-                      <TD>{new Date(complaint.updatedAt).toLocaleDateString()}</TD>
+                      <TD className="text-slate-500 text-xs">
+                        {new Date(c.updatedAt).toLocaleDateString()}
+                      </TD>
                     </TR>
                   ))
                 )}
@@ -438,17 +735,17 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
             </TableElement>
           </Table>
         </div>
-      </SectionCard>
+      </GlassCard>
     </div>
   );
 }
 
-/* ---------------------------------------------------------
-   Page
---------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════
+   PAGE ROOT
+═══════════════════════════════════════════════════════ */
 export function DashboardPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboardPage,
     staleTime: 15_000,
@@ -458,7 +755,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
   const summaryCards = useMemo(
     () => [
       {
-        label: "Total No. of Orders",
+        label: "Total Orders",
         value: data?.summary.totalOrders ?? 0,
         delta: "12.5%",
         positive: true,
@@ -482,7 +779,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         color: KPI_COLORS.resolved,
       },
       {
-        label: "Complaints Unresolved",
+        label: "Unresolved",
         value: data?.summary.complaintsUnresolved ?? 0,
         delta: "6.5%",
         positive: false,
@@ -550,105 +847,114 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
   if (!ready) return null;
 
   return (
-    <DashboardShell
-      role={role}
-   >
-      <div className="space-y-8">
-        {isLoading || !data ? (
-          <LoadingState />
-        ) : (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: { staggerChildren: 0.06 },
-              },
+    <DashboardShell role={role}>
+      {/* ── Page header ── */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1
+            className="text-3xl font-bold tracking-tight"
+            style={{
+              background: `linear-gradient(135deg, #fff 40%, ${ACCENT})`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
             }}
-            className="space-y-8"
           >
-            {/* Complaint Overview */}
-            <motion.section
-              variants={{
-                hidden: { opacity: 0, y: 10 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  Complaint Overview
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Track complaint performance and resolution metrics
-                </p>
-              </div>
-  
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {summaryCards.map((card) => (
-                  <KpiCard key={card.label} {...card} />
-                ))}
-              </div>
-            </motion.section>
-  
-            {/* Task Overview */}
-            <motion.section
-              variants={{
-                hidden: { opacity: 0, y: 10 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  Task Overview
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Monitor task progress and team productivity
-                </p>
-              </div>
-  
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {taskCards.map((card) => (
-                  <KpiCard key={card.label} {...card} />
-                ))}
-              </div>
-            </motion.section>
-  
-            {/* Unresolved Reasons */}
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: { opacity: 1, y: 0 },
-              }}
-            >
-              <UnresolvedByReason data={data.unresolvedReasons} />
-            </motion.div>
-  
-  
-            {/* Categories */}
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: { opacity: 1, y: 0 },
-              }}
-            >
-              <TopCategories data={data.categories} />
-            </motion.div>
-  
-            {/* Summary Table */}
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: { opacity: 1, y: 0 },
-              }}
-            >
-              <SummaryTables data={data} />
-            </motion.div>
-          </motion.div>
-        )}
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {new Date().toLocaleDateString("en-IN", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+          style={{ borderColor: BORDER, background: SURFACE }}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} style={{ color: ACCENT }} />
+          Refresh
+        </button>
       </div>
+
+      {isLoading || !data ? (
+        <LoadingState />
+      ) : (
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={stagger}
+          className="space-y-8"
+        >
+          {/* ── Section: Complaint Overview KPIs ── */}
+          <motion.section variants={fadeUp} className="space-y-4">
+            <SectionLabel
+              eyebrow="Complaints"
+              title="Complaint Overview"
+              subtitle="Track performance and resolution metrics at a glance"
+            />
+            <motion.div
+              variants={stagger}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+            >
+              {summaryCards.map((c) => (
+                <KpiCard key={c.label} {...c} />
+              ))}
+            </motion.div>
+          </motion.section>
+
+          {/* ── Section: Task Overview KPIs ── */}
+          <motion.section variants={fadeUp} className="space-y-4">
+            <SectionLabel
+              eyebrow="Tasks"
+              title="Task Overview"
+              subtitle="Monitor team productivity and task completion"
+            />
+            <motion.div
+              variants={stagger}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+            >
+              {taskCards.map((c) => (
+                <KpiCard key={c.label} {...c} />
+              ))}
+            </motion.div>
+          </motion.section>
+
+          {/* ── Row: Trend chart + Donut ── */}
+          
+
+          {/* ── Row: Categories bar + Task progress ── */}
+          <motion.div variants={fadeUp} className="grid gap-5 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <CategoriesBar data={data.categories} />
+            </div>
+            <TaskProgressPanel stats={data.taskStats} />
+          </motion.div>
+
+          {/* ── Reason breakdown toggle ── */}
+          <motion.div variants={fadeUp}>
+            <ComplaintsByReason
+              unresolved={data.unresolvedReasons}
+              resolved={data.resolvedReasons}
+            />
+          </motion.div>
+
+          {/* ── Summary tables ── */}
+          <motion.div variants={fadeUp}>
+            <SectionLabel
+              eyebrow="Activity"
+              title="Recent Activity"
+              subtitle="Today's site visits and the latest complaints"
+            />
+            <SummaryTables data={data} />
+          </motion.div>
+        </motion.div>
+      )}
     </DashboardShell>
   );
 }

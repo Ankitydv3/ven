@@ -70,6 +70,75 @@ async function buildMonthlyTrend(scope: DashboardScope) {
 
 const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
 
+function buildDelayFilter() {
+  return {
+    $or: [
+      { title: /delay|delayed|late|overdue/i },
+      { description: /delay|delayed|late|overdue/i },
+      { deadline: { $lt: new Date() } },
+    ],
+  };
+}
+
+function buildMaterialFilter() {
+  return {
+    $or: [
+      { description: /material|parts|inventory|unavail/i },
+      { title: /material|parts|inventory/i },
+      { remarks: /material|parts|inventory/i },
+    ],
+  };
+}
+
+function buildUnresolvedPaymentFilter() {
+  return { paymentStatus: "Pending" };
+}
+
+function buildResolvedPaymentFilter() {
+  return { paymentStatus: { $in: ["Paid", "Partially Paid"] } };
+}
+
+async function countComplaintsByReason(
+  complaintFilter: Record<string, unknown>,
+  reason: "delayed" | "material" | "payment",
+  resolved: boolean
+) {
+  const statusFilter = resolved
+    ? { status: "Completed" as const }
+    : { status: { $in: OPEN_COMPLAINT_STATUSES } };
+
+  const categoryFilter =
+    reason === "delayed"
+      ? buildDelayFilter()
+      : reason === "material"
+        ? buildMaterialFilter()
+        : resolved
+          ? buildResolvedPaymentFilter()
+          : buildUnresolvedPaymentFilter();
+
+  return Complaint.countDocuments({
+    ...complaintFilter,
+    ...statusFilter,
+    ...categoryFilter,
+  });
+}
+
+async function buildComplaintReasons(scope: DashboardScope, resolved: boolean) {
+  const complaintFilter = scope.complaintFilter;
+
+  const [delayed, material, payment] = await Promise.all([
+    countComplaintsByReason(complaintFilter, "delayed", resolved),
+    countComplaintsByReason(complaintFilter, "material", resolved),
+    countComplaintsByReason(complaintFilter, "payment", resolved),
+  ]);
+
+  return [
+    { name: "Delayed", value: delayed },
+    { name: "Material Unavailability", value: material },
+    { name: "Payment Pending", value: payment },
+  ];
+}
+
 async function countComplaintsByIssue(
   complaintFilter: Record<string, unknown>,
   issue: (typeof COMPLAINT_ISSUE_TYPES)[number],
@@ -85,14 +154,11 @@ async function countComplaintsByIssue(
 }
 
 async function buildUnresolvedReasons(scope: DashboardScope) {
-  const complaintFilter = scope.complaintFilter;
+  return buildComplaintReasons(scope, false);
+}
 
-  return Promise.all(
-    COMPLAINT_ISSUE_TYPES.map(async (issue) => ({
-      name: displayIssueLabel(issue),
-      value: await countComplaintsByIssue(complaintFilter, issue, { unresolvedOnly: true }),
-    }))
-  );
+async function buildResolvedReasons(scope: DashboardScope) {
+  return buildComplaintReasons(scope, true);
 }
 
 async function buildComplaintOverview(scope: DashboardScope) {
@@ -181,6 +247,10 @@ export async function getMonthlyTrend(req: AuthRequest, res: Response) {
 
 export async function getUnresolvedReasons(req: AuthRequest, res: Response) {
   res.json({ unresolvedReasons: await buildUnresolvedReasons(scopeFromRequest(req)) });
+}
+
+export async function getResolvedReasons(req: AuthRequest, res: Response) {
+  res.json({ resolvedReasons: await buildResolvedReasons(scopeFromRequest(req)) });
 }
 
 export async function getComplaintOverview(req: AuthRequest, res: Response) {

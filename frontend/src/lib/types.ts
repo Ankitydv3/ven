@@ -213,9 +213,10 @@ export interface DashboardPageData {
   taskStats: DashboardTaskSummary;
   monthlyTrend: DashboardTrendPoint[];
   unresolvedReasons: DashboardReasonPoint[];
+  resolvedReasons: DashboardReasonPoint[];
   complaintOverview: DashboardOverviewPoint;
   categories: DashboardCategoryPoint[];
-  recentOrders: RecentOrder[];
+  todaysSiteVisits: import("@/lib/task.types").Task[];
   recentComplaints: RecentComplaintItem[];
 }
 
