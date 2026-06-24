@@ -6,7 +6,7 @@ export default function TeamMyTasksPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+        <div className="flex min-h-screen items-center justify-center bg-app">
           <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
         </div>
       }

@@ -90,7 +90,7 @@ function NavLinkItem({
         <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
         {item.label}
       </span>
-      {active ? <span className="h-2 w-2 rounded-full bg-teal-400 shadow-lg shadow-teal-400/50" /> : null}
+      {active ? <span className="h-2 w-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50" /> : null}
     </Link>
   );
 }
@@ -200,19 +200,17 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
       
       {/* Desktop Sidebar - Fixed height with scroll */}
-      <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl overflow-y-auto">
+      <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/10 bg-app px-5 py-6 text-white backdrop-blur-xl overflow-y-auto">
         <div className="flex-shrink-0 mb-10 bg-Black flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-teal-300">
-            <Workflow className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-heading text-lg font-semibold">Complaint Flow OS</p>
-            <p className="text-xs text-slate-400">Enterprise service desk</p>
-          </div>
+        <img
+              src="/okna.png"
+              alt="Complaint Flow OS"
+              className="w-28 sm:w-36 md:w-44 lg:w-52 h-10 object-contain"
+            />
         </div>
         
         <div className="flex-shrink-0 mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
-          <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
+          <Badge variant="info" className="mb-3 bg-blue-500/20 text-blue-300 border-blue-500/20">
             {role === "admin" ? "Admin Mode" : role === "store" ? "Store Manager" : user?.team ?? "Team Mode"}
           </Badge>
           <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
@@ -236,7 +234,7 @@ export function DashboardShell({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-40 bg-app/80 backdrop-blur-sm lg:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
             />
             
@@ -246,11 +244,11 @@ export function DashboardShell({
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-black px-5 py-6 text-white backdrop-blur-xl overflow-y-auto lg:hidden"
+              className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-app px-5 py-6 text-white backdrop-blur-xl overflow-y-auto lg:hidden"
             >
               <div className="flex-shrink-0 mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300">
                     <Workflow className="h-5 w-5" />
                   </div>
                   <div>
@@ -280,7 +278,7 @@ export function DashboardShell({
               </nav>
 
               <div className="flex-shrink-0 mt-4 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
-                <Badge variant="info" className="mb-3 bg-teal-500/20 text-teal-300 border-teal-500/20">
+                <Badge variant="info" className="mb-3 bg-blue-500/20 text-blue-300 border-blue-500/20">
                   {role === "admin" ? "Admin Mode" : user?.team ?? "Team Mode"}
                 </Badge>
                 <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
@@ -293,7 +291,7 @@ export function DashboardShell({
 
       {/* Main Content - Full scrollable */}
       <div className="flex min-h-screen flex-col overflow-y-auto">
-        <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-[#020817]/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
+        <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-app/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0 lg:flex-1">
               {/* Mobile Menu Button */}
@@ -307,7 +305,7 @@ export function DashboardShell({
               </Button>
 
               <div className="min-w-0 flex-1">
-                <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+                <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
                   
                 </div>
                 <h1 className="font-heading text-xl sm:text-2xl font-semibold text-white truncate">{title}</h1>
@@ -336,7 +334,6 @@ export function DashboardShell({
                 }}
               >
                 <Bell className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Notifications</span>
                 {pendingAlerts > 0 && (
                   <Badge
                     variant="destructive"

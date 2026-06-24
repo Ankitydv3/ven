@@ -160,7 +160,7 @@ export function TeamsPanel({ canManage = false }: TeamsPanelProps) {
       </Dialog>
 
       <AlertDialog open={Boolean(teamToDelete)} onOpenChange={(open) => !open && setTeamToDelete(null)}>
-        <AlertDialogContent className="border-white/10 bg-[#0B1120] text-white">
+        <AlertDialogContent className="border-white/10 bg-app text-white">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete team?</AlertDialogTitle>
             <AlertDialogDescription className="text-[#94A3B8]">

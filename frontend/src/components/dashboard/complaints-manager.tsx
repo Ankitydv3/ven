@@ -155,7 +155,7 @@ export function ComplaintsManager() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] overflow-hidden"
+        className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app overflow-hidden"
       >
         <div className="border-b border-slate-100 dark:border-white/[0.06] px-5 py-4 flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/30">
@@ -185,10 +185,10 @@ export function ComplaintsManager() {
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-[#0A0F1E] py-2 pl-9 pr-4 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-app py-2 pl-9 pr-4 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               >
                 {complaintStatuses.map((v) => (
-                  <option key={v} value={v} className="bg-[#0A0F1E] text-white">{v}</option>
+                  <option key={v} value={v} className="bg-app text-white">{v}</option>
                 ))}
               </select>
             </div>
@@ -208,7 +208,7 @@ export function ComplaintsManager() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.1 }}
-        className="hidden md:block rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] overflow-hidden"
+        className="hidden md:block rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app overflow-hidden"
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -346,7 +346,7 @@ export function ComplaintsManager() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] p-4 space-y-3"
+                  className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-4 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -416,7 +416,7 @@ export function ComplaintsManager() {
         open={Boolean(assignTarget)}
         onOpenChange={(open) => { if (!open) { setAssignTarget(null); setSelectedUserId(""); } }}
       >
-        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/[0.08] rounded-2xl">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-app border-slate-200 dark:border-white/[0.08] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-bold text-slate-800 dark:text-white">
               {assignTarget?.assignedUserId || assignTarget?.assignedTeam ? "Reassign complaint" : "Assign complaint"}
@@ -477,7 +477,7 @@ export function ComplaintsManager() {
                     <option>No users available</option>
                   ) : (
                     assignableUsers.map((u) => (
-                      <option key={u._id} value={u._id} className="bg-[#0A0F1E] text-white">
+                      <option key={u._id} value={u._id} className="bg-app text-white">
                         {u.name}{assignTarget?.assignedUserId === u._id ? " (Current)" : ""}
                       </option>
                     ))

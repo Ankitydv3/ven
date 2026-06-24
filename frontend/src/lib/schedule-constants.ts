@@ -91,7 +91,7 @@ export const statusBadgeVariant: Record<
 };
 
 export const glassCardClass =
-  "rounded-2xl border border-slate-200 bg-white/80 shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#0A1F1A]/80 dark:shadow-black/20";
+  "rounded-2xl border border-slate-200 bg-white/80 shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-app/80 dark:shadow-black/20";
 
 export const primaryButtonClass =
   "bg-[#2F6B63] text-white shadow-md shadow-[#2F6B63]/25 hover:bg-[#285e57]";

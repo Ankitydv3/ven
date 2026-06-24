@@ -113,7 +113,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+      <div className="flex min-h-screen items-center justify-center bg-app">
         <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
       </div>
     );
@@ -258,7 +258,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
       </div>
 
       <Dialog open={Boolean(selected)} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-lg rounded-2xl border-white/10 bg-[#0A1F1A] text-white">
+        <DialogContent className="max-w-lg rounded-2xl border-white/10 bg-app text-white">
           <DialogHeader>
             <DialogTitle>Review Material Request {selected?.requestId}</DialogTitle>
           </DialogHeader>

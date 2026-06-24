@@ -168,7 +168,7 @@ export function UserTable({
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="border-white/10 bg-[#0B1120] text-white">
+                        <DropdownMenuContent align="end" className="border-white/10 bg-app text-white">
                           <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onView(user)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View

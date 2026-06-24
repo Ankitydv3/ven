@@ -81,7 +81,7 @@ export function LoginForm() {
   if (!mounted) return null;
 
   return (
-    <div className="flex min-h-screen w-full bg-[#060608]">
+    <div className="flex min-h-screen w-full bg-app">
 
       {/* ── LEFT — Form panel ── */}
       <div className="relative flex w-full flex-col items-center justify-center overflow-hidden px-6 py-12 md:w-1/2 md:px-12 lg:px-20">

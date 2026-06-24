@@ -181,7 +181,7 @@ export function AdminOverview() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.25 }}
-          className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] overflow-hidden"
+          className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app overflow-hidden"
         >
           {/* Card header */}
           <div className="border-b border-slate-100 dark:border-white/[0.06] px-5 py-4 flex items-center justify-between">

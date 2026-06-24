@@ -146,7 +146,7 @@ export function CustomerPage({ role = "team" }: CustomerPageProps) {
       title="Customers"
       subtitle="View and manage customer details"
     >
-      <div className="space-y-5 rounded-3xl bg-slate-50/50 p-1 dark:bg-[#020816]">
+      <div className="space-y-5 rounded-3xl bg-slate-50/50 p-1 dark:bg-app">
         <CustomerHeader
           search={search}
           onSearchChange={setSearch}

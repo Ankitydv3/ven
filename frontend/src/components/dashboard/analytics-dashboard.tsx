@@ -62,7 +62,7 @@ function KpiCard({ label, value, icon: Icon, color, trend, positive, delay = 0 }
       className={`
         group relative overflow-hidden rounded-2xl
         border border-slate-200/80 dark:border-white/[0.07]
-        bg-white dark:bg-[#0A0F1E]
+        bg-white dark:bg-app
         shadow-sm hover:shadow-xl ${color.glow}
         transition-shadow duration-300 p-5 cursor-default
       `}
@@ -116,7 +116,7 @@ function TeamStatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -4, transition: { duration: 0.18 } }}
-      className="group rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] p-5 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300"
+      className="group rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-5 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300"
     >
       <div className="flex items-start justify-between gap-2 mb-4">
         <div>

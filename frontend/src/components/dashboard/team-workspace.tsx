@@ -95,7 +95,7 @@ function StatCard({ label, value, icon: Icon, color, delay }: {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -4, transition: { duration: 0.18 } }}
-      className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] p-5 flex items-center gap-4"
+      className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-5 flex items-center gap-4"
     >
       <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${color}/10 ring-1 ring-current ring-opacity-20`}>
         <Icon className={`h-5 w-5 ${color}`} />
@@ -132,7 +132,7 @@ function ComplaintCard({
     >
       <div className={`
         rounded-2xl border border-slate-200/80 dark:border-white/[0.07]
-        bg-white dark:bg-[#0A0F1E]
+        bg-white dark:bg-app
         overflow-hidden hover:shadow-xl ${sc.glow} transition-all duration-300
       `}>
         {/* Top band */}
@@ -440,7 +440,7 @@ export function TeamWorkspace() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.2 }}
-        className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] p-5"
+        className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-5"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -492,7 +492,7 @@ export function TeamWorkspace() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0A0F1E] py-16 text-center"
+          className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app py-16 text-center"
         >
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-500/10 mb-3">
             <Sparkles className="h-6 w-6 text-blue-500" />
@@ -526,7 +526,7 @@ export function TeamWorkspace() {
 
       {/* ── Update Dialog ────────────────────────────────── */}
       <Dialog open={modalMode === "update"} onOpenChange={(o) => { if (!o) closeModal(); }}>
-        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/[0.08] rounded-2xl">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-app border-slate-200 dark:border-white/[0.08] rounded-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -572,7 +572,7 @@ export function TeamWorkspace() {
 
       {/* ── Complete Dialog ───────────────────────────────── */}
       <Dialog open={modalMode === "complete"} onOpenChange={(o) => { if (!o) closeModal(); }}>
-        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/[0.08] rounded-2xl">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-app border-slate-200 dark:border-white/[0.08] rounded-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-xl bg-emerald-500/10 flex items-center justify-center">

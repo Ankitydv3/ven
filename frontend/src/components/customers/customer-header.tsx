@@ -32,8 +32,8 @@ export function CustomerHeader({
   notificationCount = 3,
 }: CustomerHeaderProps) {
   return (
-    <div className= {cn(glassCardClass, "rounded-3xl p-4 sm:p-5 md:p-6 bg-[#0c1327]")}>
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between bg-[#0c1327]">
+    <div className= {cn(glassCardClass, "rounded-3xl p-4 sm:p-5 md:p-6 bg-app")}>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between bg-app">
         <div className="min-w-0 ">
           <h2 className="text-2xl font-bold  tracking-tight text-slate-900 dark:text-white sm:text-3xl">
             Customers
@@ -54,7 +54,7 @@ export function CustomerHeader({
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search customers..."
               aria-label="Search customers"
-              className="h-11 w-full rounded-xl border-slate-200 bg-white pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:border-[#4F9B8C] focus-visible:ring-[#4F9B8C]/20 dark:border-white/[0.08] dark:bg-[#0c1327]/60 dark:text-white dark:placeholder:text-white/40"
+              className="h-11 w-full rounded-xl border-slate-200 bg-white pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:border-[#4F9B8C] focus-visible:ring-[#4F9B8C]/20 dark:border-white/[0.08] dark:bg-app/60 dark:text-white dark:placeholder:text-white/40"
             />
           </div>
 
@@ -64,12 +64,12 @@ export function CustomerHeader({
           >
             <SelectTrigger
               aria-label="Filter by state"
-              className="h-11 w-full rounded-xl border-slate-200 bg-white text-slate-900 sm:w-[160px] dark:border-white/[0.08] dark:bg-[#0c1327]/60 dark:text-white"
+              className="h-11 w-full rounded-xl border-slate-200 bg-white text-slate-900 sm:w-[160px] dark:border-white/[0.08] dark:bg-app/60 dark:text-white"
             >
               <Filter className="mr-2 h-4 w-4 shrink-0 text-slate-400 dark:text-white/40" />
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-slate-200 dark:border-white/[0.08] dark:bg-[#0A1F1A]">
+            <SelectContent className="rounded-xl border-slate-200 dark:border-white/[0.08] dark:bg-app">
               <SelectItem value="all">All States</SelectItem>
               {INDIAN_STATES.map((state) => (
                 <SelectItem key={state} value={state}>
@@ -93,7 +93,7 @@ export function CustomerHeader({
             variant="outline"
             size="sm"
             aria-label="Notifications"
-            className="relative h-11 w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 sm:w-11 sm:px-0 dark:border-white/[0.08] dark:bg-[#0c1327]/60 dark:text-white dark:hover:bg-white/5"
+            className="relative h-11 w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 sm:w-11 sm:px-0 dark:border-white/[0.08] dark:bg-app/60 dark:text-white dark:hover:bg-white/5"
           >
             <Bell className="h-4 w-4" />
             <span className="sr-only">Notifications</span>

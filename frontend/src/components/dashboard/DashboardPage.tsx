@@ -85,10 +85,10 @@ const OVERVIEW_COLORS: Record<string, string> = {
 const tooltipStyle = {
   borderRadius: "12px",
   border: "1px solid rgba(148, 163, 184, 0.18)",
-  background: "#0F172A",
+  background: "#020a17",
   color: "#fff",
   fontSize: "12px",
-  boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
+  boxShadow: "0 18px 50px rgba(2, 10, 23, 0.35)",
 };
 
 /* ---------------------------------------------------------
@@ -110,7 +110,7 @@ function KpiCard({
   color: { bg: string; text: string; ring: string };
 }) {
   return (
-    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-sm">
+    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-app shadow-sm">
       <CardContent className="">
         <div className="flex items-center gap-4">
   {/* Icon */}
@@ -162,7 +162,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-sm">
+    <Card className="border border-gray-200 dark:border-white/10 bg-white dark:bg-app shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base font-semibold text-gray-900 dark:text-white">
           {title}
@@ -208,7 +208,7 @@ function UnresolvedByReason({ data }: { data: DashboardPageData["unresolvedReaso
           return (
             <div
               key={item.name}
-              className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"
+              className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-app"
             >
               <div className="flex items-center gap-3">
                 <div

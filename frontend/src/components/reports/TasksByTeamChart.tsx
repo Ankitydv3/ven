@@ -41,7 +41,7 @@ export const TasksByTeamChart = memo(function TasksByTeamChart({ data }: TasksBy
               <Tooltip
                 cursor={{ fill: "rgba(37,99,235,0.06)" }}
                 contentStyle={{
-                  backgroundColor: "#0f172a",
+                  backgroundColor: "#020a17",
                   border: "1px solid rgba(148,163,184,0.2)",
                   borderRadius: "10px",
                   color: "#fff",

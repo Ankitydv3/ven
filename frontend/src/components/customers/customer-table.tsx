@@ -145,7 +145,7 @@ export function CustomerTable({
     <div className={cn(glassCardClass, "hidden overflow-hidden md:block")}>
       <div className="max-h-[calc(100vh-320px)] overflow-x-auto overflow-y-auto">
         <TableElement>
-          <THead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-[#0c1327]">
+          <THead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-app">
             <tr>
               {sortableColumns.map((column) => (
                 <TH key={column.key}>

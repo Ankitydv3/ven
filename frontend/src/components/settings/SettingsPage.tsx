@@ -152,7 +152,7 @@ export function SettingsPage({ role = "admin" }: SettingsPageProps) {
           </Button>
         </form>
 
-        <div className="rounded-xl border border-white/10 bg-[#0B1120]/50 p-4">
+        <div className="rounded-xl border border-white/10 bg-app/50 p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium text-white">Change Password</h3>

@@ -48,7 +48,7 @@ export function CustomerViewDialog({ customer, open, onOpenChange }: CustomerVie
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 bg-white sm:max-w-lg dark:border-white/[0.08] dark:bg-[#0A1F1A]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 bg-white sm:max-w-lg dark:border-white/[0.08] dark:bg-app">
         <DialogHeader>
           <DialogTitle className="text-xl text-slate-900 dark:text-white">
             {customer.fullName}

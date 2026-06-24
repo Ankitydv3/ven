@@ -52,7 +52,7 @@ export function CustomerActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="min-w-[160px] rounded-xl border-slate-200 dark:border-white/[0.08] dark:bg-[#0A1F1A]"
+        className="min-w-[160px] rounded-xl border-slate-200 dark:border-white/[0.08] dark:bg-app"
       >
         <DropdownMenuItem
           onClick={() => onView(customer)}
@@ -79,7 +79,7 @@ export function CustomerActions({
               Delete
             </DropdownMenuItem>
           </AlertDialogTrigger>
-          <AlertDialogContent className="rounded-2xl border-slate-200 dark:border-white/[0.08] dark:bg-[#0A1F1A]">
+          <AlertDialogContent className="rounded-2xl border-slate-200 dark:border-white/[0.08] dark:bg-app">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-slate-900 dark:text-white">
                 Delete Customer

@@ -411,7 +411,7 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
       </div>
 
       <Dialog open={Boolean(declineTarget)} onOpenChange={(open) => !open && setDeclineTarget(null)}>
-        <DialogContent className="border-[rgba(59,130,246,0.15)] bg-[#0B1120] text-white sm:max-w-md">
+        <DialogContent className="border-[rgba(59,130,246,0.15)] bg-app text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Decline Complaint</DialogTitle>
             <DialogDescription className="text-[#94A3B8]">

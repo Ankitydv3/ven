@@ -45,7 +45,7 @@ export function Card({ className, children, accent, delay = 0 }: CardProps) {
   const content = (
     <div
       className={cn(
-        "rounded-3xl border bg-white/70 p-5 shadow-[0_20px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-slate-950/50",
+        "rounded-3xl border bg-white/70 p-5 shadow-[0_20px_80px_rgba(2,10,23,0.08)] backdrop-blur-xl dark:bg-app/80",
         accent ? accentStyles[accent].border : "border-white/14",
         className
       )}
@@ -136,7 +136,7 @@ export function SegmentedControl({
   return (
     <div
       className={cn(
-        "inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 dark:border-slate-800 dark:bg-slate-900/80",
+        "inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 dark:border-slate-800 dark:bg-app/80",
         className
       )}
       role="tablist"
@@ -153,7 +153,7 @@ export function SegmentedControl({
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
               active
-                ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-app dark:text-white"
                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >

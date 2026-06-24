@@ -20,7 +20,7 @@ export default function Home() {
  
 
   return (
-    <main className="min-h-screen bg-[#EFF4FB] dark:bg-[#020F1E]">
+    <main className="min-h-screen bg-[#EFF4FB] dark:bg-app">
 
       {/* ── Hero ── */}
       <div className="relative overflow-hidden bg-[#042C53]">
@@ -108,7 +108,7 @@ export default function Home() {
 
       {/* ── Form ── */}
       <div className="mx-auto max-w-6xl px-6 pb-20 lg:px-8">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#061628]">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-app">
 
           {/* Floating orbs behind form */}
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#E6F1FB] opacity-60 dark:opacity-10 animate-float-b" />
@@ -116,7 +116,7 @@ export default function Home() {
           <div className="pointer-events-none absolute right-5 top-48 h-12 w-12 rounded-full bg-[#85B7EB] opacity-15 dark:opacity-10 animate-float-c [animation-delay:0.5s]" />
 
           {/* Header */}
-          <div className="relative z-10 border-b border-[#185FA5]/10 bg-[#EFF4FB] dark:bg-[#061628] px-8 py-6">
+          <div className="relative z-10 border-b border-[#185FA5]/10 bg-[#EFF4FB] dark:bg-app px-8 py-6">
             <p className="text-[11px] font-medium tracking-[0.1em] text-[#185FA5] uppercase mb-1">new request</p>
             <h3 className="font-serif text-xl font-medium text-[#042C53] dark:text-white">Submit a complaint</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

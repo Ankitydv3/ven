@@ -238,7 +238,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#0B1120] text-white">
+              <SelectContent className="border-white/10 bg-app text-white">
                 <SelectItem value="all">All Roles</SelectItem>
                 {USER_ROLES.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
@@ -252,7 +252,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#0B1120] text-white">
+              <SelectContent className="border-white/10 bg-app text-white">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="disabled">Disabled</SelectItem>
@@ -277,7 +277,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
         />
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0B1120]/50 px-4 py-3 text-sm text-[#94A3B8]">
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-app/50 px-4 py-3 text-sm text-[#94A3B8]">
             <span>
               Page {page} of {totalPages}
             </span>
@@ -309,7 +309,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       <UserViewDialog user={viewUser} onOpenChange={(open) => !open && setViewUser(null)} />
 
       <AlertDialog open={Boolean(resetConfirmUser)} onOpenChange={(open) => !open && setResetConfirmUser(null)}>
-        <AlertDialogContent className="border-white/10 bg-[#0B1120] text-white">
+        <AlertDialogContent className="border-white/10 bg-app text-white">
           <AlertDialogHeader>
             <AlertDialogTitle>Reset password?</AlertDialogTitle>
             <AlertDialogDescription className="text-[#94A3B8]">

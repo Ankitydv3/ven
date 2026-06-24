@@ -225,7 +225,7 @@ export function CustomerForm({
                 >
                   <SelectValue placeholder="Select state" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl dark:bg-[#0A1F1A]">
+                <SelectContent className="rounded-xl dark:bg-app">
                   {INDIAN_STATES.map((state) => (
                     <SelectItem key={state} value={state}>
                       {state}
@@ -282,7 +282,7 @@ export function CustomerForm({
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="h-11 flex-1 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-[#071A17]/60 dark:text-white dark:hover:bg-white/5"
+          className="h-11 flex-1 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-app/60 dark:text-white dark:hover:bg-white/5"
         >
           Cancel
         </Button>

@@ -100,7 +100,7 @@ export function ComplaintRegistrationForm() {
         <Input
           {...form.register("clientName")}
           placeholder="Organization or client name"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         />
         <FieldError message={form.formState.errors.clientName?.message} />
       </div>
@@ -113,7 +113,7 @@ export function ComplaintRegistrationForm() {
         <Input
           {...form.register("contactPerson")}
           placeholder="Primary contact"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         />
         <FieldError message={form.formState.errors.contactPerson?.message} />
       </div>
@@ -126,7 +126,7 @@ export function ComplaintRegistrationForm() {
         <Input
           {...form.register("mobileNumber")}
           placeholder="9876543210"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         />
         <FieldError message={form.formState.errors.mobileNumber?.message} />
       </div>
@@ -140,7 +140,7 @@ export function ComplaintRegistrationForm() {
           {...form.register("email")}
           type="email"
           placeholder="client@company.com"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         />
         <FieldError message={form.formState.errors.email?.message} />
       </div>
@@ -161,7 +161,7 @@ export function ComplaintRegistrationForm() {
             }
           }}
         >
-          <SelectTrigger className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] text-[13px]">
+          <SelectTrigger className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] text-[13px]">
             <SelectValue placeholder="Select issue type" />
           </SelectTrigger>
 
@@ -184,7 +184,7 @@ export function ComplaintRegistrationForm() {
         </Label>
         <select
           {...form.register("priority")}
-          className="h-10 rounded-md border bg-[#F7FAFD] px-3 dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="h-10 rounded-md border bg-[#F7FAFD] px-3 dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         >
           {priorities.map((p) => (
             <option key={p}>{p}</option>
@@ -203,7 +203,7 @@ export function ComplaintRegistrationForm() {
           <Textarea
             {...form.register("description")}
             placeholder="Please describe the issue in detail..."
-            className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px] min-h-[88px]"
+            className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px] min-h-[88px]"
           />
 
           <FieldError message={form.formState.errors.description?.message} />
@@ -218,7 +218,7 @@ export function ComplaintRegistrationForm() {
         <Input
           {...form.register("location")}
           placeholder="Site, branch, or city"
-          className="bg-[#F7FAFD] dark:bg-[#0A1E35] border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
+          className="bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10 text-[13px]"
         />
         <FieldError message={form.formState.errors.location?.message} />
       </div>

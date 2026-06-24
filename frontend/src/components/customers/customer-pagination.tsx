@@ -51,7 +51,7 @@ export function CustomerPagination({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="h-9 rounded-xl border-slate-200 bg-white dark:border-white/[0.08] dark:bg-[#071A17]/60"
+          className="h-9 rounded-xl border-slate-200 bg-white dark:border-white/[0.08] dark:bg-app/60"
         >
           <ChevronLeft className="h-4 w-4" />
           Previous
@@ -65,7 +65,7 @@ export function CustomerPagination({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="h-9 rounded-xl border-slate-200 bg-white dark:border-white/[0.08] dark:bg-[#071A17]/60"
+          className="h-9 rounded-xl border-slate-200 bg-white dark:border-white/[0.08] dark:bg-app/60"
         >
           Next
           <ChevronRight className="h-4 w-4" />

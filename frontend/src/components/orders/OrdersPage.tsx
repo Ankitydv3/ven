@@ -418,7 +418,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     >
       <div className="space-y-6">
         {/* Search and Filters */}
-        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
+        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none">
           <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <p className="text-xs font-medium tracking-wide text-[#4F9B8C] mb-1">dashboard overview</p>
@@ -513,7 +513,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     value={materialType}
                     onChange={(e) => setMaterialType(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
@@ -530,7 +530,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     value={paymentStatus}
                     onChange={(e) => setPaymentStatus(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
@@ -547,7 +547,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     value={orderStatus}
                     onChange={(e) => setOrderStatus(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
@@ -648,7 +648,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         </Card>
 
         {/* Table - Desktop View */}
-        <div className="hidden rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] overflow-hidden md:block">
+        <div className="hidden rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app overflow-hidden md:block">
           <Table>
             <TableElement>
               <THead>
@@ -838,7 +838,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
               <Skeleton key={idx} className="h-36 rounded-2xl bg-slate-100 dark:bg-white/[0.04]" />
             ))
           ) : items.length === 0 ? (
-            <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
+            <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">
                   No orders found
@@ -862,7 +862,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             items.map((order) => (
               <Card
                 key={order._id}
-                className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none"
+                className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none"
               >
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start justify-between">
@@ -999,7 +999,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
         {/* View Details Dialog */}
         <Dialog open={Boolean(viewTarget)} onOpenChange={(o) => !o && setViewTarget(null)}>
-          <DialogContent className="sm:max-w-[600px] border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] text-slate-900 dark:text-white">
+          <DialogContent className="sm:max-w-[600px] border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app text-slate-900 dark:text-white">
             <DialogHeader>
               <DialogTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white flex items-center gap-2">
                 Order details: {viewTarget?.orderId}
@@ -1174,7 +1174,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
         {/* Edit Order Dialog */}
         <Dialog open={Boolean(editTarget)} onOpenChange={(o) => !o && setEditTarget(null)}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] text-slate-900 dark:text-white">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app text-slate-900 dark:text-white">
             <DialogHeader>
               <DialogTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
                 Edit Order: {editTarget?.orderId}
@@ -1238,13 +1238,13 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       })
                     }
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
                   >
-                    <option value="Aluminium" className="bg-[#132f29] text-white">Aluminium</option>
-                    <option value="uPVC" className="bg-[#132f29] text-white">uPVC</option>
+                    <option value="Aluminium" className="bg-app text-white">Aluminium</option>
+                    <option value="uPVC" className="bg-app text-white">uPVC</option>
                   </select>
                 </div>
 
@@ -1339,14 +1339,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     value={editForm.assignedTeam}
                     onChange={(e) => setEditForm({ ...editForm, assignedTeam: e.target.value })}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
                   >
-                    <option value="" className="bg-[#132f29] text-white">Unassigned</option>
+                    <option value="" className="bg-app text-white">Unassigned</option>
                     {teamOptions.map((teamName) => (
-                      <option key={teamName} value={teamName} className="bg-[#132f29] text-white">
+                      <option key={teamName} value={teamName} className="bg-app text-white">
                         {teamName}
                       </option>
                     ))}
@@ -1361,14 +1361,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     value={editForm.status}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
                                focus:outline-none focus:ring-2 focus:ring-[#4F9B8C]/30"
                   >
-                    <option value="Pending" className="bg-[#132f29] text-white">Pending</option>
-                    <option value="In Progress" className="bg-[#132f29] text-white">In Progress</option>
-                    <option value="Completed" className="bg-[#132f29] text-white">Completed</option>
+                    <option value="Pending" className="bg-app text-white">Pending</option>
+                    <option value="In Progress" className="bg-app text-white">In Progress</option>
+                    <option value="Completed" className="bg-app text-white">Completed</option>
                   </select>
                 </div>
 
@@ -1422,7 +1422,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-          <AlertDialogContent className="border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#020816] text-slate-900 dark:text-white">
+          <AlertDialogContent className="border-slate-200 dark:border-white/[0.1] bg-white dark:bg-app text-slate-900 dark:text-white">
             <AlertDialogHeader>
               <AlertDialogTitle className="font-serif text-lg font-medium text-[#04342C] dark:text-white">
                 Are you absolutely sure?

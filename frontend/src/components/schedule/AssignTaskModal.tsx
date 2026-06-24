@@ -149,7 +149,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-xl dark:border-white/[0.08] dark:bg-[#0A1F1A]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-xl dark:border-white/[0.08] dark:bg-app">
         <DialogHeader>
           <DialogTitle className="text-xl text-slate-900 dark:text-white">Assign Task</DialogTitle>
           <DialogDescription className="text-slate-500 dark:text-white/50">
@@ -162,10 +162,10 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
             <div className="space-y-1.5">
               <Label>Complaint</Label>
               <Select onValueChange={handleComplaintSelect}>
-                <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                <SelectTrigger className="h-11 rounded-xl dark:bg-app/60">
                   <SelectValue placeholder="Select complaint" />
                 </SelectTrigger>
-                <SelectContent className="dark:bg-[#0A1F1A]">
+                <SelectContent className="dark:bg-app">
                   {complaints.map((c) => (
                     <SelectItem key={c._id} value={c.complaintId}>
                       {c.complaintId} - {c.clientName}
@@ -179,7 +179,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               <Input
                 id="complaintId"
                 {...form.register("complaintId")}
-                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+                className="h-11 rounded-xl dark:bg-app/60"
                 placeholder="CMP-1001"
               />
             </div>
@@ -193,7 +193,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               <Input
                 id="customerName"
                 {...form.register("customerName")}
-                className={cn("h-11 rounded-xl dark:bg-[#071A17]/60", errors.customerName && "border-rose-500")}
+                className={cn("h-11 rounded-xl dark:bg-app/60", errors.customerName && "border-rose-500")}
               />
               {errors.customerName && (
                 <p className="text-xs text-rose-500">{errors.customerName.message}</p>
@@ -206,7 +206,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               <Input
                 id="serviceType"
                 {...form.register("serviceType")}
-                className={cn("h-11 rounded-xl dark:bg-[#071A17]/60", errors.serviceType && "border-rose-500")}
+                className={cn("h-11 rounded-xl dark:bg-app/60", errors.serviceType && "border-rose-500")}
               />
             </div>
           </div>
@@ -220,10 +220,10 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               name="assignedUserId"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange} disabled={usersLoading}>
-                  <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                  <SelectTrigger className="h-11 rounded-xl dark:bg-app/60">
                     <SelectValue placeholder={usersLoading ? "Loading users..." : "Select user"} />
                   </SelectTrigger>
-                  <SelectContent className="dark:bg-[#0A1F1A]">
+                  <SelectContent className="dark:bg-app">
                     {assignableUsers.length === 0 ? (
                       <SelectItem value="__none" disabled>
                         No users with a team assigned
@@ -253,7 +253,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
                 id="scheduledDate"
                 type="date"
                 {...form.register("scheduledDate")}
-                className="h-11 rounded-xl dark:bg-[#071A17]/60"
+                className="h-11 rounded-xl dark:bg-app/60"
               />
             </div>
           </div>
@@ -265,10 +265,10 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               name="priority"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="h-11 rounded-xl dark:bg-[#071A17]/60">
+                  <SelectTrigger className="h-11 rounded-xl dark:bg-app/60">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="dark:bg-[#0A1F1A]">
+                  <SelectContent className="dark:bg-app">
                     {(["Low", "Medium", "High", "Critical"] as const).map((p) => (
                       <SelectItem key={p} value={p}>
                         {p}
@@ -286,7 +286,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               id="remarks"
               {...form.register("remarks")}
               placeholder="Optional assignment notes"
-              className="min-h-[80px] rounded-xl dark:bg-[#071A17]/60"
+              className="min-h-[80px] rounded-xl dark:bg-app/60"
             />
           </div>
 

@@ -35,13 +35,13 @@ export type UserSortField =
   | "status";
 
 export const glassCardClass =
-  "rounded-2xl border border-[rgba(59,130,246,0.15)] bg-[rgba(10,20,35,0.95)] shadow-lg shadow-black/20 backdrop-blur-xl";
+  "rounded-2xl border border-[rgba(59,130,246,0.15)] bg-[rgba(2,10,23,0.95)] shadow-lg shadow-black/20 backdrop-blur-xl";
 
 export const primaryButtonClass =
   "bg-[#3B82F6] text-white shadow-md shadow-[#3B82F6]/25 hover:bg-[#2563EB] focus-visible:ring-[#3B82F6]/40";
 
 export const inputClass =
-  "h-11 rounded-xl border-white/10 bg-[#0B1120]/80 text-white placeholder:text-[#64748B] focus-visible:border-[#3B82F6] focus-visible:ring-[#3B82F6]/20";
+  "h-11 rounded-xl border-white/10 bg-app/80 text-white placeholder:text-[#64748B] focus-visible:border-[#3B82F6] focus-visible:ring-[#3B82F6]/20";
 
 export const roleBadgeStyles: Record<string, string> = {
   super_admin: "border-[#F43F5E]/40 bg-[#F43F5E]/10 text-[#FB7185]",

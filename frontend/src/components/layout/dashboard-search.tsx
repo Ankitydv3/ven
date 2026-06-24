@@ -322,7 +322,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             }
           }}
           placeholder="Search pages, complaints, orders, users..."
-          className="h-10 rounded-full border-white/10 bg-white/5 pl-9 pr-16 text-sm text-white placeholder:text-slate-400 focus:border-teal-500/40 focus:ring-teal-500/20"
+          className="h-10 rounded-full border-white/10 bg-white/5 pl-9 pr-16 text-sm text-white placeholder:text-slate-400 focus:border-blue-500/40 focus:ring-blue-500/20"
         />
         <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 sm:inline-block">
           Ctrl K
@@ -330,7 +330,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
       </div>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#0A1020] p-2 shadow-2xl shadow-black/40">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-white/10 bg-app p-2 shadow-2xl shadow-black/40">
           {loading && (
             <div className="flex items-center gap-2 px-3 py-2 text-sm text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -373,13 +373,13 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
                         className={cn(
                           "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors",
                           active
-                            ? "bg-teal-500/15 text-white"
+                            ? "bg-blue-500/15 text-white"
                             : "text-slate-200 hover:bg-white/5"
                         )}
                       >
                         <span className="flex min-w-0 items-center gap-3">
                           <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/5">
-                            <Icon className="h-4 w-4 text-teal-300" />
+                            <Icon className="h-4 w-4 text-blue-300" />
                           </span>
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-medium">

@@ -187,7 +187,7 @@ export function UserFormDialog({
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#0B1120] text-white">
+              <SelectContent className="border-white/10 bg-app text-white">
                 {availableRoles.map((role) => (
                   <SelectItem key={role.value} value={role.value}>
                     {role.label}
@@ -210,7 +210,7 @@ export function UserFormDialog({
                   <SelectTrigger className={inputClass}>
                     <SelectValue placeholder="Select team" />
                   </SelectTrigger>
-                  <SelectContent className="border-white/10 bg-[#0B1120] text-white">
+                  <SelectContent className="border-white/10 bg-app text-white">
                     {teamOptions.map((teamName) => (
                       <SelectItem key={teamName} value={teamName}>
                         {teamName}

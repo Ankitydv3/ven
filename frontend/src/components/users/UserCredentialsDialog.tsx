@@ -89,7 +89,7 @@ export function UserCredentialsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 rounded-xl border border-white/10 bg-[#0B1120]/80 p-4 font-mono text-sm">
+        <div className="space-y-3 rounded-xl border border-white/10 bg-app/80 p-4 font-mono text-sm">
           <div className="flex justify-between gap-4">
             <span className="text-[#64748B]">Employee ID</span>
             <span className="text-white">{credentials.employeeId}</span>

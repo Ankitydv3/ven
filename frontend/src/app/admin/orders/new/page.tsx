@@ -96,7 +96,7 @@ export default function NewOrderPage() {
           </Button>
         </div>
 
-        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#020816] shadow-none">
+        <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none">
           <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6">
             <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
               Order Creation Form
@@ -156,12 +156,12 @@ export default function NewOrderPage() {
                     value={formData.materialType}
                     onChange={(e) => setFormData({ ...formData, materialType: e.target.value as "Aluminium" | "uPVC" })}
                     className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
-                               bg-white dark:bg-[#020816]
+                               bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white"
                   >
-                    <option value="Aluminium" className="bg-[#132f29] text-white">Aluminium</option>
-                    <option value="uPVC" className="bg-[#132f29] text-white">uPVC</option>
+                    <option value="Aluminium" className="bg-app text-white">Aluminium</option>
+                    <option value="uPVC" className="bg-app text-white">uPVC</option>
                   </select>
                 </div>
 

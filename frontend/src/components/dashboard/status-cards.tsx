@@ -118,7 +118,7 @@ export function StatusCards({ data }: StatusCardsProps) {
             className={`
               group relative overflow-hidden rounded-2xl
               border border-slate-200/80 dark:border-white/[0.07]
-              bg-white dark:bg-[#0A0F1E]
+              bg-white dark:bg-app
               shadow-sm hover:shadow-xl ${card.glow}
               transition-shadow duration-300 cursor-default
             `}

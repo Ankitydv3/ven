@@ -95,8 +95,8 @@ export function Navbar() {
     className={cn(
       "sticky top-0 z-40 w-full border-b backdrop-blur-xl transition-all duration-300",
       scrolled
-        ? "border-slate-200/70 bg-black shadow-[0_4px_24px_-12px_rgba(4,52,44,0.12)] dark:border-white/[0.06] dark:bg-black"
-        : "border-transparent bg-black dark:border-transparent dark:bg-black",
+        ? "border-slate-200/70 bg-app shadow-[0_4px_24px_-12px_rgba(37,99,235,0.12)] dark:border-white/[0.06] dark:bg-app"
+        : "border-transparent bg-app dark:border-transparent dark:bg-app",
     )}
     >
       <div className="mx-auto flex max-w-7xl items-center  justify-between gap-4 px-6 py-3.5 lg:px-8">
@@ -122,7 +122,7 @@ export function Navbar() {
                 className={cn(
                   "relative rounded-full px-4 py-2 text-sm font-medium transition-all duration-300",
                   active
-                    ? "bg-[#081024] text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
+                    ? "bg-app text-white shadow-[0_4px_14px_-4px_rgba(47,107,99,0.5)]"
                     : "text-slate-600 hover:bg-slate-100 hover:text-[#2F6B63] dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-[#7BE3CF]",
                 )}
               >
@@ -183,8 +183,8 @@ export function Navbar() {
        className={cn(
         "overflow-hidden border-t backdrop-blur-xl transition-[max-height,opacity,border-color] duration-300 ease-in-out md:hidden",
         open
-          ? "max-h-96 border-slate-200/70 bg-black text-white opacity-100 dark:border-white/[0.06]"
-          : "max-h-0 border-transparent bg-black opacity-0 dark:border-transparent",
+          ? "max-h-96 border-slate-200/70 bg-app text-white opacity-100 dark:border-white/[0.06]"
+          : "max-h-0 border-transparent bg-app opacity-0 dark:border-transparent",
       )}
       >
         <div className="flex flex-col gap-1 px-6 py-4">
