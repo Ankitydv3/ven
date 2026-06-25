@@ -65,7 +65,12 @@ function applyDisplayStatusFilter(filter: Record<string, unknown>, displayStatus
   }
 
   if (displayStatus === "Pending") {
-    filter.status = "Pending Assignment";
+    filter.status = { $in: ["Pending Assignment", "Assigned", "In Progress"] };
+    return;
+  }
+
+  if (displayStatus === "Unresolved") {
+    filter.status = { $in: ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] };
     return;
   }
 

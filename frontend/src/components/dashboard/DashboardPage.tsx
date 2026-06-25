@@ -2,7 +2,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+// import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AreaChart,
@@ -41,7 +41,10 @@ import {
   Zap,
   RefreshCw,
   Calendar,
+  Play,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,8 +57,8 @@ import {
 } from "@/components/ui/dialog";
 import { useSession } from "@/hooks/use-session";
 import { fetchDashboardPage } from "@/services/dashboard";
-import { fetchComplaints } from "@/services/complaints";
-import { fetchTasks } from "@/services/task.service";
+import { fetchComplaints, startComplaint } from "@/services/complaints";
+import { fetchTasks, patchTaskStatus } from "@/services/task.service";
 import { fetchOrders } from "@/services/orders";
 import type { DashboardPageData } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -309,6 +312,7 @@ function KpiDetailsModal({
   type: "complaint" | "task" | "order";
   filters: any;
 }) {
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-details", type, filters],
     queryFn: () => {
@@ -379,17 +383,58 @@ function KpiDetailsModal({
                         : `${item.materialType} · ${item.city}`}
                   </p>
 
-                  <div className="flex items-center gap-3 pt-3 border-t border-white/[0.04] text-[10px] uppercase tracking-wider font-semibold text-slate-500">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </div>
-                    {item.location && (
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Package className="h-3 w-3" />
-                        <span className="truncate">{item.location}</span>
+                  <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
+                    <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(item.createdAt).toLocaleDateString()}
                       </div>
-                    )}
+                      {item.location && (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Package className="h-3 w-3" />
+                          <span className="truncate">{item.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {type === "task" && item.status === "Pending" && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await patchTaskStatus(item._id, "In Progress");
+                              toast.success("Task started");
+                              await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                              await queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
+                            } catch (err) {
+                              toast.error("Failed to start task");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
+                        >
+                          <Play className="h-3 w-3" />
+                          Start Task
+                        </button>
+                      )}
+                      {type === "complaint" && item.status === "Assigned" && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await startComplaint(item._id);
+                              toast.success("Complaint work started");
+                              await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                              await queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
+                            } catch (err) {
+                              toast.error("Failed to start work");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+                        >
+                          <Play className="h-3 w-3" />
+                          Start Work
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -715,6 +760,8 @@ function TaskProgressPanel({ stats, onRowClick }: { stats: DashboardPageData["ta
     { label: "In Progress",value: stats.inProgress, total: stats.totalTasks, color: ACCENT },
     { label: "Pending",    value: stats.pending,    total: stats.totalTasks, color: "#F97316" },
     { label: "Overdue",    value: stats.overdue,    total: stats.totalTasks, color: "#EF4444" },
+    { label: "Need Material", value: stats.needMaterial ?? 0, total: stats.totalTasks, color: "#A855F7" },
+    { label: "Need Re-visit", value: stats.needRevisit ?? 0, total: stats.totalTasks, color: "#3B82F6" },
   ];
 
   return (
@@ -770,9 +817,31 @@ function TaskProgressPanel({ stats, onRowClick }: { stats: DashboardPageData["ta
    SUMMARY TABLES
 ═══════════════════════════════════════════════════════ */
 function SummaryTables({ data }: { data: DashboardPageData }) {
+  const queryClient = useQueryClient();
+
   function taskBadge(status: string) {
     return statusBadgeVariant[status] ?? "default";
   }
+
+  const handleStartTask = async (taskId: string) => {
+    try {
+      await patchTaskStatus(taskId, "In Progress");
+      toast.success("Task started");
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      toast.error("Failed to start task");
+    }
+  };
+
+  const handleStartComplaint = async (complaintId: string) => {
+    try {
+      await startComplaint(complaintId);
+      toast.success("Complaint work started");
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      toast.error("Failed to start work");
+    }
+  };
 
   return (
     <div className="grid gap-5 xl:grid-cols-2">
@@ -800,8 +869,8 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                   <TH>Task ID</TH>
                   <TH>Customer</TH>
                   <TH>Location</TH>
-                  <TH>Assigned</TH>
                   <TH>Status</TH>
+                  <TH className="text-right">Action</TH>
                 </tr>
               </THead>
               <tbody>
@@ -819,11 +888,19 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                       <TD className="max-w-[130px] truncate text-slate-400 text-xs">
                         {visit.complaint?.location ?? "—"}
                       </TD>
-                      <TD className="text-slate-300 text-xs">
-                        {visit.assignedUserName ?? visit.assignedTeamName ?? "Unassigned"}
-                      </TD>
                       <TD>
                         <Badge variant={taskBadge(visit.status)}>{visit.status}</Badge>
+                      </TD>
+                      <TD className="text-right">
+                        {visit.status === "Pending" && (
+                          <button
+                            onClick={() => handleStartTask(visit._id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20"
+                          >
+                            <Play className="h-3 w-3" />
+                            Start
+                          </button>
+                        )}
                       </TD>
                     </TR>
                   ))
@@ -857,9 +934,9 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                 <tr>
                   <TH>ID</TH>
                   <TH>Customer</TH>
-                  <TH>Reason</TH>
                   <TH>Status</TH>
                   <TH>Date</TH>
+                  <TH className="text-right">Action</TH>
                 </tr>
               </THead>
               <tbody>
@@ -874,9 +951,6 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                     <TR key={c._id ?? c.complaintId}>
                       <TD className="font-mono text-xs text-white">{c.complaintId}</TD>
                       <TD className="text-slate-300">{c.clientName ?? "—"}</TD>
-                      <TD className="text-slate-400 text-xs max-w-[140px] truncate">
-                        {c.title ?? c.reason ?? c.assignedTeam ?? "—"}
-                      </TD>
                       <TD>
                         <Badge
                           variant={
@@ -892,6 +966,17 @@ function SummaryTables({ data }: { data: DashboardPageData }) {
                       </TD>
                       <TD className="text-slate-500 text-xs">
                         {new Date(c.updatedAt).toLocaleDateString()}
+                      </TD>
+                      <TD className="text-right">
+                        {c.status === "Assigned" && (
+                          <button
+                            onClick={() => handleStartComplaint(c._id!)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+                          >
+                            <Play className="h-3 w-3" />
+                            Start
+                          </button>
+                        )}
                       </TD>
                     </TR>
                   ))
@@ -951,7 +1036,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: ClipboardList,
         color: KPI_COLORS.received,
-        onClick: () => openDetails("All Complaints Received", "complaint", {}),
+        onClick: () => openDetails("All Complaints Received", "complaint", { scope: "all" }),
       },
       {
         label: "Complaints Resolved",
@@ -969,7 +1054,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: false,
         icon: AlertTriangle,
         color: KPI_COLORS.unresolved,
-        onClick: () => openDetails("Unresolved Complaints", "complaint", { displayStatus: "Pending" }),
+        onClick: () => openDetails("Unresolved Complaints", "complaint", { displayStatus: "Unresolved" }),
       },
       {
         label: "Paid Services Done",
@@ -1044,7 +1129,38 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
       />
       {/* ── Page header ── */}
-     
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1
+            className="text-3xl font-bold tracking-tight"
+            style={{
+              background: `linear-gradient(135deg, #fff 40%, ${ACCENT})`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            {data?.scope?.label ?? "Dashboard"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {new Date().toLocaleDateString("en-IN", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+          style={{ borderColor: BORDER, background: SURFACE }}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} style={{ color: ACCENT }} />
+          Refresh
+        </button>
+      </div>
 
       {isLoading || !data ? (
         <LoadingState />
@@ -1108,6 +1224,8 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
                   "In Progress": "In Progress",
                   "Pending": "Pending",
                   "Overdue": "Overdue",
+                  "Need Material": "Need Material",
+                  "Need Re-visit": "Need Re-visit",
                 };
                 openDetails(
                   label === "Total Tasks" ? "All Tasks" : `${label} Tasks`,

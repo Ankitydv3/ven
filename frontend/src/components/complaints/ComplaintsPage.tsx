@@ -18,6 +18,7 @@ import {
   Loader2,
   Users,
   RefreshCw,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -45,7 +46,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useComplaints, useComplaintStats } from "@/hooks/useComplaints";
 import { useTeams } from "@/hooks/use-teams";
 import { useSession } from "@/hooks/use-session";
-import { assignComplaint, fetchComplaints } from "@/services/complaints";
+import { assignComplaint, fetchComplaints, startComplaint } from "@/services/complaints";
 import { fetchAssignableUsers } from "@/services/users";
 import * as XLSX from "xlsx";
 import { Download } from "lucide-react";
@@ -318,6 +319,19 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
         await queryClient.invalidateQueries({ queryKey: ["alerts"] });
       } catch (err) {
         toast.error(getApiErrorMessage(err, "Assignment failed"));
+      }
+    });
+  };
+
+  const handleStartWork = (complaint: Complaint) => {
+    startTransition(async () => {
+      try {
+        await startComplaint(complaint._id);
+        toast.success("Work started successfully");
+        await refetch();
+        await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, "Failed to start work"));
       }
     });
   };
@@ -595,7 +609,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                   <TH className="w-[10%]">Assigned Team</TH>
                   <TH className="w-[10%]">Status</TH>
                   <TH className="w-[8%]">Date</TH>
-                  {canManage && <TH className="w-[8%] text-right">Actions</TH>}
+                  <TH className="w-[8%] text-right">Actions</TH>
                 </tr>
               </THead>
               <tbody>
@@ -673,30 +687,42 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                             <TD className="whitespace-nowrap text-slate-400">
                               {formatComplaintDate(complaint.createdAt)}
                             </TD>
-                            {canManage && (
-                              <TD className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={!canAssign}
-                                  title={!canAssign ? assignLockReason(complaint) : undefined}
-                                  onClick={() => canAssign && setAssignTarget(complaint)}
-                                  className="h-8 rounded-lg border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 disabled:opacity-40"
-                                >
-                                  {complaint.assignedTeam ? (
-                                    <>
-                                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                                      Reassign
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Users className="mr-1.5 h-3.5 w-3.5" />
-                                      Assign
-                                    </>
-                                  )}
-                                </Button>
-                              </TD>
-                            )}
+                            <TD className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {complaint.status === "Assigned" && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStartWork(complaint)}
+                                    className="h-8 rounded-lg bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-500"
+                                  >
+                                    <Play className="mr-1.5 h-3 w-3" />
+                                    Start
+                                  </Button>
+                                )}
+                                {canManage && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={!canAssign}
+                                    title={!canAssign ? assignLockReason(complaint) : undefined}
+                                    onClick={() => canAssign && setAssignTarget(complaint)}
+                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 disabled:opacity-40"
+                                  >
+                                    {complaint.assignedTeam ? (
+                                      <>
+                                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                                        Reassign
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Users className="mr-1.5 h-3.5 w-3.5" />
+                                        Assign
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            </TD>
                           </TR>
                         );
                       })}
@@ -761,27 +787,39 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                         {formatComplaintDate(complaint.createdAt)}
                       </span>
                     </div>
-                    {canManage && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!canAssign}
-                        onClick={() => canAssign && setAssignTarget(complaint)}
-                        className="w-full rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40"
-                      >
-                        {complaint.assignedTeam ? (
-                          <>
-                            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                            Reassign Team
-                          </>
-                        ) : (
-                          <>
-                            <Users className="mr-1.5 h-3.5 w-3.5" />
-                            Assign
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    <div className="flex flex-col gap-2">
+                      {complaint.status === "Assigned" && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleStartWork(complaint)}
+                          className="w-full rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
+                        >
+                          <Play className="mr-1.5 h-3.5 w-3.5" />
+                          Start Work
+                        </Button>
+                      )}
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!canAssign}
+                          onClick={() => canAssign && setAssignTarget(complaint)}
+                          className="w-full rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40"
+                        >
+                          {complaint.assignedTeam ? (
+                            <>
+                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                              Reassign Team
+                            </>
+                          ) : (
+                            <>
+                              <Users className="mr-1.5 h-3.5 w-3.5" />
+                              Assign
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

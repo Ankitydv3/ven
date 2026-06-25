@@ -31,7 +31,7 @@ async function buildSummary(scope: DashboardScope) {
       Complaint.countDocuments({ ...complaintFilter, status: "Completed" }),
       Complaint.countDocuments({
         ...complaintFilter,
-        status: { $in: ["Pending Assignment", "Assigned", "In Progress"] },
+        status: { $in: ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] },
       }),
       Order.countDocuments({ ...orderFilter, paid: true }),
     ]);
