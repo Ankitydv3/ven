@@ -1,8 +1,5 @@
 import type { ManagedUser } from "@/lib/types";
-
-function escapeCsv(value: string) {
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
+import * as XLSX from "xlsx";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -46,12 +43,10 @@ export function exportUsersToExcel(users: ManagedUser[]) {
     user.createdAt ? new Date(user.createdAt).toLocaleDateString("en-IN") : "",
   ]);
 
-  const tableRows = [headers, ...rows]
-    .map((row) => row.map(escapeCsv).join(","))
-    .join("\n");
-
-  const blob = new Blob([tableRows], { type: "application/vnd.ms-excel;charset=utf-8;" });
-  downloadBlob(blob, `users-export-${Date.now()}.xls`);
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
+  XLSX.writeFile(workbook, `users-export-${Date.now()}.xlsx`);
 }
 
 export function buildCredentialsText(credentials: {

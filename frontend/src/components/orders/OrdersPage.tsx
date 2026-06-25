@@ -55,6 +55,7 @@ import type { Order, OrderFilters } from "@/lib/types";
 import { readUser } from "@/lib/storage";
 import { canManageOrders } from "@/lib/permissions";
 import { downloadOrderImportTemplate, parseOrdersFromFile } from "@/lib/order-import";
+import * as XLSX from "xlsx";
 
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
@@ -115,6 +116,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     customerName: "",
     phone: "",
     email: "",
+    salesPerson: "",
     address: "",
     city: "",
     state: "",
@@ -155,6 +157,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         customerName: editTarget.customerName,
         phone: editTarget.phone,
         email: editTarget.email,
+        salesPerson: editTarget.salesPerson || "",
         address: editTarget.address,
         city: editTarget.city,
         state: editTarget.state,
@@ -250,53 +253,36 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
       const headers = [
         "Order ID",
-        "Customer Name",
-        "Phone",
+        "Name",
+        "Ph No",
         "Email",
-        "Material Type",
-        "Delivery Date",
+        "Material",
+        "Handover Date",
         "Address",
-        "City",
-        "State",
-        "Pincode",
-        "Payment Status",
-        "Unpaid Service",
-        "Status",
-        "Amount (INR)",
-        "Assigned Team",
-        "Category"
+        "Sales Person"
       ];
 
       const csvRows = ordersToExport.map((o) => [
         o.orderId,
-        `"${o.customerName.replace(/"/g, '""')}"`,
+        o.customerName,
         o.phone,
         o.email,
         o.materialType,
-        new Date(o.deliveryDate).toLocaleDateString(),
-        `"${o.address.replace(/"/g, '""')}"`,
-        `"${o.city.replace(/"/g, '""')}"`,
-        `"${o.state.replace(/"/g, '""')}"`,
-        o.pincode,
-        o.paid ? "Paid" : "Unpaid",
-        o.unpaidServiceAvailable ? "Yes" : "No",
-        o.status,
-        o.amount,
-        `"${(o.assignedTeam || "").replace(/"/g, '""')}"`,
-        o.category || "General"
+        new Date(o.deliveryDate).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        }),
+        `${o.address || ""}, ${o.city || ""}, ${o.state || ""} ${o.pincode || ""}`,
+        o.salesPerson || ""
       ]);
 
-      const csvContent = [headers.join(","), ...csvRows.map((row) => row.join(","))].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...csvRows]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+      XLSX.writeFile(workbook, `Orders_Report_${Date.now()}.xlsx`);
 
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Orders_Report_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success(`Successfully exported ${ordersToExport.length} orders to CSV`);
+      toast.success(`Successfully exported ${ordersToExport.length} orders to Excel`);
     } catch (error) {
       toast.error("Failed to export order report");
     }
@@ -469,7 +455,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     variant="outline"
                     className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
                   >
-                    <Download className="mr-2 h-4 w-4" /> Export report
+                    <Download className="mr-2 h-4 w-4" /> Export
                   </Button>
                   <Button
                     onClick={() => router.push("/admin/orders/new")}
@@ -652,13 +638,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         <div className="hidden rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app overflow-hidden md:block">
           <Table>
             <TableElement>
-              <THead>
+                  <THead>
                 <tr className="border-b border-slate-100 dark:border-white/[0.06]">
                   <TH className="w-[10%]">Order ID</TH>
-                  <TH className="w-[18%]">Customer Name</TH>
-                  <TH className="w-[25%]">Address</TH>
-                  <TH className="w-[12%]">Material Type</TH>
-                  <TH className="w-[12%]">Order Date</TH>
+                  <TH className="w-[15%]">Customer Name</TH>
+                  <TH className="w-[10%]">Sales Person</TH>
+                  <TH className="w-[20%]">Address</TH>
+                  <TH className="w-[10%]">Material Type</TH>
+                  <TH className="w-[12%]">Handover Date</TH>
                   <TH className="w-[13%]">Unpaid Service Available</TH>
                   <TH className="text-right w-[10%]">Actions</TH>
                 </tr>
@@ -667,14 +654,14 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 {isLoading ? (
                   Array.from({ length: 4 }).map((_, idx) => (
                     <TR key={idx}>
-                      <TD colSpan={7}>
+                      <TD colSpan={8}>
                         <Skeleton className="h-10 rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
                       </TD>
                     </TR>
                   ))
                 ) : items.length === 0 ? (
                   <TR>
-                    <TD colSpan={7}>
+                    <TD colSpan={8}>
                       <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
                         <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">
                           No orders found
@@ -713,6 +700,11 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                             {order.phone}
                           </span>
                         </div>
+                      </TD>
+
+                      {/* Sales Person */}
+                      <TD className="text-slate-700 dark:text-white/70 text-sm">
+                        {order.salesPerson || "—"}
                       </TD>
 
                       {/* Address */}
@@ -856,7 +848,11 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#378ADD]">Delivery Date</span>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Sales Person</span>
+                      <span className="font-medium">{order.salesPerson || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Handover Date</span>
                       <span>{new Date(order.deliveryDate).toLocaleDateString()}</span>
                     </div>
                     <div>
@@ -1008,10 +1004,16 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                         {viewTarget.phone}
                       </span>
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Email</span>
                       <span className="font-medium text-slate-800 dark:text-white">
                         {viewTarget.email}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-slate-400 dark:text-slate-500">Sales Person</span>
+                      <span className="font-medium text-slate-800 dark:text-white">
+                        {viewTarget.salesPerson || "—"}
                       </span>
                     </div>
                   </div>
@@ -1054,7 +1056,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">
-                        Delivery Date
+                        Handover Date
                       </span>
                       <span className="font-medium text-slate-800 dark:text-white">
                         {new Date(viewTarget.deliveryDate).toLocaleDateString("en-US", {
@@ -1143,6 +1145,17 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   {editErrors.email && <p className="text-[10px] text-red-500">{editErrors.email}</p>}
                 </div>
 
+                {/* Sales Person */}
+                <div className="space-y-1">
+                  <Label htmlFor="editSalesPerson">Sales Person</Label>
+                  <Input
+                    id="editSalesPerson"
+                    value={editForm.salesPerson}
+                    onChange={(e) => setEditForm({ ...editForm, salesPerson: e.target.value })}
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
+                  />
+                </div>
+
                 {/* Material Type */}
                 <div className="space-y-1">
                   <Label htmlFor="editMaterialType">Material Type</Label>
@@ -1220,7 +1233,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
                 {/* Delivery Date */}
                 <div className="space-y-1">
-                  <Label htmlFor="editDeliveryDate">Delivery Date</Label>
+                  <Label htmlFor="editDeliveryDate">Handover Date</Label>
                   <Input
                     id="editDeliveryDate"
                     type="date"

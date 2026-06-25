@@ -132,8 +132,10 @@ export function ReportsPage({ role = "admin" }: { role?: "admin" | "team" }) {
   }, [data]);
 
   const handleExport = useCallback(() => {
-    exportReports.mutate(filters);
-  }, [exportReports, filters]);
+    if (data) {
+      exportReports.mutate(data);
+    }
+  }, [exportReports, data]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);

@@ -71,11 +71,9 @@ export const downloadInvoice = async (id: string) => {
   return response.blob();
 };
 
-export const exportPaymentsCSV = () => {
-  const token = localStorage.getItem("complaint-system-token");
-
-  window.open(
-    `${process.env.NEXT_PUBLIC_API_URL}/payments/export/csv?token=${token}`,
-    "_blank"
-  );
+export const exportPaymentsCSV = async (filters?: PaymentFilters): Promise<Payment[]> => {
+  const { data } = await api.get("/payments", {
+    params: { ...filters, page: 1, limit: 10000 }
+  });
+  return data.items;
 };

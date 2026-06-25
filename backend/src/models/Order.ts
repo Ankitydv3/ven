@@ -59,6 +59,12 @@ const orderSchema = new Schema(
       index: true
     },
 
+    salesPerson: {
+      type: String,
+      default: "",
+      trim: true
+    },
+
     deliveryDate: {
       type: Date,
       required: true

@@ -57,7 +57,7 @@ export function PaymentTable() {
     downloadInvoice.mutate(id);
   };
 
-  const handleExportCSV = () => {
+  const handleExport = () => {
     exportCSV.mutate({
       status: statusFilter || undefined,
     });
@@ -123,7 +123,7 @@ export function PaymentTable() {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleExportCSV}
+          onClick={handleExport}
           disabled={exportCSV.isPending}
           className="h-10 rounded-xl border-slate-200 dark:border-white/10"
         >
@@ -132,7 +132,7 @@ export function PaymentTable() {
           ) : (
             <FileDown className="mr-2 h-4 w-4" />
           )}
-          Export CSV
+          Export
         </Button>
       </div>
 

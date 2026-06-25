@@ -146,6 +146,8 @@ export interface Order {
 
   materialType: "Aluminium" | "uPVC";
 
+  salesPerson?: string;
+
   deliveryDate: string;
 
   complaintType?: string;

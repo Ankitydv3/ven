@@ -45,8 +45,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useComplaints, useComplaintStats } from "@/hooks/useComplaints";
 import { useTeams } from "@/hooks/use-teams";
 import { useSession } from "@/hooks/use-session";
-import { assignComplaint } from "@/services/complaints";
+import { assignComplaint, fetchComplaints } from "@/services/complaints";
 import { fetchAssignableUsers } from "@/services/users";
+import * as XLSX from "xlsx";
+import { Download } from "lucide-react";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 import { canManageComplaints } from "@/lib/permissions";
@@ -320,6 +322,59 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
     });
   };
 
+  const handleExport = async () => {
+    try {
+      const fullFilters = {
+        ...listParams,
+        page: 1,
+        limit: 1000,
+      };
+
+      const response = await fetchComplaints(fullFilters);
+      const complaintsToExport = response.items;
+
+      if (!complaintsToExport || complaintsToExport.length === 0) {
+        toast.error("No complaints found to export");
+        return;
+      }
+
+      const headers = [
+        "Complaint ID",
+        "Customer Name",
+        "Mobile",
+        "Address",
+        "Title",
+        "Description",
+        "Assigned Team",
+        "Status",
+        "Workflow Stage",
+        "Created Date",
+      ];
+
+      const rows = complaintsToExport.map((c) => [
+        c.complaintId,
+        c.clientName,
+        c.mobileNumber,
+        c.location,
+        c.title,
+        c.description,
+        c.assignedTeam || "—",
+        c.status,
+        getComplaintWorkflowStage(c),
+        new Date(c.createdAt).toLocaleDateString("en-IN"),
+      ]);
+
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Complaints");
+      XLSX.writeFile(workbook, `Complaints_Report_${Date.now()}.xlsx`);
+
+      toast.success(`Successfully exported ${complaintsToExport.length} complaints to Excel`);
+    } catch (error) {
+      toast.error("Failed to export complaints");
+    }
+  };
+
   if (!ready) return null;
 
   return (
@@ -482,6 +537,17 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {canManage && (
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                className="h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs text-white hover:bg-white/10"
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Export
+              </Button>
+            )}
 
             {canManage && (
               <Button

@@ -29,6 +29,7 @@ export default function NewOrderPage() {
   state: "",
   pincode: "",
   materialType: "Aluminium" as "Aluminium" | "uPVC",
+  salesPerson: "",
   deliveryDate: new Date().toISOString().split("T")[0]
 });
 
@@ -154,6 +155,18 @@ export default function NewOrderPage() {
                   {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                 </div>
 
+                {/* Sales Person */}
+                <div className="space-y-2">
+                  <Label htmlFor="salesPerson" className="text-slate-700 dark:text-white/80">Sales Person</Label>
+                  <Input
+                    id="salesPerson"
+                    value={formData.salesPerson}
+                    onChange={(e) => setFormData({ ...formData, salesPerson: e.target.value })}
+                    placeholder="Enter sales person name"
+                    className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
+                  />
+                </div>
+
                 {/* Material Type */}
                 <div className="space-y-2">
                   <Label htmlFor="materialType" className="text-slate-700 dark:text-white/80">Material Type</Label>
@@ -171,9 +184,9 @@ export default function NewOrderPage() {
                   </select>
                 </div>
 
-                {/* Delivery Date */}
+                {/* Handover Date */}
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryDate" className="text-slate-700 dark:text-white/80">Delivery Date</Label>
+                  <Label htmlFor="deliveryDate" className="text-slate-700 dark:text-white/80">Handover Date</Label>
                   <Input
                     id="deliveryDate"
                     type="date"
