@@ -33,7 +33,6 @@ export const navGroups: { admin: NavItem[]; team: NavItem[]; store: NavItem[] } 
   admin: [
     { href: "/admin/dashboard", label: "Dashboard" },
     
-    // { href: "/team/customers", label: "Customers" },
     { href: "/admin/complaints", label: "Complaints" },
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/payments", label: "Payments" },
@@ -48,7 +47,6 @@ export const navGroups: { admin: NavItem[]; team: NavItem[]; store: NavItem[] } 
     { href: "/team/dashboard", label: "Dashboard" },
     
     { href: "/team/complaints", label: "Complaints" },
-    { href: "/team/orders", label: "All Orders" },
      { href: "/team/my-tasks", label: "My Tasks" },
     { href: "/team/material-requests", label: "Material Requests" },
     { href: "/team/reports", label: "Reports" },
