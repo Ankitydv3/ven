@@ -784,6 +784,8 @@ export async function patchTaskStatusById(
       assignedUserId: task.assignedUserId,
       assignedUserName: task.assignedUserName,
       assignedTeamName: task.assignedTeamName,
+    }, {
+      photoUrl: options?.photoUrl,
     });
   }
 
@@ -822,7 +824,8 @@ export async function syncComplaintFromTask(
     assignedUserId?: { toString(): string } | string | null;
     assignedUserName?: string;
     assignedTeamName?: string;
-  }
+  },
+  options?: { photoUrl?: string }
 ) {
   const complaint = await Complaint.findOne({ complaintId });
   if (!complaint) {
@@ -850,6 +853,9 @@ export async function syncComplaintFromTask(
     complaint.status = "Completed";
     complaint.completedBy = actor?.name ?? complaint.completedBy ?? "Team";
     complaint.completedDate = new Date();
+    if (options?.photoUrl) {
+      complaint.completionPictureUrl = options.photoUrl;
+    }
     if (!wasCompleted) {
       complaint.history.push({
         action: "Task Completed (Schedule)",

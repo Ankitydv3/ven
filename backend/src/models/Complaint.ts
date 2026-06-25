@@ -42,6 +42,7 @@ const complaintSchema = new Schema(
     },
     remarks: { type: String, default: "" },
     resolutionDetails: { type: String, default: "" },
+    completionPictureUrl: { type: String, default: "" },
     assignedBy: { type: String, default: "" },
     completedBy: { type: String, default: "" },
     assignedDate: { type: Date },
