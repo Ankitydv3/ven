@@ -26,7 +26,6 @@ import {
   CreditCard,
   Package,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -341,7 +340,7 @@ export function DashboardShell({
             ) : null}
 
             <div className="flex flex-wrap items-center gap-2 flex-shrink-0 lg:justify-end">
-              <ThemeToggle />
+              
               <Button
                 variant="outline"
                 size="sm"

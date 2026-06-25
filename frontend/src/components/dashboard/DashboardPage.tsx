@@ -40,13 +40,23 @@ import {
   ArrowUpRight,
   Zap,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useSession } from "@/hooks/use-session";
 import { fetchDashboardPage } from "@/services/dashboard";
+import { fetchComplaints } from "@/services/complaints";
+import { fetchTasks } from "@/services/task.service";
+import { fetchOrders } from "@/services/orders";
 import type { DashboardPageData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { statusBadgeVariant } from "@/lib/task-constants";
@@ -179,6 +189,7 @@ function KpiCard({
   delta,
   positive,
   color,
+  onClick,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
@@ -186,49 +197,74 @@ function KpiCard({
   delta: string;
   positive: boolean;
   color: { gradient: string[]; glow: string; text: string };
+  onClick?: () => void;
 }) {
   return (
-    <motion.div variants={fadeUp}>
-      <GlassCard glow={color.glow} className="p-4 lg:p-5 group cursor-default">
-        {/* icon */}
-        <div
-          className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
-          style={{
-            background: `linear-gradient(135deg, ${color.gradient[0]}, ${color.gradient[1]})`,
-            boxShadow: `0 4px 20px ${color.glow}`,
-          }}
-        >
-          <Icon className="h-5 w-5 text-white" />
-        </div>
+    <motion.div variants={fadeUp} onClick={onClick}>
+  <GlassCard
+    glow={color.glow}
+    className={cn(
+      "relative p-4 lg:p-5 group",
+      onClick ? "cursor-pointer" : "cursor-default"
+    )}
+  >
+    {/* Icon + Label */}
+    <div className="flex items-center gap-3 mb-4">
+      <div
+        className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
+        style={{
+          background: `linear-gradient(135deg, ${color.gradient[0]}, ${color.gradient[1]})`,
+          boxShadow: `0 4px 20px ${color.glow}`,
+        }}
+      >
+        <Icon className="h-5 w-5 text-white" />
+      </div>
 
-        {/* value */}
+      <div>
         <p className="text-3xl font-bold tracking-tight text-white">
-          {value.toLocaleString()}
+      {value.toLocaleString()}
+    </p>
+       
+      </div>
+    </div>
+
+    {/* Value */}
+     <p className="text-sm font-semibold text-white">{label}</p>
+        <p className="text-xs text-slate-400">
+          Monitor and track performance
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-400 leading-snug">{label}</p>
 
-        {/* delta */}
-        <div className="mt-3 flex items-center gap-1.5">
-          {positive ? (
-            <TrendingUp className={cn("h-3.5 w-3.5", color.text)} />
-          ) : (
-            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-          )}
-          <span
-            className={cn("text-xs font-semibold", positive ? color.text : "text-red-400")}
-          >
-            {delta}
-          </span>
-          <span className="text-xs text-slate-500">vs last month</span>
-        </div>
+    {/* Delta */}
+    <div className="mt-3 flex items-center gap-1.5">
+      {positive ? (
+        <TrendingUp className={cn("h-3.5 w-3.5", color.text)} />
+      ) : (
+        <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+      )}
 
-        {/* hover accent line */}
-        <div
-          className="absolute inset-x-0 bottom-0 h-0.5 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-b-2xl"
-          style={{ background: `linear-gradient(90deg,${color.gradient[0]},${color.gradient[1]})` }}
-        />
-      </GlassCard>
-    </motion.div>
+      <span
+        className={cn(
+          "text-xs font-semibold",
+          positive ? color.text : "text-red-400"
+        )}
+      >
+        {delta}
+      </span>
+
+      <span className="text-xs text-slate-500">
+        vs last month
+      </span>
+    </div>
+
+    {/* Hover line */}
+    <div
+      className="absolute inset-x-0 bottom-0 h-0.5 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-b-2xl"
+      style={{
+        background: `linear-gradient(90deg,${color.gradient[0]},${color.gradient[1]})`,
+      }}
+    />
+  </GlassCard>
+</motion.div>
   );
 }
 
@@ -258,9 +294,117 @@ function LoadingState() {
 
 
 /* ═══════════════════════════════════════════════════════
+   DETAILS MODAL
+═══════════════════════════════════════════════════════ */
+function KpiDetailsModal({
+  isOpen,
+  onClose,
+  title,
+  type,
+  filters,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  type: "complaint" | "task" | "order";
+  filters: any;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-details", type, filters],
+    queryFn: () => {
+      if (type === "complaint") return fetchComplaints(filters);
+      if (type === "task") return fetchTasks(filters);
+      return fetchOrders(filters);
+    },
+    enabled: isOpen,
+  });
+
+  const items = data?.items ?? [];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-[#0b1424] border-white/10 text-white p-0">
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle className="text-xl font-bold text-white">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar">
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-2xl bg-white/5" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-24 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                <ClipboardList className="h-8 w-8 text-slate-600" />
+              </div>
+              <p className="text-slate-400 font-medium">No records found matching this category.</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {items.map((item: any) => (
+                <div
+                  key={item._id}
+                  className="p-4 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05] transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-2.5">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[11px] text-blue-400/80 mb-0.5">
+                        {type === "complaint" ? item.complaintId : type === "task" ? item.taskId : item.orderId}
+                      </p>
+                      <h4 className="text-sm font-bold text-white truncate">
+                        {type === "complaint" ? item.clientName : type === "task" ? item.title : item.customerName}
+                      </h4>
+                    </div>
+                    <Badge
+                      className="shrink-0"
+                      variant={
+                        item.status === "Completed" || item.status === "Resolved"
+                          ? "success"
+                          : item.status === "In Progress"
+                          ? "info"
+                          : "warning"
+                      }
+                    >
+                      {item.status}
+                    </Badge>
+                  </div>
+
+                  <p className="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed h-8">
+                    {type === "complaint"
+                      ? item.description
+                      : type === "task"
+                        ? item.description || "No description provided."
+                        : `${item.materialType} · ${item.city}`}
+                  </p>
+
+                  <div className="flex items-center gap-3 pt-3 border-t border-white/[0.04] text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </div>
+                    {item.location && (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Package className="h-3 w-3" />
+                        <span className="truncate">{item.location}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    DONUT — complaints overview
 ═══════════════════════════════════════════════════════ */
-function ComplaintsDonut({ data }: { data: DashboardPageData }) {
+function ComplaintsDonut({ data, onSliceClick }: { data: DashboardPageData; onSliceClick?: (name: string) => void }) {
   const slices = useMemo(() => {
     return [
       { name: "Resolved", value: data.summary.complaintsResolved },
@@ -297,6 +441,8 @@ function ComplaintsDonut({ data }: { data: DashboardPageData }) {
               startAngle={90}
               endAngle={-270}
               stroke="none"
+              onClick={(slice) => onSliceClick?.(slice.name)}
+              className="cursor-pointer"
             >
               {slices.map((entry) => (
                 <Cell
@@ -319,9 +465,13 @@ function ComplaintsDonut({ data }: { data: DashboardPageData }) {
           const pct = total ? ((s.value / total) * 100).toFixed(1) : "0.0";
           const color = REASON_COLORS[s.name] ?? "#94A3B8";
           return (
-            <div key={s.name} className="flex items-center gap-2 text-sm">
+            <div
+              key={s.name}
+              className="flex items-center gap-2 text-sm cursor-pointer group"
+              onClick={() => onSliceClick?.(s.name)}
+            >
               <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-              <span className="text-slate-400 truncate flex-1 text-xs">{s.name}</span>
+              <span className="text-slate-400 truncate flex-1 text-xs group-hover:text-slate-200 transition-colors">{s.name}</span>
               <span className="text-white font-semibold text-xs">{s.value}</span>
               <span className="text-slate-500 text-xs w-11 text-right">{pct}%</span>
             </div>
@@ -335,7 +485,7 @@ function ComplaintsDonut({ data }: { data: DashboardPageData }) {
 /* ═══════════════════════════════════════════════════════
    BAR CHART — categories
 ═══════════════════════════════════════════════════════ */
-function CategoriesBar({ data }: { data: DashboardPageData["categories"] }) {
+function CategoriesBar({ data, onBarClick }: { data: DashboardPageData["categories"]; onBarClick?: (name: string) => void }) {
   const barColors = ["#85B7EB","#A855F7","#3B82F6","#F97316","#22C55E"];
 
   const enriched = data.map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
@@ -353,6 +503,12 @@ function CategoriesBar({ data }: { data: DashboardPageData["categories"] }) {
           layout="vertical"
           margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
           barCategoryGap="30%"
+          onClick={(data) => {
+            if (data && data.activePayload && data.activePayload[0]) {
+              onBarClick?.(data.activePayload[0].payload.name);
+            }
+          }}
+          style={{ cursor: "pointer" }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
           <XAxis
@@ -387,9 +543,11 @@ function CategoriesBar({ data }: { data: DashboardPageData["categories"] }) {
 function ComplaintsByReason({
   unresolved,
   resolved,
+  onItemClick,
 }: {
   unresolved: DashboardPageData["unresolvedReasons"];
   resolved: DashboardPageData["resolvedReasons"];
+  onItemClick?: (name: string, view: "resolved" | "unresolved") => void;
 }) {
   const [view, setView] = useState<"unresolved" | "resolved">("unresolved");
   const data = view === "unresolved" ? unresolved : resolved;
@@ -456,7 +614,8 @@ function ComplaintsByReason({
                   return (
                     <div
                       key={item.name}
-                      className="rounded-xl p-4"
+                      className="rounded-xl p-4 cursor-pointer hover:scale-[1.02] transition-transform"
+                      onClick={() => onItemClick?.(item.name, view)}
                       style={{
                         background: `${color}10`,
                         border: `1px solid ${color}25`,
@@ -494,6 +653,8 @@ function ComplaintsByReason({
                         outerRadius={74}
                         paddingAngle={2}
                         stroke="none"
+                        onClick={(slice) => onItemClick?.(slice.name, view)}
+                        className="cursor-pointer"
                       >
                         {data.map((item) => (
                           <Cell
@@ -516,10 +677,14 @@ function ComplaintsByReason({
                     const color = REASON_COLORS[item.name] ?? "#64748B";
                     const pct = ((item.value / total) * 100).toFixed(1);
                     return (
-                      <div key={item.name} className="flex items-center justify-between text-xs">
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between text-xs cursor-pointer group"
+                        onClick={() => onItemClick?.(item.name, view)}
+                      >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                          <span className="text-slate-400 truncate">{item.name}</span>
+                          <span className="text-slate-400 truncate group-hover:text-slate-200 transition-colors">{item.name}</span>
                         </div>
                         <span className="text-slate-300 font-medium ml-2 shrink-0">
                           {item.value} ({pct}%)
@@ -544,7 +709,7 @@ function ComplaintsByReason({
 /* ═══════════════════════════════════════════════════════
    TASK PROGRESS — visual ring rows
 ═══════════════════════════════════════════════════════ */
-function TaskProgressPanel({ stats }: { stats: DashboardPageData["taskStats"] }) {
+function TaskProgressPanel({ stats, onRowClick }: { stats: DashboardPageData["taskStats"]; onRowClick?: (label: string) => void }) {
   const rows = [
     { label: "Completed",  value: stats.completed,  total: stats.totalTasks, color: "#22C55E" },
     { label: "In Progress",value: stats.inProgress, total: stats.totalTasks, color: ACCENT },
@@ -569,9 +734,9 @@ function TaskProgressPanel({ stats }: { stats: DashboardPageData["taskStats"] })
         {rows.map((r) => {
           const pct = r.total > 0 ? (r.value / r.total) * 100 : 0;
           return (
-            <div key={r.label}>
+            <div key={r.label} className="cursor-pointer group" onClick={() => onRowClick?.(r.label)}>
               <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="text-slate-400">{r.label}</span>
+                <span className="text-slate-400 group-hover:text-slate-200 transition-colors">{r.label}</span>
                 <span className="font-semibold text-white">{r.value}</span>
               </div>
               <div
@@ -591,9 +756,9 @@ function TaskProgressPanel({ stats }: { stats: DashboardPageData["taskStats"] })
         })}
       </div>
 
-      <div className="mt-6 pt-4 border-t" style={{ borderColor: BORDER }}>
+      <div className="mt-6 pt-4 border-t cursor-pointer group" style={{ borderColor: BORDER }} onClick={() => onRowClick?.("Total Tasks")}>
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Total Tasks</span>
+          <span className="group-hover:text-slate-200 transition-colors">Total Tasks</span>
           <span className="text-white font-bold text-sm">{stats.totalTasks}</span>
         </div>
       </div>
@@ -752,6 +917,22 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
     refetchInterval: 30_000,
   });
 
+  const [detailModal, setDetailModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    type: "complaint" | "task";
+    filters: any;
+  }>({
+    isOpen: false,
+    title: "",
+    type: "complaint",
+    filters: {},
+  });
+
+  const openDetails = (title: string, type: "complaint" | "task", filters: any) => {
+    setDetailModal({ isOpen: true, title, type, filters });
+  };
+
   const summaryCards = useMemo(
     () => [
       {
@@ -761,6 +942,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: ShoppingCart,
         color: KPI_COLORS.orders,
+        onClick: () => openDetails("All Orders", "order", {}),
       },
       {
         label: "Complaints Received",
@@ -769,6 +951,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: ClipboardList,
         color: KPI_COLORS.received,
+        onClick: () => openDetails("All Complaints Received", "complaint", {}),
       },
       {
         label: "Complaints Resolved",
@@ -777,6 +960,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: CheckCircle2,
         color: KPI_COLORS.resolved,
+        onClick: () => openDetails("Resolved Complaints", "complaint", { displayStatus: "Completed" }),
       },
       {
         label: "Unresolved",
@@ -785,6 +969,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: false,
         icon: AlertTriangle,
         color: KPI_COLORS.unresolved,
+        onClick: () => openDetails("Unresolved Complaints", "complaint", { displayStatus: "Pending" }),
       },
       {
         label: "Paid Services Done",
@@ -793,6 +978,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: Wallet,
         color: KPI_COLORS.paid,
+        onClick: () => openDetails("Paid Services Completed", "order", { paid: true, status: "Completed" }),
       },
     ],
     [data]
@@ -807,6 +993,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: ListTodo,
         color: KPI_COLORS.received,
+        onClick: () => openDetails("All Assigned Tasks", "task", {}),
       },
       {
         label: "Pending Tasks",
@@ -815,6 +1002,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: false,
         icon: Clock,
         color: KPI_COLORS.unresolved,
+        onClick: () => openDetails("Pending Tasks", "task", { status: "Pending" }),
       },
       {
         label: "In Progress",
@@ -823,6 +1011,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: ClipboardList,
         color: KPI_COLORS.orders,
+        onClick: () => openDetails("Tasks In Progress", "task", { status: "In Progress" }),
       },
       {
         label: "Completed",
@@ -831,6 +1020,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: true,
         icon: CheckCircle2,
         color: KPI_COLORS.resolved,
+        onClick: () => openDetails("Completed Tasks", "task", { status: "Completed" }),
       },
       {
         label: "Overdue",
@@ -839,6 +1029,7 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
         positive: false,
         icon: AlertTriangle,
         color: KPI_COLORS.unresolved,
+        onClick: () => openDetails("Overdue Tasks", "task", { status: "Overdue" }),
       },
     ],
     [data]
@@ -848,39 +1039,12 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
 
   return (
     <DashboardShell role={role}>
+      <KpiDetailsModal
+        {...detailModal}
+        onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
+      />
       {/* ── Page header ── */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1
-            className="text-3xl font-bold tracking-tight"
-            style={{
-              background: `linear-gradient(135deg, #fff 40%, ${ACCENT})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {new Date().toLocaleDateString("en-IN", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
-          style={{ borderColor: BORDER, background: SURFACE }}
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} style={{ color: ACCENT }} />
-          Refresh
-        </button>
-      </div>
+     
 
       {isLoading || !data ? (
         <LoadingState />
@@ -931,9 +1095,27 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
           {/* ── Row: Categories bar + Task progress ── */}
           <motion.div variants={fadeUp} className="grid gap-5 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <CategoriesBar data={data.categories} />
+              <CategoriesBar
+                data={data.categories}
+                onBarClick={(name) => openDetails(`Category: ${name}`, "complaint", { displayStatus: name })}
+              />
             </div>
-            <TaskProgressPanel stats={data.taskStats} />
+            <TaskProgressPanel
+              stats={data.taskStats}
+              onRowClick={(label) => {
+                const statusMap: Record<string, string> = {
+                  "Completed": "Completed",
+                  "In Progress": "In Progress",
+                  "Pending": "Pending",
+                  "Overdue": "Overdue",
+                };
+                openDetails(
+                  label === "Total Tasks" ? "All Tasks" : `${label} Tasks`,
+                  "task",
+                  label === "Total Tasks" ? {} : { status: statusMap[label] }
+                );
+              }}
+            />
           </motion.div>
 
           {/* ── Reason breakdown toggle ── */}
@@ -941,6 +1123,10 @@ export function DashboardPage({ role }: { role: "admin" | "team" }) {
             <ComplaintsByReason
               unresolved={data.unresolvedReasons}
               resolved={data.resolvedReasons}
+              onItemClick={(name, view) => {
+                const displayStatus = view === "resolved" ? "Completed" : name;
+                openDetails(`${name} Complaints (${view})`, "complaint", { displayStatus });
+              }}
             />
           </motion.div>
 
