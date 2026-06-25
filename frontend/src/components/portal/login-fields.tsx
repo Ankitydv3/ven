@@ -13,6 +13,8 @@ import { loginUser } from "@/services/auth";
 import { saveSession } from "@/lib/storage";
 import { getDashboardPathForRole } from "@/lib/auth-routes";
 import { portalInputClass, portalLabelClass } from "@/lib/portal-styles";
+import { Eye, EyeOff,  } from "lucide-react";
+
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -24,6 +26,8 @@ type LoginValues = z.infer<typeof schema>;
 export function LoginFields() {
   const [pending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
+  
+const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -80,11 +84,23 @@ export function LoginFields() {
         <div className="relative">
           <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-white/20" />
           <Input
-            type="password"
-            placeholder="••••••••"
-            className={`${portalInputClass} pl-10`}
-            {...form.register("password")}
-          />
+  type={showPassword ? "text" : "password"}
+  placeholder="••••••••"
+  className={`${portalInputClass} pl-10 pr-10`}
+  {...form.register("password")}
+/>
+
+<button
+  type="button"
+  onClick={() => setShowPassword(!showPassword)}
+  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+>
+  {showPassword ? (
+    <EyeOff className="h-4 w-4" />
+  ) : (
+    <Eye className="h-4 w-4" />
+  )}
+</button>
         </div>
         {form.formState.errors.password && (
           <p className="flex items-center gap-1.5 text-sm text-rose-500">
@@ -96,7 +112,7 @@ export function LoginFields() {
 
       <div className="flex justify-end">
         <a href="#" className="text-[11.5px] font-light text-[#85B7EB]/50 transition-colors hover:text-[#85B7EB]">
-          Forgot password?
+          Forgot password
         </a>
       </div>
 
