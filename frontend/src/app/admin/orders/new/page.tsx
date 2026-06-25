@@ -61,7 +61,16 @@ export default function NewOrderPage() {
     if (!formData.city.trim()) newErrors.city = "City is required";
     if (!formData.state.trim()) newErrors.state = "State is required";
     if (!formData.pincode.trim()) newErrors.pincode = "Pincode is required";
-    if (!formData.deliveryDate) newErrors.deliveryDate = "Delivery date is required";
+    if (!formData.deliveryDate) {
+      newErrors.deliveryDate = "Delivery date is required";
+    } else {
+      const selectedDate = new Date(formData.deliveryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate > today) {
+        newErrors.deliveryDate = "Delivery date cannot be in the future";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -190,6 +199,7 @@ export default function NewOrderPage() {
                   <Input
                     id="deliveryDate"
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     value={formData.deliveryDate}
                     onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"

@@ -15,7 +15,7 @@ export const ROLE_RANK: Record<UserRole, number> = {
 
 export const MANAGEABLE_ROLES: Record<UserRole, UserRole[]> = {
   super_admin: ["admin", "sub_admin", "team", "store_manager"],
-  admin: ["sub_admin", "team", "store_manager"],
+  admin: ["admin", "sub_admin", "team", "store_manager"],
   sub_admin: ["sub_admin", "team", "store_manager"],
   team_lead: [],
   manager: [],
@@ -38,6 +38,8 @@ export function getRoleRank(role: string): number {
 }
 
 export function canManageRole(actorRole: string, targetRole: string): boolean {
+  if (actorRole === "super_admin") return true;
+  if (actorRole === "admin" && targetRole === "admin") return true;
   return getRoleRank(actorRole) < getRoleRank(targetRole);
 }
 

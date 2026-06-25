@@ -155,7 +155,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             id: `order-${item._id}`,
             type: "order",
             title: item.orderId,
-            subtitle: item.customerName,
+            subtitle: `${item.customerName}${item.phone ? ` • ${item.phone}` : ""}`,
             href: `/admin/orders?q=${encodeURIComponent(item.orderId)}`,
           });
         }
@@ -167,7 +167,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             id: `user-${item._id}`,
             type: "user",
             title: item.name,
-            subtitle: item.email,
+            subtitle: `${item.email}${item.mobile ? ` • ${item.mobile}` : ""}`,
             href: `/admin/users?q=${encodeURIComponent(item.name)}`,
           });
         }

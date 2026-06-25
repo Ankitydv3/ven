@@ -36,7 +36,12 @@ const schema = z.object({
   description: z.string().trim().optional(),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   assignedUserId: z.string().min(1, "Assignee is required"),
-  dueDate: z.string().min(1, "Due date is required"),
+  dueDate: z.string().min(1, "Due date is required").refine((date) => {
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate >= today;
+  }, "Due date cannot be in the past"),
   remarks: z.string().optional(),
 });
 
@@ -208,9 +213,13 @@ export function CreateTaskModal({
               <Input
                 id="dueDate"
                 type="date"
+                min={new Date().toISOString().slice(0, 10)}
                 className="border-white/10 bg-white/[0.03]"
                 {...form.register("dueDate")}
               />
+              {form.formState.errors.dueDate && (
+                <p className="text-xs text-red-400">{form.formState.errors.dueDate.message}</p>
+              )}
             </div>
           </div>
 

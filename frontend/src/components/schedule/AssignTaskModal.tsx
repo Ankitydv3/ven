@@ -38,7 +38,15 @@ const assignSchema = z.object({
   customerName: z.string().trim().min(2, "Customer name is required"),
   serviceType: z.string().trim().min(2, "Service type is required"),
   assignedUserId: z.string().min(1, "Assignee is required"),
-  scheduledDate: z.string().min(1, "Date is required"),
+  scheduledDate: z.string().min(1, "Date is required").refine((date) => {
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate >= today;
+  }, "Schedule date cannot be in the past"),
+  timeSlot: z.enum(["06:00-10:00", "14:00-17:00"], {
+    errorMap: () => ({ message: "Please select a valid time slot" }),
+  }),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   remarks: z.string().optional(),
 });
@@ -62,6 +70,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
       serviceType: "",
       assignedUserId: "",
       scheduledDate: new Date().toISOString().slice(0, 10),
+      timeSlot: "14:00-17:00" as any,
       priority: "Medium",
       remarks: "",
     },
@@ -90,6 +99,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
         serviceType: "",
         assignedUserId: "",
         scheduledDate: new Date().toISOString().slice(0, 10),
+        timeSlot: "14:00-17:00" as any,
         priority: "Medium",
         remarks: "",
       });
@@ -121,10 +131,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      const now = new Date();
-      const startTime = now.toTimeString().slice(0, 5); // HH:mm
-      const end = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-      const endTime = end.toTimeString().slice(0, 5);
+      const [startTime, endTime] = values.timeSlot.split("-");
 
       await onSubmit({
         complaintId: values.complaintId || undefined,
@@ -244,7 +251,7 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-1">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="scheduledDate">
                 Schedule Date <span className="text-rose-500">*</span>
@@ -252,9 +259,36 @@ export function AssignTaskModal({ open, onOpenChange, onSubmit, isSaving }: Assi
               <Input
                 id="scheduledDate"
                 type="date"
+                min={new Date().toISOString().slice(0, 10)}
                 {...form.register("scheduledDate")}
-                className="h-11 rounded-xl dark:bg-app/60"
+                className={cn("h-11 rounded-xl dark:bg-app/60", errors.scheduledDate && "border-rose-500")}
               />
+              {errors.scheduledDate && (
+                <p className="text-xs text-rose-500">{errors.scheduledDate.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Available Time Slot <span className="text-rose-500">*</span>
+              </Label>
+              <Controller
+                control={form.control}
+                name="timeSlot"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="h-11 rounded-xl dark:bg-app/60">
+                      <SelectValue placeholder="Select time slot" />
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-app">
+                      <SelectItem value="06:00-10:00">06:00 AM - 10:00 AM</SelectItem>
+                      <SelectItem value="14:00-17:00">02:00 PM - 05:00 PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.timeSlot && (
+                <p className="text-xs text-rose-500">{errors.timeSlot.message}</p>
+              )}
             </div>
           </div>
 
