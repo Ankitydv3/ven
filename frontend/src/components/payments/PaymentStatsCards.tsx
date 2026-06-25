@@ -76,30 +76,19 @@ export function PaymentStatsCards() {
           transition={{ delay: i * 0.1 }}
         >
           <Card className="overflow-hidden border-slate-200 bg-white/50 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/50">
-            <CardContent className="p-6">
+            <CardContent className="">
               <div className="flex items-center justify-between">
                 <div className={`rounded-xl p-2 ${card.bg}`}>
                   <card.icon className={`h-6 w-6 ${card.color}`} />
+                  
                 </div>
-                <div className="flex items-center gap-1 text-xs font-medium">
-                  {card.delta && (
-                    <>
-                      {card.trend === "up" ? (
-                        <TrendingUp className="h-3 w-3 text-emerald-500" />
-                      ) : card.trend === "down" ? (
-                        <TrendingDown className="h-3 w-3 text-rose-500" />
-                      ) : null}
-                      <span className={card.trend === "up" ? "text-emerald-500" : "text-rose-500"}>
-                        {card.delta}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4">
+                <div className="mt-4">
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{card.value}</p>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.label}</p>
               </div>
+                
+              </div>
+              
             </CardContent>
           </Card>
         </motion.div>

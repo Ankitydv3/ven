@@ -8,42 +8,8 @@ import { generateComplaintId } from "./complaintId";
 import { generateTaskId } from "./taskId";
 import { generateEmployeeId, generateUsername, teamNameToSlug } from "./employeeId";
 
-const defaultTeams = ["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"];
 
-const teamUsers = [
-  {
-    name: "Team Alpha Lead",
-    email: "teamalpha@gmail.com",
-    team: "Team Alpha",
-    employeeId: "EMP0101",
-    username: "teamalpha.emp0101",
-    mobile: "9000000001",
-  },
-  {
-    name: "Team Beta Lead",
-    email: "teambeta@gmail.com",
-    team: "Team Beta",
-    employeeId: "EMP0102",
-    username: "teambeta.emp0102",
-    mobile: "9000000002",
-  },
-  {
-    name: "Team Gamma Lead",
-    email: "teamgamma@gmail.com",
-    team: "Team Gamma",
-    employeeId: "EMP0103",
-    username: "teamgamma.emp0103",
-    mobile: "9000000003",
-  },
-  {
-    name: "Team Delta Lead",
-    email: "teamdelta@gmail.com",
-    team: "Team Delta",
-    employeeId: "EMP0104",
-    username: "teamdelta.emp0104",
-    mobile: "9000000004",
-  },
-];
+
 
 async function backfillTeamUserProfiles() {
   const teamRoleUsers = await User.find({
@@ -137,42 +103,9 @@ async function normalizeTeamsCollection() {
 export async function seedCoreData() {
   await normalizeTeamsCollection();
 
-  for (const teamName of defaultTeams) {
-    await Team.updateOne(
-      { teamName },
-      {
-        $setOnInsert: {
-          teamName,
-          description: `Primary service team ${teamName}`,
-          status: "active",
-          createdBy: "System",
-        },
-      },
-      { upsert: true }
-    );
-  }
+ 
 
-  const adminPassword = await bcrypt.hash("admin123", 10);
-  await User.updateOne(
-    { email: "superadmin@gmail.com" },
-    {
-      $set: {
-        employeeId: "SUPER001",
-        username: "superadmin.super001",
-        name: "Super Admin",
-        email: "superadmin@gmail.com",
-        password: adminPassword,
-        role: "super_admin",
-        designation: "Super Administrator",
-        department: "Director",
-        status: "active",
-        createdBy: "System",
-        deletedAt: null,
-      },
-    },
-    { upsert: true }
-  );
-
+const adminPassword = await bcrypt.hash("123456", 10);
   await User.updateOne(
     { email: "admin@gmail.com" },
     {
@@ -215,33 +148,7 @@ export async function seedCoreData() {
     { upsert: true }
   );
 
-  for (const teamUser of teamUsers) {
-    const password = await bcrypt.hash("123456", 10);
-    const teamDoc = await Team.findOne({ teamName: teamUser.team });
-    await User.updateOne(
-      { email: teamUser.email },
-      {
-        $set: {
-          employeeId: teamUser.employeeId,
-          username: teamUser.username,
-          mobile: teamUser.mobile,
-          name: teamUser.name,
-          email: teamUser.email,
-          password,
-          role: "team",
-          teamName: teamUser.team,
-          team: teamUser.team,
-          teamId: teamDoc?._id,
-          designation: "Team Lead",
-          department: "Operations",
-          status: "active",
-          createdBy: "System",
-          deletedAt: null,
-        },
-      },
-      { upsert: true }
-    );
-  }
+  
 
   await backfillTeamUserProfiles();
 

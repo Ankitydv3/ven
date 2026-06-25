@@ -126,9 +126,18 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const isAdminView = role === "admin";
   const { ready } = useSession(role);
   const user = readUser();
-  const { data, isLoading, isError, error, refetch } = useMaterialRequests({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useMaterialRequests({
     limit: isAdminView ? 100 : 50,
   });
+
+  const requests: MaterialRequest[] = Array.isArray(data) ? data : data?.items ?? [];
+
   const createMutation = useCreateMaterialRequest();
   const [open, setOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
@@ -154,6 +163,44 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
       setForm((f) => ({ ...f, imageUrl: result }));
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCreate = async () => {
+    if (!form.materialName.trim()) {
+      toast.error("Material name is required");
+      return;
+    }
+    if (!form.quantity || parseInt(form.quantity) <= 0) {
+      toast.error("Valid quantity is required");
+      return;
+    }
+    if (!form.imageUrl) {
+      toast.error("Image is required");
+      return;
+    }
+
+    try {
+      await createMutation.mutateAsync({
+        materialName: form.materialName.trim(),
+        quantity: parseInt(form.quantity),
+        unit: form.unit.trim() || undefined,
+        remarks: form.remarks.trim() || undefined,
+        imageUrl: form.imageUrl,
+      });
+      toast.success("Material request submitted successfully");
+      setOpen(false);
+      setForm({
+        materialName: "",
+        quantity: "",
+        unit: "",
+        remarks: "",
+        imageUrl: "",
+      });
+      setImagePreview("");
+      void refetch();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to submit request"));
+    }
   };
 
   const handleExport = () => {

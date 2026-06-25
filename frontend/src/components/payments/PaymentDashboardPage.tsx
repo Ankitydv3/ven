@@ -53,15 +53,7 @@ export function PaymentDashboardPage() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
-            <Link href="/admin/payments/analytics">
-              <Button
-                variant="outline"
-                className="hidden h-10 rounded-xl border-slate-200 dark:border-white/10 sm:flex"
-              >
-                <BarChart4 className="mr-2 h-4 w-4" />
-                Analytics
-              </Button>
-            </Link>
+            
             <Button
               className="h-10 rounded-xl bg-gradient-to-r from-[#185FA5] to-[#378ADD] text-white shadow-lg shadow-[#185FA5]/20 transition-all hover:shadow-[#185FA5]/40"
               onClick={() => setAddModalOpen(true)}
