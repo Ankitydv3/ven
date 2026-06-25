@@ -290,44 +290,6 @@ function FiltersBar({
 /* Alerts panel                                                             */
 /* ----------------------------------------------------------------------- */
 
-function AlertsPanel({
-  alerts,
-  onSelect,
-}: {
-  alerts: { _id: string; title: string; message: string; requestId?: string }[];
-  onSelect: (requestId: string) => void;
-}) {
-  return (
-    <div className={cn(panelClass, "p-5")}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-amber-400" />
-          <h2 className="text-lg font-semibold text-white">Material alerts</h2>
-          <Badge className="bg-amber-500/20 text-amber-300">{alerts.length}</Badge>
-        </div>
-        <Link href="/store/alerts" className="text-sm text-blue-400 hover:text-blue-300 hover:underline">
-          View all alerts →
-        </Link>
-      </div>
-      {alerts.length === 0 ? (
-        <p className="text-sm text-slate-400">No new material alerts. You&apos;re all caught up.</p>
-      ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {alerts.slice(0, 6).map((alert) => (
-            <button
-              key={alert._id}
-              onClick={() => alert.requestId && onSelect(alert.requestId)}
-              className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-left text-sm transition-colors hover:bg-amber-500/10"
-            >
-              <p className="font-medium text-white">{alert.title}</p>
-              <p className="mt-0.5 text-slate-400">{alert.message}</p>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ----------------------------------------------------------------------- */
 /* Desktop table row & mobile card                                         */
@@ -952,13 +914,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
           </div>
         )}
 
-        <AlertsPanel
-          alerts={materialAlerts}
-          onSelect={(requestId) => {
-            const req = requests.find((r) => r.requestId === requestId);
-            if (req) openReview(req);
-          }}
-        />
+        
 
         <div className={cn(panelClass, "overflow-hidden")}>
           <div className="border-b border-white/10 px-5 py-4">
