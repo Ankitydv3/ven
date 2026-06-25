@@ -29,7 +29,7 @@ import { UserTable } from "@/components/users/UserTable";
 import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UserViewDialog } from "@/components/users/UserViewDialog";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
-import { TeamsPanel } from "@/components/teams/TeamsPanel";
+
 import { UserCredentialsDialog } from "@/components/users/UserCredentialsDialog";
 import type { ManagedUser, UserCredentials } from "@/lib/types";
 import { USER_ROLES, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
@@ -191,7 +191,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       }
     >
       <div className="space-y-6">
-        {showTeamsPanel && <TeamsPanel canManage />}
+       
 
         <div className={`${glassCardClass} space-y-4 p-5`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
