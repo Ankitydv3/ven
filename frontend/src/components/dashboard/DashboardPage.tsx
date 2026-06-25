@@ -1129,30 +1129,7 @@
           onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
         />
         {/* ── Page header ── */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1
-              className="text-3xl font-bold tracking-tight"
-              style={{
-                background: `linear-gradient(135deg, #fff 40%, ${ACCENT})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              {data?.scope?.label ?? "Dashboard"}
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              {new Date().toLocaleDateString("en-IN", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-          </div>
-
-          
-        </div>
+       
 
         {isLoading || !data ? (
           <LoadingState />
