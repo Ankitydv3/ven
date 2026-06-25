@@ -946,6 +946,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
             </DialogDescription>
           </DialogHeader>
           <ComplaintRegistrationForm
+            source="MANUAL"
             onSuccess={() => {
               setShowNewComplaint(false);
               void refetch();

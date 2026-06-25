@@ -49,9 +49,11 @@ type ComplaintFormValues = z.infer<typeof schema>;
 export function ComplaintRegistrationForm({
   onSuccess,
   variant = "default",
+  source = "MANUAL",
 }: {
   onSuccess?: (complaint: Complaint) => void;
   variant?: "default" | "portal";
+  source?: "WEBSITE" | "MANUAL";
 }) {
   const [pending, startTransition] = useTransition();
   const [submittedComplaint, setSubmittedComplaint] = useState<Complaint | null>(null);
@@ -164,6 +166,7 @@ export function ComplaintRegistrationForm({
         if (values.availableTime) formData.append("availableTime", values.availableTime);
         if (picture) formData.append("picture", picture);
         if (quotation) formData.append("quotation", quotation);
+        formData.append("source", source);
 
         const response = await createComplaint(formData);
         setSubmittedComplaint(response.complaint);
@@ -486,7 +489,9 @@ export function ComplaintRegistrationForm({
             {submittedComplaint.complaintId}
           </p>
           <p className={variant === "portal" ? "mt-1 text-[12px] text-white/50" : "mt-1 text-[12px] text-[#185FA5] dark:text-[#85B7EB]"}>
-            Your request is now queued as pending assignment.
+            {submittedComplaint.status === "Pending Review"
+              ? "Your request is now queued for admin review."
+              : "Your request is now queued as pending assignment."}
           </p>
         </div>
       )}

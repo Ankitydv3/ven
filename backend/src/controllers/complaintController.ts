@@ -212,32 +212,45 @@ export async function createComplaint(req: Request, res: Response) {
   ].filter(Boolean);
   const description = descriptionParts.join(" | ") || "No description provided";
   const title = complaintType;
+const source = payload.source === "WEBSITE" ? "WEBSITE" : "MANUAL";
+const complaint = await Complaint.create({
+  clientName,
+  contactPerson: salesPerson,
+  mobileNumber,
+  email,
+  orderId,
+  salesPerson,
+  title,
+  description,
+  priority: payload.priority?.trim() || "Medium",
+  location: address,
+  pictureUrl,
+  quotationUrl,
+  availableDate,
+  availableTime,
+  complaintId,
 
-  const complaint = await Complaint.create({
-    clientName,
-    contactPerson: salesPerson,
-    mobileNumber,
-    email,
-    orderId,
-    salesPerson,
-    title,
-    description,
-    priority: payload.priority?.trim() || "Medium",
-    location: address,
-    pictureUrl,
-    quotationUrl,
-    availableDate,
-    availableTime,
-    complaintId,
-    status: "Pending Review",
-    history: [
-      buildHistoryEntry(
-        "Complaint Submitted",
-        { name: clientName, role: "customer" },
-        { status: "Pending Review", details: title }
-      ),
-    ],
-  });
+  source,
+
+  status:
+    source === "WEBSITE"
+      ? "Pending Review"
+      : "Pending Assignment",
+
+  history: [
+    buildHistoryEntry(
+      "Complaint Submitted",
+      { name: clientName, role: "customer" },
+      {
+        status:
+          source === "WEBSITE"
+            ? "Pending Review"
+            : "Pending Assignment",
+        details: title,
+      }
+    ),
+  ],
+});
 
   res.status(201).json({
     message: "Complaint Submitted Successfully",

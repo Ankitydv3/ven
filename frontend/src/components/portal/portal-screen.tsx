@@ -137,7 +137,7 @@ export function PortalScreen() {
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {activeTab === "login" && <LoginFields />}
               {activeTab === "track" && <TrackPanel />}
-              {activeTab === "complaint" && <ComplaintRegistrationForm variant="portal" />}
+              {activeTab === "complaint" && <ComplaintRegistrationForm variant="portal" source="WEBSITE" />}
             </div>
           </div>
 
