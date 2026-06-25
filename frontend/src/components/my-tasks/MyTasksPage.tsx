@@ -218,6 +218,10 @@ function TaskDetailPanel({
         return;
       }
     }
+    if (nextStatus === "Completed" && !photoFile) {
+      toast.error("Photo is required to mark task as completed");
+      return;
+    }
     if (nextStatus === "Need Re-visit" && !revisitDate) {
       toast.error("Re-visit date is required");
       return;
@@ -457,7 +461,7 @@ function TaskDetailPanel({
                 )}
                 <div>
                   <label className="mb-1.5 block text-xs text-slate-400">
-                    Add Photo {nextStatus === "Need Material" ? "*" : ""}
+                    Add Photo {["Need Material", "Completed"].includes(nextStatus) ? "*" : ""}
                   </label>
                   <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-6 transition hover:border-blue-500/40 hover:bg-white/[0.06]">
                     <Upload className="mb-2 h-6 w-6 text-slate-400" />

@@ -740,6 +740,16 @@ export async function patchTaskStatusById(
     createdAt: new Date(),
   });
 
+  if (status === "Need Material") {
+    task.history.push({
+      action: "Waiting for Service Head approval",
+      by: "System",
+      role: "system",
+      status: "Need Material",
+      createdAt: new Date(),
+    });
+  }
+
   if (options?.notes) {
     task.remarks = options.notes;
   }

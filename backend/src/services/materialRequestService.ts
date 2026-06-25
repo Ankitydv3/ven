@@ -17,6 +17,7 @@ export type MaterialRequestStatus =
   | "DENIED"
   | "AWAITING_ACCOUNTS"
   | "AWAITING_STORE"
+  | "AWAITING_FINAL_GRANT"
   | "WAITING"
   | "OUT_OF_STOCK"
   | "GRANTED";
@@ -37,8 +38,9 @@ export interface MaterialRequestPayload {
 const STATUS_MESSAGES: Record<string, string> = {
   PENDING_SERVICE_HEAD: "Material request is waiting for Service Head approval.",
   DENIED: "Material request was denied by Service Head. Please resubmit.",
-  AWAITING_ACCOUNTS: "Bill generated. Waiting for Accounts to confirm payment.",
+  AWAITING_ACCOUNTS: "Service Head approved. Waiting for Accounts to confirm payment.",
   AWAITING_STORE: "Payment confirmed. Waiting for Store Manager to release material.",
+  AWAITING_FINAL_GRANT: "Material released by Store. Waiting for Service Head final grant.",
   WAITING: "Material request is waiting for stock availability.",
   OUT_OF_STOCK: "Requested material is currently out of stock.",
   GRANTED: "Material granted. Team can resume work.",
@@ -50,6 +52,7 @@ type AlertType =
   | "material_denied"
   | "material_awaiting_accounts"
   | "material_awaiting_store"
+  | "material_awaiting_final_grant"
   | "material_waiting"
   | "material_out_of_stock"
   | "material_granted";
@@ -76,6 +79,30 @@ async function createMaterialAlert(
     userId: options?.userId,
     targetRole: options?.targetRole,
   });
+}
+
+async function addTaskHistory(
+  taskId: string | undefined,
+  action: string,
+  by: string,
+  role: string = "system",
+  status: string = "Need Material"
+) {
+  if (!taskId) return;
+  await Task.updateOne(
+    { taskId },
+    {
+      $push: {
+        history: {
+          action,
+          by,
+          role,
+          status,
+          createdAt: new Date(),
+        },
+      },
+    }
+  );
 }
 
 async function notifyServiceHeads(request: InstanceType<typeof MaterialRequest>) {
@@ -270,7 +297,7 @@ export async function listMaterialRequests(options: MaterialRequestListOptions) 
 
   if (options.status && options.status !== "All") {
     if (options.status === "PENDING_SERVICE_HEAD") {
-      filter.status = { $in: ["PENDING", "PENDING_SERVICE_HEAD"] };
+      filter.status = { $in: ["PENDING", "PENDING_SERVICE_HEAD", "AWAITING_FINAL_GRANT"] };
     } else {
       filter.status = options.status;
     }
@@ -307,6 +334,7 @@ export async function getMaterialRequestStats(scope?: { requestedById?: string }
     denied,
     awaitingAccounts,
     awaitingStore,
+    awaitingFinalGrant,
     waiting,
     outOfStock,
     granted,
@@ -314,11 +342,12 @@ export async function getMaterialRequestStats(scope?: { requestedById?: string }
     MaterialRequest.countDocuments(base),
     MaterialRequest.countDocuments({
       ...base,
-      status: { $in: ["PENDING", "PENDING_SERVICE_HEAD"] },
+      status: { $in: ["PENDING", "PENDING_SERVICE_HEAD", "AWAITING_FINAL_GRANT"] },
     }),
     MaterialRequest.countDocuments({ ...base, status: "DENIED" }),
     MaterialRequest.countDocuments({ ...base, status: "AWAITING_ACCOUNTS" }),
     MaterialRequest.countDocuments({ ...base, status: "AWAITING_STORE" }),
+    MaterialRequest.countDocuments({ ...base, status: "AWAITING_FINAL_GRANT" }),
     MaterialRequest.countDocuments({ ...base, status: "WAITING" }),
     MaterialRequest.countDocuments({ ...base, status: "OUT_OF_STOCK" }),
     MaterialRequest.countDocuments({ ...base, status: "GRANTED" }),
@@ -331,6 +360,7 @@ export async function getMaterialRequestStats(scope?: { requestedById?: string }
     denied,
     awaitingAccounts,
     awaitingStore,
+    awaitingFinalGrant,
     waiting,
     outOfStock,
     granted,
@@ -360,6 +390,38 @@ export async function serviceHeadReview(
     throw new ApiError(404, "Material request not found");
   }
 
+  // Handle Final Grant stage
+  if (request.status === "AWAITING_FINAL_GRANT") {
+    if (decision === "DENIED") {
+      request.status = "DENIED";
+      request.history.push({
+        action: "Service Head Denied Final Grant",
+        by: actor.name,
+        role: actor.role,
+        status: "DENIED",
+        remarks: serviceHeadRemarks ?? "",
+        createdAt: new Date(),
+      });
+      await request.save();
+      await addTaskHistory(request.taskId ?? undefined, "Service Head Denied Final Grant", actor.name, actor.role);
+      return request.toObject();
+    }
+
+    request.status = "GRANTED";
+    request.history.push({
+      action: "Service Head Final Grant",
+      by: actor.name,
+      role: actor.role,
+      status: "GRANTED",
+      remarks: serviceHeadRemarks ?? "",
+      createdAt: new Date(),
+    });
+    await request.save();
+    await addTaskHistory(request.taskId ?? undefined, "Service Head Final Grant", actor.name, actor.role);
+    await resumeTaskAfterMaterialGranted(request.taskId ?? undefined);
+    return request.toObject();
+  }
+
   const pendingStatuses = ["PENDING", "PENDING_SERVICE_HEAD"];
   if (!pendingStatuses.includes(request.status)) {
     throw new ApiError(400, "Only pending material requests can be reviewed by Service Head");
@@ -369,7 +431,7 @@ export async function serviceHeadReview(
     request.status = "DENIED";
     request.serviceHeadRemarks = serviceHeadRemarks ?? "";
     request.history.push({
-      action: "Service Head Denied",
+      action: "Service Head Denied Initial Approval",
       by: actor.name,
       role: actor.role,
       status: "DENIED",
@@ -406,26 +468,24 @@ export async function serviceHeadReview(
 
   request.serviceHeadRemarks = serviceHeadRemarks ?? "";
   request.orderId = order.orderId;
-  request.history.push({
-    action: "Service Head Approved",
-    by: actor.name,
-    role: actor.role,
-    status: "APPROVED",
-    remarks: serviceHeadRemarks ?? "",
-    createdAt: new Date(),
-  });
 
-  if (order.paid === true) {
+  // Logic Change: If "Unpaid Service Available" is TRUE (In Warranty), skip Accounts and go directly to Store Manager.
+  const isFreeService = (order as any).unpaidServiceAvailable === true;
+
+  if (isFreeService) {
     request.status = "AWAITING_STORE";
     request.history.push({
-      action: "Order Paid — forwarded to Store Manager",
-      by: "System",
-      role: "system",
+      action: "Service Head Approved (Free Service) — forwarded to Store Manager",
+      by: actor.name,
+      role: actor.role,
       status: "AWAITING_STORE",
-      remarks: "",
+      remarks: serviceHeadRemarks ?? "",
       createdAt: new Date(),
     });
     await request.save();
+
+    await addTaskHistory(request.taskId ?? undefined, "Service Head Approved (Warranty)", actor.name, actor.role);
+    await addTaskHistory(request.taskId ?? undefined, "Waiting for Store Manager approval", "System", "system");
     await notifyStoreManagers(request);
 
     if (request.requestedById) {
@@ -437,18 +497,22 @@ export async function serviceHeadReview(
       );
     }
   } else {
+    request.history.push({
+      action: "Service Head Approved (Chargeable) — Awaiting Payment",
+      by: actor.name,
+      role: actor.role,
+      status: "AWAITING_ACCOUNTS",
+      remarks: serviceHeadRemarks ?? "",
+      createdAt: new Date(),
+    });
+
     const paymentId = await createMaterialBill(request, complaint, order);
     request.paymentId = paymentId;
     request.status = "AWAITING_ACCOUNTS";
-    request.history.push({
-      action: "Bill Generated — awaiting Accounts confirmation",
-      by: "System",
-      role: "system",
-      status: "AWAITING_ACCOUNTS",
-      remarks: `Payment ${paymentId}`,
-      createdAt: new Date(),
-    });
     await request.save();
+
+    await addTaskHistory(request.taskId ?? undefined, "Service Head Approved", actor.name, actor.role);
+    await addTaskHistory(request.taskId ?? undefined, "Waiting for Accounts approval", "System", "system");
     await notifyAccountants(request, paymentId);
 
     if (request.requestedById) {
@@ -505,6 +569,8 @@ export async function confirmMaterialPayment(
   });
   await request.save();
 
+  await addTaskHistory(request.taskId ?? undefined, "Payment Confirmed by Accounts", actor.name, actor.role);
+  await addTaskHistory(request.taskId ?? undefined, "Waiting for Store Manager approval", "System", "system");
   await notifyStoreManagers(request);
 
   if (request.requestedById) {
@@ -537,6 +603,36 @@ export async function updateMaterialRequestStatus(
 
   request.status = status;
   request.storeManagerRemarks = storeManagerRemarks ?? "";
+
+  if (status === "GRANTED") {
+    // Logic change: Store Manager approval sends it back to Service Head for Final Grant
+    request.status = "AWAITING_FINAL_GRANT";
+    request.history.push({
+      action: "Store Manager Released — Awaiting Service Head Final Grant",
+      by: actor.name,
+      role: actor.role,
+      status: "AWAITING_FINAL_GRANT",
+      remarks: storeManagerRemarks ?? "",
+      createdAt: new Date(),
+    });
+    await request.save();
+
+    await addTaskHistory(request.taskId ?? undefined, "Store Manager Released Material", actor.name, actor.role);
+    await addTaskHistory(request.taskId ?? undefined, "Waiting for Service Head Final Grant", "System", "system");
+
+    await notifyServiceHeads(request);
+
+    if (request.requestedById) {
+      await createMaterialAlert(
+        "material_awaiting_final_grant",
+        request,
+        STATUS_MESSAGES.AWAITING_FINAL_GRANT,
+        { userId: request.requestedById }
+      );
+    }
+    return request.toObject();
+  }
+
   request.history.push({
     action: `Store Manager Action: ${status}`,
     by: actor.name,
@@ -547,13 +643,12 @@ export async function updateMaterialRequestStatus(
   });
 
   await request.save();
+  await addTaskHistory(request.taskId ?? undefined, `Material Status: ${status}`, actor.name, actor.role);
 
   const alertType: AlertType =
     status === "WAITING"
       ? "material_waiting"
-      : status === "OUT_OF_STOCK"
-        ? "material_out_of_stock"
-        : "material_granted";
+      : "material_out_of_stock";
 
   if (request.requestedById) {
     await createMaterialAlert(
@@ -562,10 +657,6 @@ export async function updateMaterialRequestStatus(
       STATUS_MESSAGES[status],
       { userId: request.requestedById }
     );
-  }
-
-  if (status === "GRANTED") {
-    await resumeTaskAfterMaterialGranted(request.taskId ?? undefined);
   }
 
   return request.toObject();

@@ -42,7 +42,7 @@ function MaterialRequestActions({ req, onDone }: { req: MaterialRequest; onDone:
   const accountsMutation = useConfirmMaterialPayment();
   const [remarks, setRemarks] = useState("");
 
-  const pendingServiceHead = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
+  const pendingServiceHead = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD" || req.status === "AWAITING_FINAL_GRANT";
   const canServiceHead = isServiceHeadUser(user) && pendingServiceHead;
   const canAccounts = isAccountantUser(user) && req.status === "AWAITING_ACCOUNTS";
 
@@ -57,7 +57,8 @@ function MaterialRequestActions({ req, onDone }: { req: MaterialRequest; onDone:
         decision,
         serviceHeadRemarks: remarks.trim() || undefined,
       });
-      toast.success(decision === "APPROVED" ? "Request approved" : "Request denied");
+      const action = req.status === "AWAITING_FINAL_GRANT" ? "Final grant" : "Approval";
+      toast.success(decision === "APPROVED" ? `${action} successful` : "Request denied");
       setRemarks("");
       onDone();
     } catch (err) {

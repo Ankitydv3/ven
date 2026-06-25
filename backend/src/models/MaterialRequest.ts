@@ -31,6 +31,7 @@ const materialRequestSchema = new Schema(
         "DENIED",
         "AWAITING_ACCOUNTS",
         "AWAITING_STORE",
+        "AWAITING_FINAL_GRANT",
         "WAITING",
         "OUT_OF_STOCK",
         "GRANTED",

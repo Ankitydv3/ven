@@ -6,6 +6,7 @@ export type MaterialRequestStatus =
   | "DENIED"
   | "AWAITING_ACCOUNTS"
   | "AWAITING_STORE"
+  | "AWAITING_FINAL_GRANT"
   | "WAITING"
   | "OUT_OF_STOCK"
   | "GRANTED";
@@ -50,6 +51,7 @@ export interface MaterialRequestStats {
   denied?: number;
   awaitingAccounts?: number;
   awaitingStore?: number;
+  awaitingFinalGrant?: number;
   waiting: number;
   outOfStock: number;
   granted: number;
@@ -129,6 +131,7 @@ export const materialStatusBadgeClass: Record<string, string> = {
   DENIED: "bg-red-500/20 text-red-400 border-red-500/30",
   AWAITING_ACCOUNTS: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   AWAITING_STORE: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+  AWAITING_FINAL_GRANT: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
   WAITING: "bg-orange-500/20 text-orange-400 border-orange-500/30",
   OUT_OF_STOCK: "bg-red-500/20 text-red-400 border-red-500/30",
   GRANTED: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -140,6 +143,7 @@ export const materialStatusLabel: Record<string, string> = {
   DENIED: "Denied",
   AWAITING_ACCOUNTS: "Waiting Accounts",
   AWAITING_STORE: "Waiting Store Manager",
+  AWAITING_FINAL_GRANT: "Waiting Final Grant",
   WAITING: "Waiting for Stock",
   OUT_OF_STOCK: "Out Of Stock",
   GRANTED: "Granted",

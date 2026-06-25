@@ -141,6 +141,11 @@ export function ComplaintRegistrationForm({
       return;
     }
 
+    if (!picture) {
+      toast.error("Please upload a picture of the issue");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const formData = new FormData();
@@ -394,7 +399,7 @@ export function ComplaintRegistrationForm({
       </div>
 
       <div className="space-y-1.5">
-        <FormLabel>Upload Picture</FormLabel>
+        <FormLabel>Upload Picture *</FormLabel>
         <Input
           type="file"
           accept="image/*"
