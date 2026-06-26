@@ -10,14 +10,14 @@
   import { Input } from "@/components/ui/input";
   import { Label } from "@/components/ui/label";
   import { Textarea } from "@/components/ui/textarea";
-  import { createComplaint, lookupOrdersByPhone } from "@/services/complaints";
+  import { createComplaint, lookupOrders } from "@/services/complaints";
   import type { Complaint } from "@/lib/types";
   import { complaintIssueTypes } from "@/lib/constants";
   import { phoneInputProps, sanitizePhoneDigits, blockNonDigitPhoneKeys } from "@/lib/phone";
   import { portalInputClass, portalLabelClass, portalTextareaClass } from "@/lib/portal-styles";
   import { cn } from "@/lib/utils";
 
-  type LookupOrder = Awaited<ReturnType<typeof lookupOrdersByPhone>>["items"][number];
+  type LookupOrder = Awaited<ReturnType<typeof lookupOrders>>["items"][number];
 
   const schema = z
     .object({
@@ -26,7 +26,6 @@
       mobileNumber: z
         .string()
         .regex(/^[0-9]{10}$/, "Enter a valid 10-digit mobile number"),
-      salesPerson: z.string().optional(),
       email: z.union([z.literal(""), z.string().email("Enter a valid email address")]),
       complaintType: z.string().min(1, "Please select a complaint type"),
       complaintDescription: z.string().optional(),
@@ -63,13 +62,14 @@
     const [lookupDone, setLookupDone] = useState(false);
     const [matchedOrders, setMatchedOrders] = useState<LookupOrder[]>([]);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+    const [lookupType, setLookupType] = useState<"phone" | "orderId">("phone");
+    const [orderIdQuery, setOrderIdQuery] = useState("");
 
     const defaultValues = useMemo(
       () => ({
         name: "",
         orderId: "",
         mobileNumber: "",
-        salesPerson: "",
         email: "",
         complaintType: "",
         complaintDescription: "",
@@ -100,6 +100,7 @@
         setSelectedOrderId(order.orderId);
         form.setValue("orderId", order.orderId, { shouldValidate: true });
         form.setValue("name", order.customerName, { shouldValidate: true });
+        form.setValue("mobileNumber", order.phone, { shouldValidate: true });
         form.setValue("email", order.email ?? "", { shouldValidate: true });
         const fullAddress = [order.address, order.city, order.state, order.pincode]
           .filter(Boolean)
@@ -109,33 +110,44 @@
       [form]
     );
 
-    const handlePhoneLookup = useCallback(async () => {
-      const phone = sanitizePhoneDigits(mobileNumber);
-      if (phone.length !== 10) {
-        toast.error("Enter a valid 10-digit mobile number first");
-        return;
-      }
-
+    const handleLookup = useCallback(async () => {
       setLookupLoading(true);
       resetLookup();
       try {
-        const result = await lookupOrdersByPhone(phone);
+        let result;
+        if (lookupType === "phone") {
+          const phone = sanitizePhoneDigits(mobileNumber);
+          if (phone.length !== 10) {
+            toast.error("Enter a valid 10-digit mobile number first");
+            setLookupLoading(false);
+            return;
+          }
+          result = await lookupOrders({ phone });
+        } else {
+          if (!orderIdQuery.trim()) {
+            toast.error("Enter an Order ID to search");
+            setLookupLoading(false);
+            return;
+          }
+          result = await lookupOrders({ orderId: orderIdQuery.trim() });
+        }
+
         setMatchedOrders(result.items);
         setLookupDone(true);
         if (result.items.length === 0) {
-          toast.error("No orders found for this phone number");
+          toast.error("No orders found");
         } else if (result.items.length === 1) {
           applyOrderSelection(result.items[0]);
-          toast.success("Customer verified — order details filled in");
+          toast.success("Order verified — details filled in");
         } else {
           toast.success(`Found ${result.items.length} orders — please select one`);
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to verify phone number");
+        toast.error(error instanceof Error ? error.message : "Unable to verify details");
       } finally {
         setLookupLoading(false);
       }
-    }, [mobileNumber, resetLookup, applyOrderSelection]);
+    }, [lookupType, mobileNumber, orderIdQuery, resetLookup, applyOrderSelection]);
 
     const onSubmit = form.handleSubmit((values) => {
       if (!selectedOrderId) {
@@ -155,7 +167,6 @@
           if (values.complaintType === "Other" && values.complaintDescription?.trim()) {
             formData.append("complaintDescription", values.complaintDescription.trim());
           }
-          if (values.salesPerson?.trim()) formData.append("salesPerson", values.salesPerson.trim());
           if (values.email?.trim()) formData.append("email", values.email.trim());
           if (values.availableDate) formData.append("availableDate", values.availableDate);
           if (values.availableTime) formData.append("availableTime", values.availableTime);
@@ -214,38 +225,85 @@
     return (
       <form className="grid gap-6 md:grid-cols-2" onSubmit={onSubmit}>
         <div className="md:col-span-2 space-y-3 rounded-xl border border-[#185FA5]/20 bg-[#185FA5]/5 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-          <FormLabel>Mobile Number *</FormLabel>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              {...phoneInputProps}
-              value={mobileNumber}
-              onChange={(e) => {
-                const next = sanitizePhoneDigits(e.target.value);
-                form.setValue("mobileNumber", next, { shouldValidate: true, shouldDirty: true });
-                if (next !== sanitizePhoneDigits(mobileNumber)) {
+          <div className="flex items-center justify-between">
+            <FormLabel>{lookupType === "phone" ? "Mobile Number *" : "Order ID *"}</FormLabel>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setLookupType("phone");
                   resetLookup();
-                }
-              }}
-              onKeyDown={blockNonDigitPhoneKeys}
-              onPaste={(e) => {
-                e.preventDefault();
-                const pasted = sanitizePhoneDigits(e.clipboardData.getData("text"));
-                form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true });
-                resetLookup();
-              }}
-              onBlur={() => {
-                if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) {
-                  void handlePhoneLookup();
-                }
-              }}
-              placeholder="Enter 10-digit mobile number"
-              className={inputClass}
-            />
+                }}
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded",
+                  lookupType === "phone" ? "bg-[#185FA5] text-white" : "bg-white/5 text-slate-400"
+                )}
+              >
+                Phone
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLookupType("orderId");
+                  resetLookup();
+                }}
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded",
+                  lookupType === "orderId" ? "bg-[#185FA5] text-white" : "bg-white/5 text-slate-400"
+                )}
+              >
+                Order ID
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {lookupType === "phone" ? (
+              <Input
+                {...phoneInputProps}
+                value={mobileNumber}
+                onChange={(e) => {
+                  const next = sanitizePhoneDigits(e.target.value);
+                  form.setValue("mobileNumber", next, { shouldValidate: true, shouldDirty: true });
+                  if (next !== sanitizePhoneDigits(mobileNumber)) {
+                    resetLookup();
+                  }
+                }}
+                onKeyDown={blockNonDigitPhoneKeys}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = sanitizePhoneDigits(e.clipboardData.getData("text"));
+                  form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true });
+                  resetLookup();
+                }}
+                onBlur={() => {
+                  if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) {
+                    void handleLookup();
+                  }
+                }}
+                placeholder="Enter 10-digit mobile number"
+                className={inputClass}
+              />
+            ) : (
+              <Input
+                value={orderIdQuery}
+                onChange={(e) => {
+                  setOrderIdQuery(e.target.value);
+                  resetLookup();
+                }}
+                placeholder="Enter Order ID (e.g. ORD-2024-001)"
+                className={inputClass}
+              />
+            )}
             <Button
               type="button"
               variant="outline"
-              disabled={lookupLoading || sanitizePhoneDigits(mobileNumber).length !== 10}
-              onClick={() => void handlePhoneLookup()}
+              disabled={
+                lookupLoading ||
+                (lookupType === "phone" && sanitizePhoneDigits(mobileNumber).length !== 10) ||
+                (lookupType === "orderId" && !orderIdQuery.trim())
+              }
+              onClick={() => void handleLookup()}
               className="shrink-0 rounded-xl border-[#185FA5]/30"
             >
               {lookupLoading ? (
@@ -258,9 +316,15 @@
               )}
             </Button>
           </div>
-          <FormFieldError message={form.formState.errors.mobileNumber?.message} />
+          <FormFieldError
+            message={
+              lookupType === "phone" ? form.formState.errors.mobileNumber?.message : undefined
+            }
+          />
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            We verify your phone against existing orders before you can register a complaint.
+            {lookupType === "phone"
+              ? "We verify your phone against existing orders before you can register a complaint."
+              : "Search for your order directly using the Order ID."}
           </p>
 
           {lookupDone && matchedOrders.length === 0 && (
@@ -330,12 +394,6 @@
             readOnly
           />
           <FormFieldError message={form.formState.errors.orderId?.message} />
-        </div>
-
-        <div className="space-y-1.5">
-          <FormLabel>Sales Person</FormLabel>
-          <Input {...form.register("salesPerson")} placeholder="Enter sales person name" className={inputClass} />
-          <FormFieldError message={form.formState.errors.salesPerson?.message} />
         </div>
 
         <div className="space-y-1.5">

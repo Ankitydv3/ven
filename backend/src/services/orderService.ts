@@ -4,7 +4,6 @@ import { ApiError } from "../utils/ApiError";
 import { syncOrderPayment } from "./paymentSyncService";
 
 export interface OrderPayload {
-// ... existing interface ...
   customerName: string;
   phone: string;
   email: string;
@@ -13,6 +12,7 @@ export interface OrderPayload {
   state: string;
   pincode: string;
   materialType: "Aluminium" | "uPVC";
+  salesPerson?: string;
   deliveryDate: Date;
   complaintType?: string;
   complaintDescription?: string;
@@ -82,7 +82,20 @@ export async function lookupOrdersByPhone(phone: string) {
   })
     .sort({ createdAt: -1 })
     .select(
-      "orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt"
+      "orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt salesPerson"
+    )
+    .lean();
+
+  return orders;
+}
+
+export async function lookupOrdersByOrderId(orderId: string) {
+  const orders = await Order.find({
+    orderId: { $regex: orderId, $options: "i" },
+  })
+    .sort({ createdAt: -1 })
+    .select(
+      "orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt salesPerson"
     )
     .lean();
 

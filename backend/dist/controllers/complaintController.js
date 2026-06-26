@@ -185,9 +185,17 @@ function buildHistoryEntry(action, user, extra) {
 }
 async function lookupOrdersForComplaint(req, res) {
     const phone = String(req.query.phone ?? "").trim();
-    const orders = await (0, orderService_1.lookupOrdersByPhone)(phone);
+    const orderId = String(req.query.orderId ?? "").trim();
+    let orders = [];
+    if (orderId) {
+        orders = await (0, orderService_1.lookupOrdersByOrderId)(orderId);
+    }
+    else if (phone) {
+        orders = await (0, orderService_1.lookupOrdersByPhone)(phone);
+    }
     res.json({
-        phone: normalizePhoneDigits(phone),
+        phone: phone ? normalizePhoneDigits(phone) : "",
+        orderId,
         found: orders.length > 0,
         items: orders,
     });
@@ -199,7 +207,6 @@ async function createComplaint(req, res) {
     const clientName = payload.clientName?.trim() || payload.name?.trim();
     const orderId = payload.orderId?.trim() || "";
     const address = payload.address?.trim() || payload.location?.trim() || "";
-    const salesPerson = payload.salesPerson?.trim() || "";
     const email = payload.email?.trim() || "";
     const mobileNumber = payload.mobileNumber?.trim() || "";
     const availableDate = payload.availableDate?.trim() || "";
@@ -237,7 +244,6 @@ async function createComplaint(req, res) {
         complaintType === "Other" ? complaintDescription : null,
         address,
         availability,
-        salesPerson && `Sales person: ${salesPerson}`,
         `Order: ${orderId}`,
     ].filter(Boolean);
     const description = descriptionParts.join(" | ") || "No description provided";
@@ -245,11 +251,10 @@ async function createComplaint(req, res) {
     const source = payload.source === "WEBSITE" ? "WEBSITE" : "MANUAL";
     const complaint = await Complaint_1.default.create({
         clientName,
-        contactPerson: salesPerson,
+        contactPerson: payload.contactPerson?.trim() || "",
         mobileNumber,
         email,
         orderId,
-        salesPerson,
         title,
         description,
         priority: payload.priority?.trim() || "Medium",

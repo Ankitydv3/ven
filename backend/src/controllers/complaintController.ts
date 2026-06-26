@@ -12,7 +12,7 @@ import type { AuthRequest } from "../middleware/auth";
 import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import * as userService from "../services/userService";
 import { resolveTeamByName } from "../services/teamService";
-import { lookupOrdersByPhone } from "../services/orderService";
+import { lookupOrdersByPhone, lookupOrdersByOrderId } from "../services/orderService";
 
 const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
 
@@ -156,9 +156,18 @@ function buildHistoryEntry(action: string, user: { name: string; role: string; t
 
 export async function lookupOrdersForComplaint(req: Request, res: Response) {
   const phone = String(req.query.phone ?? "").trim();
-  const orders = await lookupOrdersByPhone(phone);
+  const orderId = String(req.query.orderId ?? "").trim();
+
+  let orders = [];
+  if (orderId) {
+    orders = await lookupOrdersByOrderId(orderId);
+  } else if (phone) {
+    orders = await lookupOrdersByPhone(phone);
+  }
+
   res.json({
-    phone: normalizePhoneDigits(phone),
+    phone: phone ? normalizePhoneDigits(phone) : "",
+    orderId,
     found: orders.length > 0,
     items: orders,
   });
@@ -172,7 +181,6 @@ export async function createComplaint(req: Request, res: Response) {
   const clientName = payload.clientName?.trim() || payload.name?.trim();
   const orderId = payload.orderId?.trim() || "";
   const address = payload.address?.trim() || payload.location?.trim() || "";
-  const salesPerson = payload.salesPerson?.trim() || "";
   const email = payload.email?.trim() || "";
   const mobileNumber = payload.mobileNumber?.trim() || "";
   const availableDate = payload.availableDate?.trim() || "";
@@ -212,7 +220,6 @@ export async function createComplaint(req: Request, res: Response) {
     complaintType === "Other" ? complaintDescription : null,
     address,
     availability,
-    salesPerson && `Sales person: ${salesPerson}`,
     `Order: ${orderId}`,
   ].filter(Boolean);
   const description = descriptionParts.join(" | ") || "No description provided";
@@ -220,11 +227,10 @@ export async function createComplaint(req: Request, res: Response) {
 const source = payload.source === "WEBSITE" ? "WEBSITE" : "MANUAL";
 const complaint = await Complaint.create({
   clientName,
-  contactPerson: salesPerson,
+  contactPerson: payload.contactPerson?.trim() || "",
   mobileNumber,
   email,
   orderId,
-  salesPerson,
   title,
   description,
   priority: payload.priority?.trim() || "Medium",

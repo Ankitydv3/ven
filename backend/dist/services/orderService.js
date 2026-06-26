@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createOrder = createOrder;
 exports.lookupOrdersByPhone = lookupOrdersByPhone;
+exports.lookupOrdersByOrderId = lookupOrdersByOrderId;
 exports.getOrders = getOrders;
 exports.getOrderById = getOrderById;
 exports.updateOrderById = updateOrderById;
@@ -48,7 +49,16 @@ async function lookupOrdersByPhone(phone) {
         $or: [{ phone: digits }, { phone: { $regex: `${digits}$` } }],
     })
         .sort({ createdAt: -1 })
-        .select("orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt")
+        .select("orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt salesPerson")
+        .lean();
+    return orders;
+}
+async function lookupOrdersByOrderId(orderId) {
+    const orders = await Order_1.default.find({
+        orderId: { $regex: orderId, $options: "i" },
+    })
+        .sort({ createdAt: -1 })
+        .select("orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt salesPerson")
         .lean();
     return orders;
 }

@@ -642,7 +642,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 <tr className="border-b border-slate-100 dark:border-white/[0.06]">
                   <TH className="w-[10%]">Order ID</TH>
                   <TH className="w-[15%]">Customer Name</TH>
-                  <TH className="w-[10%]">Sales Person</TH>
+                  {/* <TH className="w-[10%]">Sales Person</TH> */}
                   <TH className="w-[20%]">Address</TH>
                   <TH className="w-[10%]">Material Type</TH>
                   <TH className="w-[12%]">Handover Date</TH>
@@ -703,9 +703,9 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       </TD>
 
                       {/* Sales Person */}
-                      <TD className="text-slate-700 dark:text-white/70 text-sm">
+                      {/* <TD className="text-slate-700 dark:text-white/70 text-sm">
                         {order.salesPerson || "—"}
-                      </TD>
+                      </TD> */}
 
                       {/* Address */}
                       <TD className="text-slate-700 dark:text-white/70 text-sm">

@@ -1,9 +1,10 @@
 import { api } from "@/lib/api";
 import type { Complaint } from "@/lib/types";
 
-export async function lookupOrdersByPhone(phone: string) {
+export async function lookupOrders(params: { phone?: string; orderId?: string }) {
   const { data } = await api.get<{
-    phone: string;
+    phone?: string;
+    orderId?: string;
     found: boolean;
     items: Array<{
       orderId: string;
@@ -19,8 +20,12 @@ export async function lookupOrdersByPhone(phone: string) {
       paid: boolean;
       status: string;
     }>;
-  }>("/complaints/lookup-orders", { params: { phone } });
+  }>("/complaints/lookup-orders", { params });
   return data;
+}
+
+export async function lookupOrdersByPhone(phone: string) {
+  return lookupOrders({ phone });
 }
 
 export async function createComplaint(payload: FormData | Record<string, string>) {
