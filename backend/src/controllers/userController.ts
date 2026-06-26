@@ -16,7 +16,7 @@ const allowedSortFields = new Set([
   "status",
 ]);
 
-function parseUserQuery(req: AuthRequest) {
+function parseUserQuery(req: AuthRequest): userService.UserListOptions {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
   const sortByRaw = (req.query.sortBy as string) || "createdAt";

@@ -20,7 +20,7 @@ export interface PaymentListResponse {
   limit: number;
 }
 
-export const fetchPayments = async (filters: PaymentFilters): Promise<PaymentListResponse> => {
+export const fetchPayments = async (filters?: PaymentFilters): Promise<PaymentListResponse> => {
   const { data } = await api.get("/payments", { params: filters });
   return data;
 };

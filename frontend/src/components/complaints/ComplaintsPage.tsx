@@ -229,7 +229,7 @@ function KpiDetailsModal({
                     <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(item.createdAt), "dd MMM yyyy")}
+                        {formatComplaintDate(item.createdAt)}
                       </div>
                     </div>
 
@@ -499,7 +499,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
         c.assignedTeam || "—",
         c.status,
         getComplaintWorkflowStage(c),
-        new Date(c.createdAt).toLocaleDateString("en-IN"),
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "—",
       ]);
 
       const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);

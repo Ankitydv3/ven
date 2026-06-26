@@ -64,7 +64,7 @@ export function PaymentTable() {
     });
   };
 
-  const totalPages = data?.totalPages || 1;
+  const totalPages = data ? Math.ceil(data.total / limit) : 1;
 
   return (
     <div className="space-y-4">

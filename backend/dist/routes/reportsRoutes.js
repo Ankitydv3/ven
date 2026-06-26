@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const asyncHandler_1 = require("../utils/asyncHandler");
+const reportsController_1 = require("../controllers/reportsController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authRequired, (0, auth_1.requireRole)("super_admin", "admin", "sub_admin", "team_lead", "team", "manager", "accountant"));
+router.get("/", (0, asyncHandler_1.asyncHandler)(reportsController_1.getReports));
+router.get("/export", (0, asyncHandler_1.asyncHandler)(reportsController_1.exportReports));
+exports.default = router;

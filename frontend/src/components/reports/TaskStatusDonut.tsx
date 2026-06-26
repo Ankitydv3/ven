@@ -56,7 +56,10 @@ export const TaskStatusDonut = memo(function TaskStatusDonut({ data, total }: Ta
                     color: "#fff",
                     fontSize: 12,
                   }}
-                  formatter={(value: number, name: string) => [value.toLocaleString(), name]}
+                  formatter={(value: string | number | readonly (string | number)[] | undefined, name: string | number | undefined) => [
+                    Array.isArray(value) ? value.join(", ") : (value?.toLocaleString() ?? "0"),
+                    String(name ?? "")
+                  ]}
                 />
               </PieChart>
             </ResponsiveContainer>

@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import type { Order, OrderFilters, OrderListResponse, OrderMutationResponse } from "@/lib/types";
 
 export interface OrderPayload {
+  orderId?: string;
   customerName: string;
   phone: string;
   email: string;
@@ -11,7 +12,8 @@ export interface OrderPayload {
   pincode: string;
   materialType: "Aluminium" | "uPVC";
   deliveryDate: string | Date;
-  complaintType: string;
+  salesPerson?: string;
+  complaintType?: string;
   complaintDescription?: string;
    
   serviceType?: string;

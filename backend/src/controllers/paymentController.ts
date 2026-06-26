@@ -37,7 +37,7 @@ export async function listPayments(req: AuthRequest, res: Response) {
 }
 
 export async function readPayment(req: AuthRequest, res: Response) {
-  const payment = await paymentService.getPaymentById(req.params.id);
+  const payment = await paymentService.getPaymentById(req.params.id as string);
   res.json({ payment });
 }
 
@@ -87,7 +87,7 @@ export async function exportCSV(req: AuthRequest, res: Response) {
 import { generateInvoicePDF } from "../services/pdfService";
 
 export async function downloadInvoice(req: AuthRequest, res: Response) {
-  const payment = await paymentService.getPaymentById(req.params.id);
+  const payment = await paymentService.getPaymentById(req.params.id as string);
   const pdfBytes = await generateInvoicePDF(payment as any);
 
   res.setHeader("Content-Type", "application/pdf");

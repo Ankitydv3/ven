@@ -82,7 +82,7 @@ export async function fetchMaterialRequestStats() {
 export async function createMaterialRequest(payload: {
   materialName: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   remarks?: string;
   imageUrl?: string;
   taskId?: string;

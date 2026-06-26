@@ -44,8 +44,8 @@ function MaterialRequestActions({ req, onDone }: { req: MaterialRequest; onDone:
   const [remarks, setRemarks] = useState("");
 
   const pendingServiceHead = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD" || req.status === "AWAITING_FINAL_GRANT";
-  const canServiceHead = isServiceHeadUser(user) && pendingServiceHead;
-  const canAccounts = isAccountantUser(user) && req.status === "AWAITING_ACCOUNTS";
+  const canServiceHead = isServiceHeadUser(user || undefined) && pendingServiceHead;
+  const canAccounts = isAccountantUser(user || undefined) && req.status === "AWAITING_ACCOUNTS";
 
   if (!canServiceHead && !canAccounts) {
     return <span className="text-xs text-slate-500">—</span>;

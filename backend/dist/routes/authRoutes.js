@@ -2,7 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const asyncHandler_1 = require("../utils/asyncHandler");
+const validateRequest_1 = require("../middleware/validateRequest");
+const auth_1 = require("../middleware/auth");
+const userValidation_1 = require("../validation/userValidation");
 const authController_1 = require("../controllers/authController");
 const router = (0, express_1.Router)();
 router.post("/login", (0, asyncHandler_1.asyncHandler)(authController_1.login));
+router.post("/change-password", auth_1.authRequired, (0, validateRequest_1.validateRequest)(userValidation_1.changePasswordSchema), (0, asyncHandler_1.asyncHandler)(authController_1.changePassword));
 exports.default = router;

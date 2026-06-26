@@ -1,4 +1,4 @@
-export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed";
+export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed" | "Resolved";
 export type Priority = "High" | "Medium" | "Low";
 export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant" | "store_manager";
 export type SubAdminType = "accountant" | "plant_head";
@@ -210,6 +210,8 @@ export interface DashboardTaskSummary {
   completed: number;
   overdue: number;
   completionRate: number;
+  needMaterial?: number;
+  needRevisit?: number;
 }
 
 export interface DashboardPageData {

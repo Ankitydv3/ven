@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const asyncHandler_1 = require("../utils/asyncHandler");
+const teamController_1 = require("../controllers/teamController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authRequired);
+router.get("/", (0, asyncHandler_1.asyncHandler)(teamController_1.listTeams));
+router.post("/", (0, auth_1.requireAdminPortalRole)(), (0, asyncHandler_1.asyncHandler)(teamController_1.createTeamHandler));
+router.delete("/:id", (0, auth_1.requireAdminPortalRole)(), (0, asyncHandler_1.asyncHandler)(teamController_1.deleteTeamHandler));
+exports.default = router;

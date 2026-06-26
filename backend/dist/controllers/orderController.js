@@ -5,7 +5,9 @@ exports.readOrder = readOrder;
 exports.createOrderHandler = createOrderHandler;
 exports.updateOrderHandler = updateOrderHandler;
 exports.deleteOrderHandler = deleteOrderHandler;
+exports.importOrdersHandler = importOrdersHandler;
 const orderService_1 = require("../services/orderService");
+const ApiError_1 = require("../utils/ApiError");
 function parseQuery(query) {
     const paidVal = query.paid;
     let paid = undefined;
@@ -25,13 +27,13 @@ function parseQuery(query) {
     };
 }
 async function listOrders(req, res) {
-    const params = parseQuery(req.query);
-    const result = await (0, orderService_1.getOrders)(params);
+    const parsed = parseQuery(req.query);
+    const result = await (0, orderService_1.getOrders)(parsed);
     res.json({
         items: result.items,
         total: result.total,
-        page: params.page,
-        limit: params.limit
+        page: parsed.page,
+        limit: parsed.limit
     });
 }
 async function readOrder(req, res) {
@@ -49,4 +51,18 @@ async function updateOrderHandler(req, res) {
 async function deleteOrderHandler(req, res) {
     await (0, orderService_1.deleteOrderById)(req.params.id);
     res.json({ message: "Order Deleted Successfully" });
+}
+async function importOrdersHandler(req, res) {
+    const { orders } = req.body;
+    const result = await (0, orderService_1.bulkCreateOrders)(orders);
+    if (result.created.length === 0) {
+        throw new ApiError_1.ApiError(400, "No orders were imported. Please check your file and try again.");
+    }
+    res.status(201).json({
+        message: `Successfully imported ${result.created.length} order(s)`,
+        created: result.created.length,
+        failed: result.errors.length,
+        errors: result.errors,
+        orders: result.created
+    });
 }

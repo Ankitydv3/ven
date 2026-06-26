@@ -111,7 +111,11 @@ export function resolveUserListScope(_user?: JwtUser) {
 }
 
 /** Scope for modifying another user's record (not self-service profile updates). */
-export function resolveUserManageScope(user?: JwtUser) {
+export function resolveUserManageScope(user?: JwtUser): {
+  selfOnly?: boolean;
+  actorId?: string;
+  scopedDepartment?: string;
+} {
   if (!user) return {};
 
   if (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin") {

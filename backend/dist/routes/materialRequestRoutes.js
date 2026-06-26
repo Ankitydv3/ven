@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const validateRequest_1 = require("../middleware/validateRequest");
+const asyncHandler_1 = require("../utils/asyncHandler");
+const materialRequestValidation_1 = require("../validation/materialRequestValidation");
+const materialRequestController_1 = require("../controllers/materialRequestController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authRequired);
+router.get("/stats", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.materialRequestStatsHandler));
+router.get("/", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.listMaterialRequestsHandler));
+router.get("/:id", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.readMaterialRequestHandler));
+router.post("/", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialRequestCreateSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.createMaterialRequestHandler));
+router.patch("/:id/service-head", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialServiceHeadSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.serviceHeadReviewHandler));
+router.patch("/:id/confirm-payment", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialPaymentConfirmSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.confirmMaterialPaymentHandler));
+router.patch("/:id/status", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialRequestStatusSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.updateMaterialRequestStatusHandler));
+exports.default = router;

@@ -165,7 +165,13 @@ export function AdminOverview() {
       </motion.div>
 
       {/* Status cards */}
-      <StatusCards data={data} />
+      <StatusCards data={{
+        totalComplaints: data.totalComplaints ?? 0,
+        pending: data.pending ?? 0,
+        assigned: data.assigned ?? 0,
+        inProgress: data.inProgress ?? 0,
+        completed: data.completed ?? 0,
+      }} />
 
       {/* Charts + Activity feed */}
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">

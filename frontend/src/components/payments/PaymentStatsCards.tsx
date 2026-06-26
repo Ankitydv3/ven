@@ -12,7 +12,9 @@ export function PaymentStatsCards() {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[...Array(5)].map((_, i) => (
-          <Card key={i} className="h-32 animate-pulse bg-slate-100 dark:bg-slate-800" />
+          <Card key={i} className="h-32 animate-pulse bg-slate-100 dark:bg-slate-800">
+            <CardContent>{null}</CardContent>
+          </Card>
         ))}
       </div>
     );
@@ -23,7 +25,7 @@ export function PaymentStatsCards() {
       label: "Total Payments",
       value: `₹${stats?.totalPaymentsReceived?.toLocaleString() || 0}`,
       delta: `${stats?.monthlyGrowth || 0}%`,
-      trend: stats?.monthlyGrowth >= 0 ? "up" : "down",
+      trend: (stats?.monthlyGrowth ?? 0) >= 0 ? "up" : "down",
       icon: IndianRupee,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",

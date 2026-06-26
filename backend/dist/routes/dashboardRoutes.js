@@ -9,6 +9,7 @@ router.get("/", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardC
 router.get("/summary", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getSummary));
 router.get("/monthly-trend", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getMonthlyTrend));
 router.get("/unresolved-reasons", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getUnresolvedReasons));
+router.get("/resolved-reasons", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getResolvedReasons));
 router.get("/complaint-overview", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getComplaintOverview));
 router.get("/top-categories", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getTopCategories));
 router.get("/recent-orders", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getRecentOrders));

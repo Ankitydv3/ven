@@ -123,7 +123,7 @@
   ═══════════════════════════════════════════════════════ */
   const fadeUp = {
     hidden:  { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } },
   };
 
   const stagger = {
@@ -315,7 +315,7 @@
     role: "admin" | "team";
   }) {
     const queryClient = useQueryClient();
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<{ items: any[]; total: number; page: number; limit: number }>({
       queryKey: ["dashboard-details", type, filters],
       queryFn: () => {
         if (type === "complaint") return fetchComplaints(filters);
@@ -488,7 +488,11 @@
                 startAngle={90}
                 endAngle={-270}
                 stroke="none"
-                onClick={(slice) => onSliceClick?.(slice.name)}
+                onClick={(slice) => {
+                  if (slice && slice.name) {
+                    onSliceClick?.(slice.name);
+                  }
+                }}
                 className="cursor-pointer"
               >
                 {slices.map((entry) => (
@@ -550,11 +554,6 @@
             layout="vertical"
             margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
             barCategoryGap="30%"
-            onClick={(data) => {
-              if (data && data.activePayload && data.activePayload[0]) {
-                onBarClick?.(data.activePayload[0].payload.name);
-              }
-            }}
             style={{ cursor: "pointer" }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
@@ -573,7 +572,16 @@
               width={110}
             />
             <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-            <Bar dataKey="value" name="Complaints" radius={[0, 6, 6, 0]}>
+            <Bar
+              dataKey="value"
+              name="Complaints"
+              radius={[0, 6, 6, 0]}
+              onClick={(data) => {
+                if (data && data.name) {
+                  onBarClick?.(data.name);
+                }
+              }}
+            >
               {enriched.map((entry, idx) => (
                 <Cell key={idx} fill={entry.fill} />
               ))}
@@ -700,7 +708,11 @@
                           outerRadius={74}
                           paddingAngle={2}
                           stroke="none"
-                          onClick={(slice) => onItemClick?.(slice.name, view)}
+                          onClick={(slice) => {
+                            if (slice && slice.name) {
+                              onItemClick?.(slice.name, view);
+                            }
+                          }}
                           className="cursor-pointer"
                         >
                           {data.map((item) => (
@@ -1007,7 +1019,7 @@
     const [detailModal, setDetailModal] = useState<{
       isOpen: boolean;
       title: string;
-      type: "complaint" | "task";
+      type: "complaint" | "task" | "order";
       filters: any;
     }>({
       isOpen: false,
@@ -1016,7 +1028,7 @@
       filters: {},
     });
 
-    const openDetails = (title: string, type: "complaint" | "task", filters: any) => {
+    const openDetails = (title: string, type: "complaint" | "task" | "order", filters: any) => {
       setDetailModal({ isOpen: true, title, type, filters });
     };
 
@@ -1125,7 +1137,11 @@
     if (!ready) return null;
 
     return (
-      <DashboardShell role={role}>
+      <DashboardShell
+        role={role}
+        title="Dashboard"
+        subtitle="Real-time operational metrics and performance overview."
+      >
         <KpiDetailsModal
           {...detailModal}
           role={role}

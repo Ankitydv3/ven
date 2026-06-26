@@ -50,6 +50,11 @@ const orderSchema = new mongoose_1.Schema({
         enum: ["Aluminium", "uPVC"],
         index: true
     },
+    salesPerson: {
+        type: String,
+        default: "",
+        trim: true
+    },
     deliveryDate: {
         type: Date,
         required: true
@@ -80,7 +85,23 @@ const orderSchema = new mongoose_1.Schema({
     category: {
         type: String,
         default: "General"
-    }
+    },
+    complaintType: {
+        type: String,
+        enum: [
+            "Locking issue",
+            "Leakage issue",
+            "Difficulty in moving",
+            "Alignment issue",
+            "Other",
+        ],
+        trim: true,
+    },
+    complaintDescription: {
+        type: String,
+        default: "",
+        trim: true,
+    },
 }, {
     timestamps: true,
     toJSON: { virtuals: true },

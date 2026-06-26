@@ -33,6 +33,6 @@ export async function deleteTeamHandler(req: AuthRequest, res: Response) {
   }
 
   const { id } = req.params;
-  const result = await teamService.deleteTeam(id);
+  const result = await teamService.deleteTeam(id as string);
   res.json({ message: `Team "${result.teamName}" deleted successfully` });
 }

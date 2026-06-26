@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/navigation/theme-toggle";
 
 // Define navigation items for different roles
 const publicLinks = [

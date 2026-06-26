@@ -45,7 +45,7 @@ const assignSchema = z.object({
     return selectedDate >= today;
   }, "Schedule date cannot be in the past"),
   timeSlot: z.enum(["06:00-10:00", "14:00-17:00"], {
-    errorMap: () => ({ message: "Please select a valid time slot" }),
+    message: "Please select a valid time slot",
   }),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   remarks: z.string().optional(),
