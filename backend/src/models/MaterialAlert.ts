@@ -10,6 +10,7 @@ const materialAlertSchema = new Schema(
         "material_denied",
         "material_awaiting_accounts",
         "material_awaiting_store",
+        "material_awaiting_final_grant",
         "material_waiting",
         "material_out_of_stock",
         "material_granted",
