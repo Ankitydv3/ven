@@ -305,12 +305,14 @@
     title,
     type,
     filters,
+    role,
   }: {
     isOpen: boolean;
     onClose: () => void;
     title: string;
     type: "complaint" | "task" | "order";
     filters: any;
+    role: "admin" | "team";
   }) {
     const queryClient = useQueryClient();
     const { data, isLoading } = useQuery({
@@ -398,7 +400,7 @@
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {type === "task" && item.status === "Pending" && (
+                        {role === "team" && type === "task" && item.status === "Pending" && (
                           <button
                             onClick={async () => {
                               try {
@@ -416,7 +418,7 @@
                             Start Task
                           </button>
                         )}
-                        {type === "complaint" && item.status === "Assigned" && (
+                        {role === "team" && type === "complaint" && item.status === "Assigned" && (
                           <button
                             onClick={async () => {
                               try {
@@ -816,7 +818,7 @@
   /* ═══════════════════════════════════════════════════════
     SUMMARY TABLES
   ═══════════════════════════════════════════════════════ */
-  function SummaryTables({ data }: { data: DashboardPageData }) {
+  function SummaryTables({ data, role }: { data: DashboardPageData; role: "admin" | "team" }) {
     const queryClient = useQueryClient();
 
     function taskBadge(status: string) {
@@ -892,7 +894,7 @@
                           <Badge variant={taskBadge(visit.status)}>{visit.status}</Badge>
                         </TD>
                         <TD className="text-right">
-                          {visit.status === "Pending" && (
+                          {role === "team" && visit.status === "Pending" && (
                             <button
                               onClick={() => handleStartTask(visit._id)}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20"
@@ -968,7 +970,7 @@
                           {new Date(c.updatedAt).toLocaleDateString()}
                         </TD>
                         <TD className="text-right">
-                          {c.status === "Assigned" && (
+                          {role === "team" && c.status === "Assigned" && (
                             <button
                               onClick={() => handleStartComplaint(c._id!)}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
@@ -1126,6 +1128,7 @@
       <DashboardShell role={role}>
         <KpiDetailsModal
           {...detailModal}
+          role={role}
           onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
         />
         {/* ── Page header ── */}
@@ -1240,7 +1243,7 @@
                 title="Recent Activity"
                 subtitle="Today's site visits and the latest complaints"
               />
-              <SummaryTables data={data} />
+              <SummaryTables data={data} role={role} />
             </motion.div>
           </motion.div>
         )}

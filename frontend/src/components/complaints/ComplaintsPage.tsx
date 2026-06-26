@@ -158,12 +158,14 @@ function KpiDetailsModal({
   title,
   filters,
   onStartWork,
+  role,
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   filters: any;
   onStartWork: (complaint: Complaint) => void;
+  role: "admin" | "team";
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["complaints-details", filters],
@@ -231,7 +233,7 @@ function KpiDetailsModal({
                       </div>
                     </div>
 
-                    {item.status === "Assigned" && (
+                    {role === "team" && item.status === "Assigned" && (
                       <button
                         onClick={() => {
                           onStartWork(item);
@@ -521,6 +523,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
     >
       <KpiDetailsModal
         {...detailModal}
+        role={role}
         onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
         onStartWork={handleStartWork}
       />
@@ -791,7 +794,7 @@ export function ComplaintsPage({ role }: { role: "admin" | "team" }) {
                             </TD>
                             <TD className="text-right">
                               <div className="flex justify-end gap-1.5">
-                                {complaint.status === "Assigned" && (
+                                {role === "team" && complaint.status === "Assigned" && (
                                   <Button
                                     size="sm"
                                     onClick={() => handleStartWork(complaint)}
