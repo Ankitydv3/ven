@@ -1,7 +1,4 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listTasks = listTasks;
 exports.readTask = readTask;
@@ -14,8 +11,8 @@ exports.calendarTasks = calendarTasks;
 exports.taskStats = taskStats;
 exports.submitTaskFeedbackHandler = submitTaskFeedbackHandler;
 const taskService_1 = require("../services/taskService");
-const Task_1 = __importDefault(require("../models/Task"));
 const permissions_1 = require("../utils/permissions");
+const dashboardScope_1 = require("../utils/dashboardScope");
 const teamScope_1 = require("../utils/teamScope");
 const ApiError_1 = require("../utils/ApiError");
 const feedbackService_1 = require("../services/feedbackService");
@@ -28,6 +25,7 @@ function parseListQuery(query) {
         dueDate: query.dueDate,
         startDate: query.startDate,
         endDate: query.endDate,
+        upcoming: query.upcoming === "true",
         page: Number(query.page ?? "1") || 1,
         limit: Number(query.limit ?? "10") || 10,
         sortBy: query.sortBy ?? "dueDate",
@@ -36,13 +34,17 @@ function parseListQuery(query) {
 }
 async function listTasks(req, res) {
     const parsed = parseListQuery(req.query);
-    const scopeFilter = (0, teamScope_1.taskVisibilityFilter)(req.user);
-    const isScopedUser = (0, teamScope_1.isTeamRole)(req.user?.role);
+    const dashboardScope = (0, dashboardScope_1.dashboardTaskScopeFilter)(req.user);
+    const teamScope = (0, teamScope_1.taskVisibilityFilter)(req.user);
+    const scopeFilter = Object.keys(dashboardScope).length > 0
+        ? dashboardScope
+        : Object.keys(teamScope).length > 0
+            ? teamScope
+            : undefined;
+    const isScopedUser = Boolean(scopeFilter);
     const result = await (0, taskService_1.getTasks)({
         ...parsed,
-        ...(Object.keys(scopeFilter).length > 0
-            ? { scopeFilter }
-            : { team: parsed.team }),
+        ...(scopeFilter ? { scopeFilter } : { team: parsed.team }),
     });
     res.json({
         items: result.items,
@@ -73,7 +75,7 @@ async function updateTaskHandler(req, res) {
     res.json({ message: "Task updated successfully", task });
 }
 async function patchTaskStatusHandler(req, res) {
-    const existing = await Task_1.default.findById(req.params.id).lean();
+    const existing = await (0, taskService_1.findTaskByLookup)(req.params.id, { lean: true });
     if (!existing) {
         throw new ApiError_1.ApiError(404, "Task not found");
     }

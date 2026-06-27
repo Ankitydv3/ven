@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Users } from "lucide-react";
 import type { Customer } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,8 @@ export function CustomerTable({
             {customers.map((customer) => (
               <TR
                 key={customer._id}
-                className="group border-slate-100 hover:bg-slate-50/80 dark:border-white/[0.06] dark:hover:bg-white/[0.03]"
+                className="group border-slate-100 hover:bg-slate-50/80 dark:border-white/[0.06] dark:hover:bg-white/[0.03] cursor-pointer"
+                onClick={() => onView(customer)}
               >
                 <TD className={cn("font-mono text-sm font-medium", accentTextClass)}>
                   {customer.customerId}
@@ -187,13 +188,24 @@ export function CustomerTable({
                   </Badge>
                 </TD>
                 <TD className="text-right">
-                  <CustomerActions
-                    customer={customer}
-                    onView={onView}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    deleting={deletingId === customer._id}
-                  />
+                  <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/50 dark:hover:bg-white/5 dark:hover:text-white"
+                      onClick={() => onView(customer)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <CustomerActions
+                      customer={customer}
+                      onView={onView}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      deleting={deletingId === customer._id}
+                    />
+                  </div>
                 </TD>
               </TR>
             ))}

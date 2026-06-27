@@ -6,6 +6,7 @@ const validateRequest_1 = require("../middleware/validateRequest");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const userValidation_1 = require("../validation/userValidation");
 const userController_1 = require("../controllers/userController");
+const avatarUpload_1 = require("../middleware/avatarUpload");
 const router = (0, express_1.Router)();
 router.use(auth_1.authRequired);
 router.get("/export/csv", (0, auth_1.requireRole)("super_admin", "admin", "sub_admin"), (0, asyncHandler_1.asyncHandler)(userController_1.exportUsersCSVHandler));
@@ -14,6 +15,8 @@ router.post("/reset-password", (0, auth_1.requireRole)("super_admin", "admin", "
 router.post("/credentials/pdf", (0, auth_1.requireRole)("super_admin", "admin", "sub_admin"), (0, asyncHandler_1.asyncHandler)(userController_1.downloadCredentialsPdfHandler));
 router.get("/", (0, asyncHandler_1.asyncHandler)(userController_1.listUsers));
 router.get("/:id", (0, asyncHandler_1.asyncHandler)(userController_1.readUser));
+router.post("/:id/avatar", avatarUpload_1.avatarUpload.single("avatar"), (0, asyncHandler_1.asyncHandler)(userController_1.uploadUserAvatarHandler));
+router.delete("/:id/avatar", (0, asyncHandler_1.asyncHandler)(userController_1.removeUserAvatarHandler));
 router.post("/", (0, auth_1.requireRole)("super_admin", "admin", "sub_admin"), (0, validateRequest_1.validateRequest)(userValidation_1.userCreateSchema), (0, asyncHandler_1.asyncHandler)(userController_1.createUserHandler));
 router.put("/:id", (0, validateRequest_1.validateRequest)(userValidation_1.userUpdateSchema), (0, asyncHandler_1.asyncHandler)(userController_1.updateUserHandler));
 router.delete("/:id", (0, auth_1.requireRole)("super_admin", "admin", "sub_admin"), (0, asyncHandler_1.asyncHandler)(userController_1.deleteUserHandler));

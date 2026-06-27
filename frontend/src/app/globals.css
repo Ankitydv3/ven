@@ -150,8 +150,20 @@ body {
   border-radius: 999px;
 }
 
-::selection {
-  background: rgba(24, 95, 165, 0.2);
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #history-detail-print,
+  #history-detail-print * {
+    visibility: visible;
+  }
+  #history-detail-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
 }
 /* Add these to your globals.css */
 

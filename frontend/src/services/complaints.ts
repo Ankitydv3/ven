@@ -96,7 +96,74 @@ export async function completeComplaint(complaintId: string, payload: { completi
   return data;
 }
 
+export async function scheduleRevisit(complaintId: string, payload: { date: string; timeSlot: string; team: string; remarks?: string }) {
+  const { data } = await api.patch<{ complaint: Complaint; message: string }>(`/complaints/${complaintId}/revisit`, payload);
+  return data;
+}
+
 export async function trackComplaint(complaintId: string) {
   const { data } = await api.get<{ complaint: Complaint; hasFeedback: boolean }>(`/complaints/${complaintId}/track`);
+  return data;
+}
+
+export type ClientHistoryComplaintSummary = {
+  _id: string;
+  complaintId: string;
+  clientName: string;
+  createdAt?: string;
+  complaintType: string;
+  status: string;
+  workflowStage: string;
+  assignedTeam: string;
+  assignedUserName: string;
+  priority: string;
+  location: string;
+};
+
+export type ClientHistoryResponse = {
+  client: {
+    name: string;
+    phone: string;
+    email: string;
+    orderId: string;
+  };
+  summary: {
+    totalComplaints: number;
+    totalTasks: number;
+    totalMaterialRequests: number;
+    totalPayments: number;
+  };
+  complaints: ClientHistoryComplaintSummary[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type ClientHistoryDetailResponse = {
+  complaint: Complaint & {
+    workflowStage?: string;
+    taskHistory?: Array<Record<string, unknown>>;
+    taskScheduleStatus?: string | null;
+    taskScheduleDueDate?: string | null;
+    taskId?: string | null;
+  };
+  tasks: Array<Record<string, unknown>>;
+  materialRequests: Array<Record<string, unknown>>;
+  payments: Array<Record<string, unknown>>;
+  order: Record<string, unknown> | null;
+  hasFeedback: boolean;
+};
+
+export async function fetchClientHistory(q: string, page = 1, limit = 12) {
+  const { data } = await api.get<ClientHistoryResponse>("/complaints/client-history", {
+    params: { q, page, limit },
+  });
+  return data;
+}
+
+export async function fetchClientHistoryComplaintDetail(complaintId: string) {
+  const { data } = await api.get<ClientHistoryDetailResponse>(
+    `/complaints/client-history/${encodeURIComponent(complaintId)}/detail`
+  );
   return data;
 }

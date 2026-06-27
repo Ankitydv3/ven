@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { getAlertsData } from "../services/alertsService";
+import { clearAllAlertsForUser, getAlertsData } from "../services/alertsService";
 import type { AuthRequest } from "../middleware/auth";
 import { resolveTeamQuery, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 
@@ -18,4 +18,15 @@ export async function getAlerts(req: AuthRequest, res: Response) {
     subAdminType: req.user?.subAdminType,
   });
   res.json(data);
+}
+
+export async function clearAlerts(req: AuthRequest, res: Response) {
+  const scopeFilter = taskVisibilityFilter(req.user);
+  const result = await clearAllAlertsForUser(
+    req.user?.id ?? "",
+    req.user?.role ?? "",
+    req.user?.subAdminType,
+    Object.keys(scopeFilter).length > 0 ? scopeFilter : undefined
+  );
+  res.json({ message: "All notifications cleared", ...result });
 }

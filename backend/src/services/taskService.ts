@@ -13,6 +13,7 @@ import {
   dominantPriority,
   todayDateKey,
 } from "../utils/dateKey";
+import { supersedeComplaintTasks, activeTaskQuery } from "./complaintAssignmentService";
 
 export type TaskStatus =
   | "Pending"
@@ -24,15 +25,19 @@ export type TaskStatus =
   | "Need Material";
 export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
-const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["In Progress", "Completed", "Need Material"];
+const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["Completed"];
 
 export function blocksComplaintTaskAssignment(status?: string | null) {
-  return status === "In Progress" || status === "Completed";
+  return status === "Completed" || status === "Cancelled";
 }
 
 export async function assertComplaintEligibleForTaskAssignment(complaintId: string) {
-  const existingTask = await Task.findOne({ complaintId });
-  if (existingTask && BLOCKED_COMPLAINT_TASK_STATUSES.includes(existingTask.status as TaskStatus)) {
+  const existingTask = await Task.findOne({
+    complaintId,
+    ...activeTaskQuery(),
+    status: { $nin: BLOCKED_COMPLAINT_TASK_STATUSES },
+  });
+  if (existingTask) {
     throw new ApiError(
       400,
       `Cannot assign: complaint already has task ${existingTask.taskId} in ${existingTask.status} status`
@@ -41,12 +46,20 @@ export async function assertComplaintEligibleForTaskAssignment(complaintId: stri
   return existingTask;
 }
 
+export async function createComplaintAssignmentTask(payload: TaskPayload) {
+  if (payload.complaintId) {
+    await supersedeComplaintTasks(payload.complaintId);
+  }
+  return createTaskInternal(payload, { skipComplaintEligibilityCheck: true });
+}
+
 export interface TaskPayload {
   complaintId?: string;
   title: string;
   description?: string;
   priority?: TaskPriority;
-  assignedUserId: string;
+  assignedUserId?: string;
+  assignedTeamName?: string;
   dueDate: Date;
   remarks?: string;
   createdBy: string;
@@ -60,6 +73,7 @@ export interface TaskListOptions {
   dueDate?: string;
   startDate?: string;
   endDate?: string;
+  upcoming?: boolean;
   scopeFilter?: Record<string, unknown>;
   page: number;
   limit: number;
@@ -197,11 +211,28 @@ export async function applyOverdueUpdates() {
 }
 
 export async function createTask(payload: TaskPayload) {
-  if (payload.complaintId) {
+  return createTaskInternal(payload, { skipComplaintEligibilityCheck: false });
+}
+
+async function createTaskInternal(
+  payload: TaskPayload,
+  options: { skipComplaintEligibilityCheck: boolean }
+) {
+  if (payload.complaintId && !options.skipComplaintEligibilityCheck) {
     await assertComplaintEligibleForTaskAssignment(payload.complaintId);
   }
 
-  const assignee = await resolveAssignee(payload.assignedUserId);
+  let assignee = {};
+  if (payload.assignedUserId) {
+    assignee = await resolveAssignee(payload.assignedUserId);
+  } else if (payload.assignedTeamName) {
+    const team = await Team.findOne({ teamName: payload.assignedTeamName }).lean();
+    assignee = {
+      assignedTeamName: payload.assignedTeamName,
+      assignedTeamId: team?._id,
+    };
+  }
+
   const taskId = await generateTaskId();
   const dueDateKey = dateKeyFromValue(payload.dueDate);
 
@@ -218,6 +249,7 @@ export async function createTask(payload: TaskPayload) {
     dueDateKey,
     remarks: payload.remarks ?? "",
     isLocked: false,
+    isActive: true,
     history: [
       {
         action: "Task Assigned",
@@ -233,7 +265,7 @@ export async function createTask(payload: TaskPayload) {
   await createTaskAlert(
     "task_assigned",
     task,
-    `Task ${task.taskId} assigned to ${task.assignedUserName} (${task.assignedTeamName})`
+    `Task ${task.taskId} assigned to ${task.assignedUserName || task.assignedTeamName} (${task.assignedTeamName})`
   );
 
   return task.toObject();
@@ -288,7 +320,14 @@ export async function getTasks(options: TaskListOptions) {
     filter.priority = options.priority;
   }
 
-  if (options.dueDate) {
+  if (options.upcoming) {
+    const todayKey = todayDateKey();
+    filter.status = { $nin: ["Completed", "Cancelled"] };
+    filter.$or = [
+      { dueDateKey: { $gte: todayKey } },
+      { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
+    ];
+  } else if (options.dueDate) {
     filter.dueDateKey = options.dueDate;
   } else if (options.startDate || options.endDate) {
     filter.dueDateKey = {};
@@ -326,9 +365,28 @@ export async function getTasks(options: TaskListOptions) {
   return { items: enrichedItems, total };
 }
 
-export async function getTaskById(id: string) {
+export async function findTaskByLookup(id: string, options?: { lean?: boolean }) {
   await applyOverdueUpdates();
-  const task = await Task.findById(id).lean();
+  const useLean = options?.lean ?? false;
+
+  if (Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)) {
+    const byId = useLean ? await Task.findById(id).lean() : await Task.findById(id);
+    if (byId) return byId;
+  }
+
+  let task = useLean
+    ? await Task.findOne({ ...activeTaskQuery(), taskId: id }).lean()
+    : await Task.findOne({ ...activeTaskQuery(), taskId: id });
+  if (task) return task;
+
+  task = useLean
+    ? await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).lean()
+    : await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 });
+  return task ?? null;
+}
+
+export async function getTaskById(id: string) {
+  const task = await findTaskByLookup(id, { lean: true });
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
@@ -506,8 +564,10 @@ export async function assertTaskAccess(
     return;
   }
 
+  const team = user.team ?? user.teamName;
+  const assigneeId = task.assignedUserId ? String(task.assignedUserId) : "";
+
   if (user.role === "team_lead") {
-    const team = user.team ?? user.teamName;
     if (team && task.assignedTeamName === team) {
       return;
     }
@@ -515,7 +575,10 @@ export async function assertTaskAccess(
   }
 
   if (user.role === "team") {
-    if (task.assignedUserId && String(task.assignedUserId) === user.id) {
+    if (assigneeId && assigneeId === user.id) {
+      return;
+    }
+    if (team && task.assignedTeamName === team && !assigneeId) {
       return;
     }
     throw new ApiError(403, "You do not have access to this task");
@@ -544,11 +607,18 @@ export async function updateTaskById(
   let reassigned = false;
 
   if (payload.assignedUserId && payload.assignedUserId !== previousAssignee) {
-    if (task.status === "Completed") {
-      throw new ApiError(400, "Cannot reassign a completed task");
+    if (task.status === "Completed" || task.status === "Cancelled") {
+      throw new ApiError(400, "Cannot reassign a completed or cancelled task");
     }
-    if (!["Pending", "In Progress", "Overdue"].includes(task.status)) {
-      throw new ApiError(400, "Only pending or in-progress tasks can be reassigned");
+    const reassignable: TaskStatus[] = [
+      "Pending",
+      "In Progress",
+      "Overdue",
+      "Need Re-visit",
+      "Need Material",
+    ];
+    if (!reassignable.includes(task.status as TaskStatus)) {
+      throw new ApiError(400, "This task cannot be reassigned in its current status");
     }
 
     const assignee = await resolveAssignee(payload.assignedUserId);
@@ -670,7 +740,11 @@ export async function patchTaskStatusById(
     revisitDate?: Date;
   }
 ) {
-  const task = await Task.findById(id);
+  const found = await findTaskByLookup(id);
+  if (!found || !("_id" in found)) {
+    throw new ApiError(404, "Task not found");
+  }
+  const task = await Task.findById(found._id);
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
@@ -703,10 +777,10 @@ export async function patchTaskStatusById(
         throw new ApiError(400, "Only pending or re-visit tasks can be started");
       }
       if (task.status === "Need Material") {
-        throw new ApiError(400, "Cannot start task while waiting for material approval");
+        throw new ApiError(400, "Cannot Update Task while waiting for material approval");
       }
     } else {
-      throw new ApiError(403, "You can only start tasks or update in-progress tasks");
+      throw new ApiError(403, "You can only Update Tasks or update in-progress tasks");
     }
 
     if (task.status === "Completed" || task.isLocked) {
@@ -748,6 +822,12 @@ export async function patchTaskStatusById(
       status: "Need Material",
       createdAt: new Date(),
     });
+    if (task.complaintId) {
+      await Complaint.updateOne(
+        { complaintId: task.complaintId },
+        { $set: { siteVisitStatus: "Material Required" } }
+      );
+    }
   }
 
   if (options?.notes) {
@@ -757,6 +837,12 @@ export async function patchTaskStatusById(
   if (status === "Need Re-visit" && options?.revisitDate) {
     task.dueDate = options.revisitDate;
     task.dueDateKey = dateKeyFromValue(options.revisitDate);
+    if (task.complaintId) {
+      await Complaint.updateOne(
+        { complaintId: task.complaintId },
+        { $set: { siteVisitStatus: "Revisit" } }
+      );
+    }
   }
 
   await task.save();
@@ -836,8 +922,9 @@ export async function syncComplaintFromTask(
 
   if (taskStatus === "In Progress" && complaint.status === "Assigned") {
     complaint.status = "In Progress";
+    complaint.siteVisitStatus = "Pending";
     complaint.history.push({
-      action: "Task Started (Schedule)",
+      action: "Site Visit Started",
       by: actor?.name ?? "Team",
       role: actor?.role ?? "team",
       team: taskAssignee?.assignedTeamName,
@@ -851,6 +938,7 @@ export async function syncComplaintFromTask(
   if (taskStatus === "Completed") {
     const wasCompleted = complaint.status === "Completed";
     complaint.status = "Completed";
+    complaint.siteVisitStatus = "Completed";
     complaint.completedBy = actor?.name ?? complaint.completedBy ?? "Team";
     complaint.completedDate = new Date();
     if (options?.photoUrl) {
@@ -914,7 +1002,7 @@ export async function syncComplaintAssigneeFromTask(
 }
 
 export async function syncComplaintTaskStatus(complaintId: string, status: "In Progress" | "Completed") {
-  const task = await Task.findOne({ complaintId });
+  const task = await Task.findOne(activeTaskQuery(complaintId)).sort({ createdAt: -1 });
   if (!task || task.status === "Completed") {
     return;
   }

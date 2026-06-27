@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Filter,
@@ -60,6 +60,7 @@ import * as XLSX from "xlsx";
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionUser = readUser();
   const canManage = canManageOrders(sessionUser?.role);
   const openCustomerTasks = useCallback(
@@ -100,6 +101,10 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   }), [appliedSearch, materialType, paymentStatus, orderStatus, page, limit]);
 
   const { data, isLoading, refetch } = useOrders(activeFilters);
+  const items = data?.items || [];
+  const total = data?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
   const updateOrderMutation = useUpdateOrder();
   const deleteOrderMutation = useDeleteOrder();
   const importOrdersMutation = useImportOrders();
@@ -110,6 +115,9 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const [viewTarget, setViewTarget] = useState<Order | null>(null);
   const [editTarget, setEditTarget] = useState<Order | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFromDate, setExportFromDate] = useState("");
+  const [exportToDate, setExportToDate] = useState("");
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -214,6 +222,17 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     return count;
   }, [appliedSearch, materialType, paymentStatus, orderStatus]);
 
+  // Handle auto-open if id is in URL
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (id && items.length > 0) {
+      const target = items.find(o => o._id === id || o.orderId === id);
+      if (target) {
+        setViewTarget(target);
+      }
+    }
+  }, [searchParams, items]);
+
   // ============================================================
   // END OF HOOKS - Now we can do conditional returns
 
@@ -222,12 +241,16 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     return null;
   }
 
-  // Data calculations after the conditional return
-  const items = data?.items || [];
-  const total = data?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-
   const handleExportCSV = async () => {
+    if (!exportFromDate || !exportToDate) {
+      toast.error("Please select both start and end dates for export");
+      return;
+    }
+    if (exportFromDate > exportToDate) {
+      toast.error("Start date must be before end date");
+      return;
+    }
+
     try {
       const fullFilters: OrderFilters = {
         q: appliedSearch || undefined,
@@ -240,14 +263,22 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             : undefined,
         status: orderStatus !== "All" ? orderStatus : undefined,
         page: 1,
-        limit: 1000 // reasonable limit to get all matched orders
+        limit: 5000,
       };
 
       const response = await fetchOrders(fullFilters);
-      const ordersToExport = response.items;
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+
+      const ordersToExport = response.items.filter((o) => {
+        const d = new Date(o.deliveryDate);
+        return d >= from && d <= to;
+      });
 
       if (!ordersToExport || ordersToExport.length === 0) {
-        toast.error("No orders match the current filters to export");
+        toast.error("No orders found in the selected date range");
         return;
       }
 
@@ -259,7 +290,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         "Material",
         "Handover Date",
         "Address",
-        "Sales Person"
+        "Sales Person",
       ];
 
       const csvRows = ordersToExport.map((o) => [
@@ -271,18 +302,22 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         new Date(o.deliveryDate).toLocaleDateString("en-GB", {
           day: "2-digit",
           month: "short",
-          year: "numeric"
+          year: "numeric",
         }),
         `${o.address || ""}, ${o.city || ""}, ${o.state || ""} ${o.pincode || ""}`,
-        o.salesPerson || ""
+        o.salesPerson || "",
       ]);
 
       const worksheet = XLSX.utils.aoa_to_sheet([headers, ...csvRows]);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-      XLSX.writeFile(workbook, `Orders_Report_${Date.now()}.xlsx`);
+      XLSX.writeFile(
+        workbook,
+        `Orders_${exportFromDate}_to_${exportToDate}.xlsx`
+      );
 
-      toast.success(`Successfully exported ${ordersToExport.length} orders to Excel`);
+      toast.success(`Exported ${ordersToExport.length} orders`);
+      setExportDialogOpen(false);
     } catch (error) {
       toast.error("Failed to export order report");
     }
@@ -451,7 +486,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     Import Excel
                   </Button>
                   <Button
-                    onClick={handleExportCSV}
+                    onClick={() => setExportDialogOpen(true)}
                     variant="outline"
                     className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
                   >
@@ -646,7 +681,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <TH className="w-[20%]">Address</TH>
                   <TH className="w-[10%]">Material Type</TH>
                   <TH className="w-[12%]">Handover Date</TH>
-                  <TH className="w-[13%]">Unpaid Service Available</TH>
+                  <TH className="w-[13%]">Service Type</TH>
                   <TH className="text-right w-[10%]">Actions</TH>
                 </tr>
               </THead>
@@ -684,10 +719,22 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   </TR>
                 ) : (
                   items.map((order) => (
-                    <TR key={order._id}>
+                    <TR
+                      key={order._id}
+                      className="border-b border-slate-100 dark:border-white/[0.06] cursor-pointer transition-colors hover:bg-slate-50/50 dark:hover:bg-white/[0.04]"
+                      onClick={() => setViewTarget(order)}
+                    >
                       {/* Order ID */}
                       <TD className="font-medium text-[#04342C] dark:text-white">
-                        {order.orderId}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewTarget(order);
+                          }}
+                          className="hover:underline"
+                        >
+                          {order.orderId}
+                        </button>
                       </TD>
 
                       {/* Customer Details */}
@@ -738,18 +785,18 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <TD>
                         {order.unpaidServiceAvailable ? (
                           <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded px-4 py-1 border-emerald-500/20 font-bold">
-                            YES
+                            Paid 
                           </Badge>
                         ) : (
                           <Badge className="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded px-4 py-1 border-rose-500/20 font-bold">
-                            NO
+                            Unpaid
                           </Badge>
                         )}
                       </TD>
 
                       {/* Actions */}
                       <TD className="text-right">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1068,7 +1115,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     </div>
                     <div>
                       <span className="block text-xs text-slate-400 dark:text-slate-500">
-                        Unpaid Service Available
+                        Service Type
                       </span>
                       <span className="font-medium text-slate-800 dark:text-white">
                         {viewTarget.unpaidServiceAvailable ? "Yes, Available" : "No, Unavailable"}
@@ -1302,6 +1349,50 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+          <DialogContent className="border-slate-200 dark:border-white/[0.1] bg-white dark:bg-app text-slate-900 dark:text-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export orders by date range</DialogTitle>
+              <DialogDescription>
+                Select handover date range. Current filters still apply.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="export-from">From date</Label>
+                <Input
+                  id="export-from"
+                  type="date"
+                  max={new Date().toISOString().split("T")[0]}
+                  value={exportFromDate}
+                  onChange={(e) => setExportFromDate(e.target.value)}
+                  className="border-slate-200 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="export-to">To date</Label>
+                <Input
+                  id="export-to"
+                  type="date"
+                  max={new Date().toISOString().split("T")[0]}
+                  value={exportToDate}
+                  onChange={(e) => setExportToDate(e.target.value)}
+                  className="border-slate-200 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleExportCSV()} className="bg-[#185FA5] hover:bg-[#378ADD] text-white">
+                <Download className="mr-2 h-4 w-4" />
+                Export Excel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardShell>
   );

@@ -1,4 +1,4 @@
-export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed" | "Resolved";
+export type ComplaintStatus = "Pending Review" | "Declined" | "Pending Assignment" | "Assigned" | "In Progress" | "Completed" | "Resolved" | "Site Visit" | "Material Required" | "Material Granted" | "Revisit" | "Cancelled" | "Awaiting Reassignment";
 export type Priority = "High" | "Medium" | "Low";
 export type UserRole = "super_admin" | "admin" | "sub_admin" | "team" | "customer" | "manager" | "team_lead" | "accountant" | "store_manager";
 export type SubAdminType = "accountant" | "plant_head";
@@ -225,6 +225,25 @@ export interface DashboardPageData {
   categories: DashboardCategoryPoint[];
   todaysSiteVisits: import("@/lib/task.types").Task[];
   recentComplaints: RecentComplaintItem[];
+  pendingActions: DashboardPendingAction[];
+}
+
+export type DashboardPendingRole = "admin" | "service_head" | "accountant" | "store" | "team";
+
+export interface DashboardPendingAction {
+  _id: string;
+  requestId: string;
+  materialName: string;
+  status: string;
+  complaintId: string;
+  clientName: string;
+  assignedTeam: string;
+  requestedBy: string;
+  requestDate: string;
+  updatedAt?: string;
+  quantity: number;
+  unit: string;
+  actionLabel: string;
 }
 
 export interface Complaint {
@@ -243,20 +262,27 @@ export interface Complaint {
   quotationUrl?: string;
   availableDate?: string;
   availableTime?: string;
+  availability?: string;
+  timeSlot?: string;
+  locationCoordinates?: string;
   assignedTeam?: string;
   assignedUserId?: string;
   assignedUserName?: string;
   status: ComplaintStatus;
+  siteVisitStatus?: "Pending" | "Completed" | "Material Required" | "Material Granted" | "Revisit" | "Awaiting Reassignment" | "";
   paymentStatus?: "Pending" | "Paid" | "Partially Paid";
   remarks?: string;
   completionRemarks?: string;
   resolutionDetails?: string;
+  completionPictureUrl?: string;
   assignedBy?: string;
   completedBy?: string;
   assignedDate?: string;
   completedDate?: string;
   createdAt?: string;
   updatedAt?: string;
+  complaintType?: string;
+  complaintDescription?: string;
   history?: Array<{
     action: string;
     by: string;
@@ -265,6 +291,17 @@ export interface Complaint {
     remarks?: string;
     details?: string;
     status: ComplaintStatus;
+    createdAt?: string;
+  }>;
+  taskHistory?: Array<{
+    action: string;
+    by: string;
+    role: string;
+    team?: string;
+    remarks?: string;
+    details?: string;
+    status: string;
+    photoUrl?: string;
     createdAt?: string;
   }>;
   taskScheduleStatus?: string | null;
@@ -289,6 +326,7 @@ export interface MaterialAlertItem {
   _id: string;
   type: string;
   requestId: string;
+  complaintId?: string;
   title: string;
   message: string;
   read: boolean;
@@ -302,6 +340,7 @@ export interface AlertsResponse {
     _id: string;
     type: string;
     taskId: string;
+    complaintId?: string;
     title: string;
     message: string;
     read: boolean;
@@ -344,6 +383,7 @@ export interface AuthResponse {
     id: string;
     name: string;
     email: string;
+    mobile?: string;
     role: UserRole;
     team?: string;
     teamId?: string;
@@ -352,6 +392,7 @@ export interface AuthResponse {
     designation?: string;
     department?: string;
     subAdminType?: SubAdminType;
+    avatarUrl?: string;
   };
 }
 
@@ -373,6 +414,7 @@ export interface ManagedUser {
   createdBy: string;
   createdAt?: string;
   updatedAt?: string;
+  avatarUrl?: string;
 }
 
 export interface UserListResponse {

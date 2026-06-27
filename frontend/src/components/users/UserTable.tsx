@@ -15,12 +15,12 @@ import {
 import { TableElement, THead, TH, TD, TR } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  getAvatarColor,
   getRoleBadgeClass,
   getRoleLabel,
   getSubAdminTypeLabel,
   glassCardClass,
 } from "@/lib/user-constants";
+import { UserAvatar } from "@/components/profile/UserAvatar";
 import { canDeleteUsers, canManageUsers, canResetOthersPassword, isProtectedUser } from "@/lib/rbac";
 import type { UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -96,17 +96,18 @@ export function UserTable({
                 const showReset = canReset && !isSelf;
 
                 return (
-                  <TR key={user._id} className="hover:bg-white/[0.02]">
+                  <TR
+                    key={user._id}
+                    className="hover:bg-white/[0.04] cursor-pointer transition-colors"
+                    onClick={() => onView(user)}
+                  >
                     <TD>
                       <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                            getAvatarColor(user.name)
-                          )}
-                        >
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
+                        <UserAvatar
+                          name={user.name}
+                          avatarUrl={user.avatarUrl}
+                          className="h-9 w-9 shrink-0 rounded-full text-sm"
+                        />
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-white">{user.name}</span>
@@ -156,52 +157,63 @@ export function UserTable({
                       {user.createdAt ? format(new Date(user.createdAt), "dd MMM yyyy") : "—"}
                     </TD>
                     <TD className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-[#94A3B8] hover:bg-white/5 hover:text-white"
-                            disabled={isBusy}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="border-white/10 bg-app text-white">
-                          <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onView(user)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                          </DropdownMenuItem>
-                          {showManageActions && (
-                            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onEdit(user)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
+                      <div className="flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-[#94A3B8] hover:bg-white/5 hover:text-white"
+                          onClick={() => onView(user)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-[#94A3B8] hover:bg-white/5 hover:text-white"
+                              disabled={isBusy}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="border-white/10 bg-app text-white">
+                            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onView(user)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
                             </DropdownMenuItem>
-                          )}
-                          {showReset && (
-                            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onResetPassword(user)}>
-                              <KeyRound className="mr-2 h-4 w-4" />
-                              Reset Password
-                            </DropdownMenuItem>
-                          )}
-                          {showManageActions && !isSelf && (
-                            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onToggleStatus(user)}>
-                              <Power className="mr-2 h-4 w-4" />
-                              {user.status === "active" ? "Deactivate" : "Activate"}
-                            </DropdownMenuItem>
-                          )}
-                          {canDelete && showManageActions && !isSelf && (
-                            <>
-                              <DropdownMenuSeparator className="bg-white/10" />
-                              <DropdownMenuItem variant="destructive" onClick={() => onDelete(user)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
+                            {showManageActions && (
+                              <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onEdit(user)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit User
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {showReset && (
+                              <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onResetPassword(user)}>
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                Reset Password
+                              </DropdownMenuItem>
+                            )}
+                            {showManageActions && !isSelf && (
+                              <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={() => onToggleStatus(user)}>
+                                <Power className="mr-2 h-4 w-4" />
+                                {user.status === "active" ? "Deactivate Account" : "Activate User"}
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && showManageActions && !isSelf && (
+                              <>
+                                <DropdownMenuSeparator className="bg-white/10" />
+                                <DropdownMenuItem variant="destructive" onClick={() => onDelete(user)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete User
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TD>
                   </TR>
                 );

@@ -20,6 +20,7 @@ const userSchema = new Schema(
     },
     designation: { type: String, default: "" },
     department: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
     teamId: { type: Schema.Types.ObjectId, ref: "Team", index: true },
     teamName: { type: String, index: true },
     team: { type: String },
@@ -44,6 +45,7 @@ export type UserDocument = {
   subAdminType?: "accountant" | "plant_head";
   designation: string;
   department: string;
+  avatarUrl?: string;
   teamId?: Types.ObjectId;
   teamName?: string;
   team?: string;

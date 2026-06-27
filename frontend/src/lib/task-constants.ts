@@ -12,12 +12,20 @@ export const taskStatuses = [
 export const taskPriorities = ["All", "Low", "Medium", "High", "Critical"] as const;
 
 export function blocksTaskAssignment(taskScheduleStatus?: string | null) {
-  return (
-    taskScheduleStatus === "In Progress" ||
-    taskScheduleStatus === "Completed" ||
-    taskScheduleStatus === "Need Material"
-  );
+  return taskScheduleStatus === "Completed";
 }
+
+export function blocksComplaintReassignment(taskScheduleStatus?: string | null) {
+  return taskScheduleStatus === "Completed" || taskScheduleStatus === "Cancelled";
+}
+
+export const REASSIGNABLE_TASK_STATUSES = [
+  "Pending",
+  "In Progress",
+  "Overdue",
+  "Need Re-visit",
+  "Need Material",
+] as const;
 
 
 

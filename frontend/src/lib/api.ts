@@ -2,7 +2,7 @@ import axios, { isAxiosError } from "axios";
 import { readToken } from "./storage";
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api"
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "https://ven-3zip.onrender.com/api"
 });
 
 export function getApiErrorMessage(error: unknown, fallback = "Something went wrong") {

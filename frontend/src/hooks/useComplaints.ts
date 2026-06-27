@@ -1,13 +1,26 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchComplaints, fetchComplaintStats } from "@/services/complaints";
+import {
+  fetchClientHistoryComplaintDetail,
+  fetchComplaints,
+  fetchComplaintStats,
+} from "@/services/complaints";
 
 export const complaintKeys = {
   all: ["complaints"] as const,
   list: (params: Record<string, string | number | undefined>) =>
     [...complaintKeys.all, "list", params] as const,
+  detail: (id: string) => [...complaintKeys.all, "detail", id] as const,
 };
+
+export function useComplaint(id: string) {
+  return useQuery({
+    queryKey: complaintKeys.detail(id),
+    queryFn: () => fetchClientHistoryComplaintDetail(id),
+    enabled: !!id,
+  });
+}
 
 export function useComplaints(params: {
   q?: string;

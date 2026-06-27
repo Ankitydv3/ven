@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/constants";
+import { getComplaintDetailsPath } from "@/lib/record-navigation";
 import { fetchComplaints } from "@/services/complaints";
 import { fetchOrders } from "@/services/orders";
 import { fetchUsers } from "@/services/users";
@@ -76,8 +77,15 @@ function matchesQuery(text: string, query: string) {
   return text.toLowerCase().includes(query.toLowerCase());
 }
 
-export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
+export function DashboardSearch({
+  navItems,
+  role = "admin",
+}: {
+  navItems: NavItem[];
+  role?: "admin" | "team";
+}) {
   const router = useRouter();
+  const basePath = role === "admin" ? "/admin" : "/team";
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -144,7 +152,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "complaint",
             title: item.complaintId,
             subtitle: item.clientName,
-            href: `/admin/complaints?q=${encodeURIComponent(item.complaintId)}`,
+            href: getComplaintDetailsPath(role, item.complaintId),
           });
         }
       }
@@ -156,7 +164,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "order",
             title: item.orderId,
             subtitle: `${item.customerName}${item.phone ? ` • ${item.phone}` : ""}`,
-            href: `/admin/orders?q=${encodeURIComponent(item.orderId)}`,
+            href: `${basePath}/orders?q=${encodeURIComponent(item.orderId)}`,
           });
         }
       }
@@ -168,7 +176,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "user",
             title: item.name,
             subtitle: `${item.email}${item.mobile ? ` • ${item.mobile}` : ""}`,
-            href: `/admin/users?q=${encodeURIComponent(item.name)}`,
+            href: `${basePath}/users?q=${encodeURIComponent(item.name)}`,
           });
         }
       }
@@ -180,7 +188,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "payment",
             title: item.paymentId,
             subtitle: item.customerName,
-            href: `/admin/payments?q=${encodeURIComponent(item.paymentId)}`,
+            href: `${basePath}/payments?q=${encodeURIComponent(item.paymentId)}`,
           });
         }
       }
@@ -192,7 +200,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "material",
             title: item.requestId,
             subtitle: item.materialName,
-            href: `/admin/material-requests?q=${encodeURIComponent(item.requestId)}`,
+            href: `${basePath}/material-requests?q=${encodeURIComponent(item.requestId)}`,
           });
         }
       }
@@ -204,7 +212,9 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
             type: "task",
             title: item.taskId,
             subtitle: item.title,
-            href: `/admin/schedule?q=${encodeURIComponent(item.taskId)}`,
+            href: item.complaintId
+              ? getComplaintDetailsPath(role, item.complaintId)
+              : `${basePath}/schedule?q=${encodeURIComponent(item.taskId)}`,
           });
         }
       }
@@ -213,7 +223,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
       setActiveIndex(0);
       setLoading(false);
     },
-    [pageResults]
+    [pageResults, basePath, role]
   );
 
   useEffect(() => {
@@ -290,7 +300,7 @@ export function DashboardSearch({ navItems }: { navItems: NavItem[] }) {
     }
 
     setOpen(false);
-    router.push(`/admin/complaints?q=${encodeURIComponent(trimmed)}`);
+    router.push(getComplaintDetailsPath(role, trimmed));
   };
 
   const showPanel = open && (query.trim().length > 0 || flatResults.length > 0);

@@ -4,11 +4,13 @@ import { useEffect, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Loader2, Filter, ArrowUpRight, RefreshCw, Ban,
-  Shield, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, XCircle,
+  Shield, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, XCircle, Eye,
+  Calendar, Clock,
 } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { assignComplaint, fetchComplaints } from "@/services/complaints";
+import { assignComplaint, fetchComplaints, scheduleRevisit } from "@/services/complaints";
 import { fetchAssignableUsers } from "@/services/users";
 import { getApiErrorMessage } from "@/lib/api";
 import { complaintStatuses } from "@/lib/constants";
@@ -16,14 +18,19 @@ import type { Complaint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from "next/navigation";
+import { getComplaintDetailsPath } from "@/lib/record-navigation";
 import { readUser } from "@/lib/storage";
 import { canManageComplaints } from "@/lib/permissions";
-import { statusBadgeVariant as taskStatusBadgeVariant, formatDueDate, blocksTaskAssignment } from "@/lib/task-constants";
+import { cn } from "@/lib/utils";
+import { statusBadgeVariant as taskStatusBadgeVariant, formatDueDate, blocksComplaintReassignment } from "@/lib/task-constants";
 import { getComplaintWorkflowStage } from "@/lib/workflow";
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
@@ -44,15 +51,39 @@ function priorityConfig(priority: Complaint["priority"]) {
   return { dot: "bg-emerald-500", cls: "text-emerald-500" };
 }
 
+const TEAM_BADGE_COLORS = [
+  "border-blue-500/40 text-blue-300",
+  "border-purple-500/40 text-purple-300",
+  "border-amber-500/40 text-amber-300",
+  "border-emerald-500/40 text-emerald-300",
+  "border-rose-500/40 text-rose-300",
+];
+
+function teamBadgeClass(teamName: string) {
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i += 1) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TEAM_BADGE_COLORS[Math.abs(hash) % TEAM_BADGE_COLORS.length];
+}
+
 function scheduleLabel(item: Complaint) {
   return getComplaintWorkflowStage(item);
 }
 
 function assignLockReason(c: Complaint) {
-  if (c.status === "Completed") return "Cannot assign completed complaints";
-  if (c.status === "In Progress") return "Cannot reassign a complaint in progress";
-  if (blocksTaskAssignment(c.taskScheduleStatus)) return `Linked task is ${c.taskScheduleStatus}. Cancel or reopen first.`;
+  if (c.status === "Pending Review" || c.status === "Declined") {
+    return "This complaint cannot be assigned";
+  }
+  if (c.status !== "Completed" && c.status !== "Cancelled" && blocksComplaintReassignment(c.taskScheduleStatus)) {
+    return `Linked task is ${c.taskScheduleStatus}. Reopen before reassigning.`;
+  }
   return "";
+}
+
+function getRescheduleInfo(complaint: Complaint) {
+  if (!complaint.history || complaint.history.length === 0) return null;
+  return [...complaint.history].reverse().find(h => h.action === "Revisit Scheduled");
 }
 
 /* ─── Skeleton ─────────────────────────────────────────────────── */
@@ -68,8 +99,10 @@ function RowSkeleton() {
 
 /* ─── Main ─────────────────────────────────────────────────────── */
 export function ComplaintsManager() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const sessionUser = readUser();
+  const role = sessionUser?.role === "team" ? "team" : "admin";
   const canManage = canManageComplaints(sessionUser?.role);
   const [items, setItems] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,8 +112,13 @@ export function ComplaintsManager() {
   const [total, setTotal] = useState(0);
   const limit = 8;
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
+  const [revisitTarget, setRevisitTarget] = useState<Complaint | null>(null);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [pending, startTransition] = useTransition();
+
+  const openComplaint = (item: Complaint) => {
+    router.push(getComplaintDetailsPath(role, item.complaintId));
+  };
 
   const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ["users", "assignable"],
@@ -121,8 +159,11 @@ export function ComplaintsManager() {
 
   const canAssign = (c: Complaint) =>
     canManage &&
-    !["Completed", "In Progress", "Declined", "Pending Review"].includes(c.status) &&
-    !blocksTaskAssignment(c.taskScheduleStatus);
+    c.status !== "Pending Review" &&
+    c.status !== "Declined" &&
+    (c.status === "Completed" ||
+      c.status === "Cancelled" ||
+      (!["In Progress"].includes(c.status) && !blocksComplaintReassignment(c.taskScheduleStatus)));
 
   const handleAssign = () => {
     if (!assignTarget) return;
@@ -150,10 +191,117 @@ export function ComplaintsManager() {
     });
   };
 
+  const handleScheduleRevisitSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!revisitTarget) return;
+
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        await scheduleRevisit(revisitTarget._id, {
+          date: formData.get("date") as string,
+          timeSlot: formData.get("timeSlot") as string,
+          team: formData.get("team") as string,
+          remarks: formData.get("remarks") as string,
+        });
+        toast.success("Revisit scheduled successfully");
+        setRevisitTarget(null);
+        await load();
+        void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+        void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, "Failed to schedule revisit"));
+      }
+    });
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div className="space-y-6">
+      {/* ── Revisit Dialog ─────────────────────────────────── */}
+      <Dialog
+        open={Boolean(revisitTarget)}
+        onOpenChange={(o) => !o && setRevisitTarget(null)}
+      >
+        <DialogContent className="sm:max-w-[500px] bg-[#0b1424] text-white border-white/10 rounded-2xl">
+          <form onSubmit={handleScheduleRevisitSubmit}>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Reschedule Visit</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Change the visit plan for this complaint.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-6">
+              <div className="grid gap-2">
+                <Label htmlFor="date" className="text-xs font-bold uppercase tracking-wider text-slate-500">Visit Date</Label>
+                <Input
+                  id="date"
+                  name="date"
+                  type="date"
+                  required
+                  defaultValue={revisitTarget?.availableDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="bg-white/5 border-white/10 rounded-xl text-white"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="timeSlot" className="text-xs font-bold uppercase tracking-wider text-slate-500">Time Slot</Label>
+                <select
+                  id="timeSlot"
+                  name="timeSlot"
+                  required
+                  defaultValue={revisitTarget?.timeSlot}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
+                >
+                  <option value="" style={{backgroundColor: "#0f172a"}}>Select slot</option>
+                  {[
+                    "9:00 AM - 10:00 AM",
+                    "10:00 AM - 11:00 AM",
+                    "11:00 AM - 12:00 PM",
+                    "12:00 PM - 1:00 PM",
+                    "1:00 PM - 2:00 PM",
+                    "2:00 PM - 3:00 PM",
+                    "3:00 PM - 4:00 PM",
+                    "4:00 PM - 5:00 PM",
+                    "5:00 PM - 6:00 PM",
+                    "6:00 PM - 7:00 PM",
+                  ].map(slot => <option key={slot} value={slot} style={{backgroundColor: "#0f172a"}}>{slot}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="team" className="text-xs font-bold uppercase tracking-wider text-slate-500">Assigned Team</Label>
+                <select
+                  id="team"
+                  name="team"
+                  required
+                  defaultValue={revisitTarget?.assignedTeam}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
+                >
+                  <option value="" style={{backgroundColor: "#0f172a"}}>Select team</option>
+                  {(queryClient.getQueryData(["teams"]) as any[] || []).map((team: any) => (
+                    <option key={team._id} value={team.teamName} style={{backgroundColor: "#0f172a"}}>{team.teamName}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="remarks" className="text-xs font-bold uppercase tracking-wider text-slate-500">Instructions / Remarks</Label>
+                <Textarea id="remarks" name="remarks" placeholder="Notes for the visiting team..." className="bg-white/5 border-white/10 rounded-xl min-h-[100px] text-white" />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-3">
+              <Button type="button" variant="ghost" onClick={() => setRevisitTarget(null)} className="rounded-xl border-white/5 text-white hover:bg-white/10">Cancel</Button>
+              <Button type="submit" disabled={pending} className="bg-blue-600 hover:bg-blue-500 rounded-xl px-6 font-bold shadow-lg shadow-blue-600/20 text-white">
+                {pending && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Header & filters ─────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
@@ -256,9 +404,10 @@ export function ComplaintsManager() {
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.04 }}
-                          className={`border-b border-slate-100 dark:border-white/[0.05] last:border-0 transition-colors ${
-                            isCompleted ? "opacity-60" : "hover:bg-blue-50/50 dark:hover:bg-blue-500/[0.04]"
+                          className={`border-b border-slate-100 dark:border-white/[0.05] last:border-0 transition-colors cursor-pointer ${
+                            isCompleted ? "opacity-60" : "hover:bg-blue-50/50 dark:hover:bg-white/[0.04]"
                           }`}
+                          onClick={() => openComplaint(item)}
                         >
                           <td className="px-4 py-3 font-semibold text-slate-800 dark:text-white whitespace-nowrap">
                             {item.complaintId}
@@ -274,57 +423,95 @@ export function ComplaintsManager() {
                             {item.location}
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${sc.cls}`}>
-                              {sc.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-[11px] text-slate-500 dark:text-white/50 whitespace-nowrap">
-                              {scheduleLabel(item)}
-                              {item.taskScheduleDueDate && (
-                                <span className="block text-[10px] text-slate-400 dark:text-white/30 mt-0.5">
-                                  Due {formatDueDate(item.taskScheduleDueDate)}
-                                </span>
+                            <div className="flex flex-col gap-1">
+                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border w-fit ${sc.cls}`}>
+                                {sc.label}
+                              </span>
+                              {scheduleLabel(item) === "Revisit" && (
+                                <div className="flex items-center gap-1 text-[9px] text-blue-400 font-bold ml-0.5">
+                                  <RefreshCw className="h-2.5 w-2.5" />
+                                  Rescheduled
+                                </div>
                               )}
-                            </span>
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-slate-500 dark:text-white/50 hidden xl:table-cell">
-                            {item.assignedUserName
-                              ? `${item.assignedUserName}${item.assignedTeam ? ` · ${item.assignedTeam}` : ""}`
-                              : item.assignedTeam ?? "—"}
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-lg border px-2 py-0.5 text-[10px] font-medium w-fit",
+                                  item.assignedTeam ? teamBadgeClass(item.assignedTeam) : "border-slate-700 text-slate-500"
+                                )}
+                              >
+                                {item.assignedUserName
+                                  ? `${item.assignedUserName}${item.assignedTeam ? ` · ${item.assignedTeam}` : ""}`
+                                  : item.assignedTeam ?? "—"}
+                              </span>
+                              {item.availableDate && (
+                                <div className="flex flex-col gap-0.5 mt-0.5">
+                                  <div className="flex items-center gap-1 text-[9px] text-blue-400 font-bold">
+                                    <Calendar className="h-2.5 w-2.5" />
+                                    {format(new Date(item.availableDate), "dd MMM")}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-[9px] text-slate-500">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {item.timeSlot || "Any time"}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-xs text-slate-400 dark:text-white/30 hidden xl:table-cell whitespace-nowrap">
                             {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
                           </td>
                           <td className="px-4 py-3">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <button
-                                      disabled={!canA}
-                                      onClick={() => { if (canA) { setAssignTarget(item); setSelectedUserId(item.assignedUserId ?? ""); } }}
-                                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
-                                        canA
-                                          ? "border-blue-500/30 bg-blue-500/[0.07] text-blue-600 dark:text-blue-400 hover:bg-blue-500/15"
-                                          : "border-slate-200 dark:border-white/[0.06] text-slate-400 dark:text-white/30 cursor-not-allowed opacity-50"
-                                      }`}
-                                    >
-                                      {isCompleted ? (
-                                        <><Ban className="h-3.5 w-3.5" /> Locked</>
-                                      ) : item.assignedTeam ? (
-                                        <><RefreshCw className="h-3.5 w-3.5" /> Reassign</>
-                                      ) : (
-                                        <><ArrowUpRight className="h-3.5 w-3.5" /> Assign</>
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+                                onClick={() => openComplaint(item)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <button
+                                        disabled={!canA}
+                                        onClick={() => { if (canA) { setAssignTarget(item); setSelectedUserId(item.assignedUserId ?? ""); } }}
+                                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
+                                          canA
+                                            ? "border-blue-500/30 bg-blue-500/[0.07] text-blue-600 dark:text-blue-400 hover:bg-blue-500/15"
+                                            : "border-slate-200 dark:border-white/[0.06] text-slate-400 dark:text-white/30 cursor-not-allowed opacity-50"
+                                        }`}
+                                      >
+                                        {isCompleted ? (
+                                          <><Ban className="h-3.5 w-3.5" /> Locked</>
+                                        ) : item.assignedTeam ? (
+                                          <><RefreshCw className="h-3.5 w-3.5" /> Reassign</>
+                                        ) : (
+                                          <><ArrowUpRight className="h-3.5 w-3.5" /> Assign</>
+                                        )}
+                                      </button>
+                                      {!isCompleted && canA && (
+                                        <button
+                                          onClick={() => setRevisitTarget(item)}
+                                          title="Reschedule"
+                                          className="flex items-center justify-center h-8 w-8 rounded-xl border border-indigo-500/30 bg-indigo-500/[0.07] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/15 transition-all"
+                                        >
+                                          <RefreshCw className="h-3.5 w-3.5" />
+                                        </button>
                                       )}
-                                    </button>
-                                  </span>
-                                </TooltipTrigger>
-                                {!canA && assignLockReason(item) && (
-                                  <TooltipContent><p>{assignLockReason(item)}</p></TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {!canA && assignLockReason(item) && (
+                                    <TooltipContent><p>{assignLockReason(item)}</p></TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                           </td>
                         </motion.tr>
                       );
@@ -339,10 +526,11 @@ export function ComplaintsManager() {
       <div className="space-y-3 md:hidden">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)
-          : items.map((item, idx) => {
+            : items.map((item, idx) => {
               const sc = statusConfig(item.status);
               const pc = priorityConfig(item.priority);
               const canA = canAssign(item);
+              const isCompleted = item.status === "Completed";
 
               return (
                 <motion.div
@@ -350,7 +538,8 @@ export function ComplaintsManager() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-4 space-y-3"
+                  className="rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-app p-4 space-y-3 cursor-pointer transition-colors hover:bg-white/[0.04]"
+                                onClick={() => openComplaint(item)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -369,7 +558,7 @@ export function ComplaintsManager() {
                   </div>
                   <button
                     disabled={!canA}
-                    onClick={() => { if (canA) { setAssignTarget(item); setSelectedUserId(item.assignedUserId ?? ""); } }}
+                    onClick={(e) => { e.stopPropagation(); if (canA) { setAssignTarget(item); setSelectedUserId(item.assignedUserId ?? ""); } }}
                     className={`w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
                       canA
                         ? "border-blue-500/30 bg-blue-500/[0.07] text-blue-600 dark:text-blue-400 hover:bg-blue-500/15"
@@ -380,6 +569,14 @@ export function ComplaintsManager() {
                       : item.assignedTeam ? <><RefreshCw className="h-3.5 w-3.5" /> Reassign</>
                       : <><ArrowUpRight className="h-3.5 w-3.5" /> Assign</>}
                   </button>
+                  {!isCompleted && canA && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRevisitTarget(item); }}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-indigo-500/30 bg-indigo-500/[0.07] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/15 transition-all"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </motion.div>
               );
             })}

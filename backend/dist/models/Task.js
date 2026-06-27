@@ -45,6 +45,7 @@ const taskSchema = new mongoose_1.Schema({
     completedAt: { type: Date },
     remarks: { type: String, default: "" },
     isLocked: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true, index: true },
     history: { type: [taskHistorySchema], default: [] },
 }, { timestamps: true });
 exports.default = (0, mongoose_1.model)("Task", taskSchema);

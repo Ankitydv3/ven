@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { getComplaintOverview, getDashboard, getMonthlyTrend, getRecentComplaints, getRecentOrders, getResolvedReasons, getSummary, getTopCategories, getUnresolvedReasons } from "../controllers/dashboardController";
+import { getComplaintOverview, getDashboard, getMonthlyTrend, getPendingActions, getRecentComplaints, getRecentOrders, getResolvedReasons, getSummary, getTopCategories, getUnresolvedReasons } from "../controllers/dashboardController";
 import { authRequired, requireRole } from "../middleware/auth";
 
 const router = Router();
@@ -14,5 +14,6 @@ router.get("/complaint-overview", authRequired, asyncHandler(getComplaintOvervie
 router.get("/top-categories", authRequired, asyncHandler(getTopCategories));
 router.get("/recent-orders", authRequired, asyncHandler(getRecentOrders));
 router.get("/recent-complaints", authRequired, asyncHandler(getRecentComplaints));
+router.get("/pending-actions", authRequired, asyncHandler(getPendingActions));
 
 export default router;

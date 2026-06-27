@@ -27,8 +27,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { UserTable } from "@/components/users/UserTable";
 import { UserFormDialog } from "@/components/users/UserFormDialog";
+import { UserProfileEditDialog } from "@/components/users/UserProfileEditDialog";
 import { UserViewDialog } from "@/components/users/UserViewDialog";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
+import { useRouter } from "next/navigation";
+import { navigateToUser } from "@/lib/record-navigation";
 
 import { UserCredentialsDialog } from "@/components/users/UserCredentialsDialog";
 import type { ManagedUser, UserCredentials } from "@/lib/types";
@@ -44,6 +47,7 @@ interface UsersPageProps {
 }
 
 export function UsersPage({ role = "admin" }: UsersPageProps) {
+  const router = useRouter();
   const { ready } = useSession(role);
   const sessionUser = readUser();
   const canManage = canManageUsers(sessionUser?.role);
@@ -57,8 +61,8 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
   const [sortBy] = useState("createdAt");
   const [sortOrder] = useState<"asc" | "desc">("desc");
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [editUser, setEditUser] = useState<ManagedUser | null>(null);
+  const [createFormOpen, setCreateFormOpen] = useState(false);
+  const [editProfileUser, setEditProfileUser] = useState<ManagedUser | null>(null);
   const [viewUser, setViewUser] = useState<ManagedUser | null>(null);
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [resetConfirmUser, setResetConfirmUser] = useState<ManagedUser | null>(null);
@@ -97,7 +101,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
     try {
       const result = await createMutation.mutateAsync(values);
       toast.success("User created successfully");
-      setFormOpen(false);
+      setCreateFormOpen(false);
 
       if (result.user.employeeId && result.user.username && values.password) {
         setCreatedUserName(result.user.name);
@@ -109,22 +113,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to create user"));
-      throw error;
-    }
-  };
-
-  const handleUpdate = async (values: Parameters<typeof createMutation.mutateAsync>[0]) => {
-    if (!editUser) return;
-
-    const { password, confirmPassword, ...payload } = values;
-
-    try {
-      await updateMutation.mutateAsync({ id: editUser._id, payload });
-      toast.success("User updated successfully");
-      setEditUser(null);
-      setFormOpen(false);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to update user"));
       throw error;
     }
   };
@@ -211,10 +199,7 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
                 <Button
                   type="button"
                   className={primaryButtonClass}
-                  onClick={() => {
-                    setEditUser(null);
-                    setFormOpen(true);
-                  }}
+                  onClick={() => setCreateFormOpen(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add User
@@ -265,11 +250,8 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
           users={users}
           isLoading={isLoading}
           actorRole={sessionUser?.role}
-          onView={setViewUser}
-          onEdit={(user) => {
-            setEditUser(user);
-            setFormOpen(true);
-          }}
+          onView={(user) => navigateToUser(router, role, user)}
+          onEdit={(user) => setEditProfileUser(user)}
           onResetPassword={setResetConfirmUser}
           onToggleStatus={handleToggleStatus}
           onDelete={handleDelete}
@@ -294,16 +276,22 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       </div>
 
       <UserFormDialog
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open);
-          if (!open) setEditUser(null);
-        }}
-        initialUser={editUser}
+        open={createFormOpen}
+        onOpenChange={setCreateFormOpen}
         actorRole={sessionUser?.role}
-        mode={editUser ? "edit" : "create"}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
-        onSubmit={editUser ? handleUpdate : handleCreate}
+        mode="create"
+        isSubmitting={createMutation.isPending}
+        onSubmit={handleCreate}
+      />
+
+      <UserProfileEditDialog
+        open={Boolean(editProfileUser)}
+        onOpenChange={(open) => {
+          if (!open) setEditProfileUser(null);
+        }}
+        user={editProfileUser}
+        actorRole={sessionUser?.role}
+        onSaved={() => void refetch()}
       />
 
       <UserViewDialog user={viewUser} onOpenChange={(open) => !open && setViewUser(null)} />

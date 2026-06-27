@@ -62,7 +62,15 @@ const cards = [
   },
 ] as const;
 
-export function TaskStatsCards({ stats, isLoading }: { stats?: TaskStats; isLoading?: boolean }) {
+export function TaskStatsCards({
+  stats,
+  isLoading,
+  onUpcomingClick,
+}: {
+  stats?: TaskStats;
+  isLoading?: boolean;
+  onUpcomingClick?: () => void;
+}) {
   if (isLoading || !stats) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -86,7 +94,21 @@ export function TaskStatsCards({ stats, isLoading }: { stats?: TaskStats; isLoad
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className={cn(panelClass, "p-5")}
+            className={cn(
+              panelClass,
+              "p-5",
+              card.key === "upcoming" && onUpcomingClick && "cursor-pointer hover:border-blue-500/40"
+            )}
+            onClick={card.key === "upcoming" ? onUpcomingClick : undefined}
+            onKeyDown={
+              card.key === "upcoming" && onUpcomingClick
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") onUpcomingClick();
+                  }
+                : undefined
+            }
+            role={card.key === "upcoming" && onUpcomingClick ? "button" : undefined}
+            tabIndex={card.key === "upcoming" && onUpcomingClick ? 0 : undefined}
           >
             <div className="flex items-start justify-between gap-3">
               <div>

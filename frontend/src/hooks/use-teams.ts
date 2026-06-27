@@ -8,10 +8,11 @@ export const teamKeys = {
   list: () => [...teamKeys.all, "list"] as const,
 };
 
-export function useTeams() {
+export function useTeams(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: teamKeys.list(),
     queryFn: fetchTeams,
+    enabled: options?.enabled ?? true,
   });
 }
 

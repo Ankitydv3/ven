@@ -14,12 +14,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Play,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
-import { useTasks } from "@/hooks/useTasks";
-import { useTaskStats } from "@/hooks/useTaskStats";
+import { useComplaints } from "@/hooks/useComplaints";
+import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
+import type { Complaint } from "@/lib/types";
+import { getComplaintWorkflowStage, workflowStageBadgeClass } from "@/lib/workflow";
 import { usePatchTaskStatus } from "@/hooks/usePatchTaskStatus";
 import { fetchTask } from "@/services/task.service";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +84,65 @@ function StatCard({
         <Icon className="h-5 w-5" />
       </div>
     </div>
+  );
+}
+
+function ComplaintListCard({
+  complaint,
+  selected,
+  onSelect,
+}: {
+  complaint: Complaint;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const stage = complaint.workflowStage ?? getComplaintWorkflowStage(complaint);
+  const title =
+    complaint.complaintType === "Other"
+      ? complaint.complaintDescription
+      : complaint.complaintType || complaint.title;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full rounded-xl border p-4 text-left transition-all",
+        selected
+          ? "border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/10"
+          : "border-white/[0.08] bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+      )}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <Badge className={cn("text-[10px]", workflowStageBadgeClass[stage as keyof typeof workflowStageBadgeClass] ?? "")}>
+          {stage}
+        </Badge>
+        <span className="text-xs font-mono text-slate-400">{complaint.complaintId}</span>
+      </div>
+      <p className="font-semibold text-white line-clamp-1">{title}</p>
+      <p className="mt-1 text-xs text-slate-400 line-clamp-1">{complaint.clientName}</p>
+      <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{complaint.location ?? "—"}</p>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-400">
+          {complaint.taskScheduleDueDate
+            ? formatDueDate(complaint.taskScheduleDueDate)
+            : complaint.assignedDate
+              ? formatDateTime(complaint.assignedDate)
+              : "—"}
+        </span>
+        <Badge variant={statusBadgeVariant[complaint.taskScheduleStatus ?? complaint.status] ?? "default"} className="text-[10px]">
+          {complaint.taskScheduleStatus ?? complaint.status}
+        </Badge>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Assigned by <span className="text-slate-300">{complaint.assignedBy || "—"}</span>
+        {complaint.assignedTeam ? (
+          <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px]">
+            {complaint.assignedTeam}
+          </span>
+        ) : null}
+      </p>
+    </button>
   );
 }
 
@@ -153,6 +215,21 @@ function TaskDetailPanel({
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [revisitDate, setRevisitDate] = useState("");
+  const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
+  const [forceUpdateForm, setForceUpdateForm] = useState(false);
+
+  useEffect(() => {
+    setNotes("");
+    setNextStatus("");
+    setPhotoPreview("");
+    setPhotoFile("");
+    setMaterialName("");
+    setQuantity("");
+    setUnit("");
+    setRevisitDate("");
+    setRevisitTimeSlot("");
+    setForceUpdateForm(false);
+  }, [task._id]);
 
   const complaint = task.complaint;
   const customerName = complaint?.clientName ?? task.title;
@@ -162,7 +239,7 @@ function TaskDetailPanel({
 
   const timeline = useMemo(() => {
     const entries = [...(task.history ?? [])].sort(
-      (a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
+      (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
     );
     if (entries.length === 0) {
       return [
@@ -199,7 +276,7 @@ function TaskDetailPanel({
       toast.success("Task started");
       onRefresh();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to start task"));
+      toast.error(getApiErrorMessage(error, "Failed to Update Task"));
     }
   };
 
@@ -256,6 +333,8 @@ function TaskDetailPanel({
       setQuantity("");
       setUnit("");
       setRevisitDate("");
+      setRevisitTimeSlot("");
+      setForceUpdateForm(false);
       if (completedStatus === "Completed") {
         openFeedback(feedbackTargetFromTask(task));
       }
@@ -265,9 +344,15 @@ function TaskDetailPanel({
     }
   };
 
-  const showProgressForm = canUpdate && task.status === "In Progress";
+  const showProgressForm =
+    canUpdate && (task.status === "In Progress" || (task.status === "Need Re-visit" && forceUpdateForm));
   const showStartButton =
-    canUpdate && ["Pending", "Overdue", "Need Re-visit"].includes(task.status);
+    canUpdate && ["Pending", "Overdue"].includes(task.status);
+  const showUpdateTaskButton = canUpdate && task.status === "Need Re-visit" && !forceUpdateForm;
+  const submitButtonLabel =
+    nextStatus === "Need Re-visit" && revisitDate
+      ? "Update Task"
+      : "Update Status";
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -291,7 +376,23 @@ function TaskDetailPanel({
               ) : (
                 <Play className="mr-1 h-3.5 w-3.5" />
               )}
-              Start Task
+              Update Task
+            </Button>
+          )}
+          {showUpdateTaskButton && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setForceUpdateForm(true);
+                setNextStatus("Need Re-visit");
+                if (task.dueDate) {
+                  setRevisitDate(new Date(task.dueDate).toISOString().split("T")[0]);
+                }
+              }}
+              disabled={patchMutation.isPending}
+              className="rounded-full bg-orange-600 hover:bg-orange-500"
+            >
+              Update Task
             </Button>
           )}
         </div>
@@ -404,16 +505,41 @@ function TaskDetailPanel({
                   </Select>
                 </div>
                 {nextStatus === "Need Re-visit" && (
-                  <div>
-                    <label className="mb-1.5 block text-xs text-slate-400">Re-visit Date</label>
-                    <Input
-                      type="date"
-                      value={revisitDate}
-                      onChange={(e) => setRevisitDate(e.target.value)}
-                      className="rounded-xl border-white/10 bg-white/5 text-white"
-                    />
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Schedule and dashboard will show this re-visit date.
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs text-slate-400">Re-visit Date</label>
+                      <Input
+                        type="date"
+                        value={revisitDate}
+                        min={new Date().toISOString().split("T")[0]}
+                        onChange={(e) => setRevisitDate(e.target.value)}
+                        className="rounded-xl border-white/10 bg-white/5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs text-slate-400">Re-visit Time Slot</label>
+                      <Select value={revisitTimeSlot} onValueChange={setRevisitTimeSlot}>
+                        <SelectTrigger className="rounded-xl border-white/10 bg-white/5 text-white">
+                          <SelectValue placeholder="Select time slot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[
+                            "9:00 AM - 10:00 AM",
+                            "10:00 AM - 11:00 AM",
+                            "11:00 AM - 12:00 PM",
+                            "12:00 PM - 1:00 PM",
+                            "1:00 PM - 2:00 PM",
+                            "2:00 PM - 3:00 PM",
+                            "3:00 PM - 4:00 PM",
+                            "4:00 PM - 5:00 PM",
+                          ].map((slot) => (
+                            <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Schedule and dashboard will show this re-visit date and time.
                     </p>
                   </div>
                 )}
@@ -473,11 +599,24 @@ function TaskDetailPanel({
                     />
                   </label>
                   {photoPreview && (
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="mt-2 max-h-32 rounded-lg border border-white/10"
-                    />
+                    <div className="relative mt-2 inline-block">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="max-h-32 rounded-lg border border-white/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhotoPreview("");
+                          setPhotoFile("");
+                        }}
+                        className="absolute -right-2 -top-2 rounded-full bg-red-500/90 p-1 text-white hover:bg-red-500"
+                        aria-label="Remove photo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <Button
@@ -488,7 +627,7 @@ function TaskDetailPanel({
                   {patchMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Update Status"
+                    submitButtonLabel
                   )}
                 </Button>
                 <p className="text-center text-[11px] text-slate-500">
@@ -531,6 +670,13 @@ function TaskDetailPanel({
                     {entry.remarks && (
                       <p className="mt-1 text-xs text-slate-500">{entry.remarks}</p>
                     )}
+                    {"photoUrl" in entry && entry.photoUrl && (
+                      <img
+                        src={entry.photoUrl as string}
+                        alt="Timeline attachment"
+                        className="mt-2 max-h-24 rounded-lg border border-white/10 object-cover"
+                      />
+                    )}
                     <p className="mt-0.5 text-[10px] text-slate-600">
                       {formatDateTime(entry.createdAt)}
                     </p>
@@ -557,34 +703,49 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const limit = 5;
 
-  const { data: stats, isLoading: statsLoading } = useTaskStats();
-  const { data, isLoading, refetch } = useTasks({
+  const { data, isLoading, refetch } = useComplaints({
     q: appliedSearch || undefined,
-    status: statusFilter !== "All" ? statusFilter : undefined,
-    priority: priorityFilter !== "All" ? priorityFilter : undefined,
-    dueDate: dateFilter || undefined,
+    displayStatus: statusFilter !== "All" ? statusFilter : undefined,
+    scope: ACTIVE_COMPLAINT_SCOPE,
     page,
     limit,
-    sortBy: "createdAt",
-    sortOrder: "desc",
   });
 
-  const tasks = data?.items ?? [];
+  const complaints = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const loadTaskDetail = useCallback(async (taskId: string) => {
+  const stats = useMemo(() => {
+    const inProgress = complaints.filter(
+      (c) => (c.workflowStage ?? c.status) === "In Progress"
+    ).length;
+    const pending = complaints.filter((c) => {
+      const stage = c.workflowStage ?? c.status;
+      return stage === "Assigned" || stage === "Pending Assignment" || stage === "Site Visit";
+    }).length;
+    const revisit = complaints.filter((c) => {
+      const stage = c.workflowStage ?? c.status;
+      return stage === "Revisit" || stage === "Awaiting Reassignment" || c.taskScheduleStatus === "Overdue";
+    }).length;
+    return { total, inProgress, pending, revisit };
+  }, [complaints, total]);
+
+  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
+    setSelectedComplaintId(complaint.complaintId);
     setLoadingDetail(true);
     try {
-      const detail = await fetchTask(taskId);
+      const lookupId = complaint.taskId ?? complaint.complaintId;
+      const detail = await fetchTask(lookupId);
       setSelectedTask(detail);
-    } catch {
-      toast.error("Failed to load task details");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to load complaint work details"));
+      setSelectedTask(null);
     } finally {
       setLoadingDetail(false);
     }
@@ -592,29 +753,39 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
   useEffect(() => {
     const q = searchParams.get("q");
-    const taskId = searchParams.get("taskId");
+    const complaintId = searchParams.get("complaintId") ?? searchParams.get("id");
     if (q) {
       setSearch(q);
       setAppliedSearch(q);
     }
-    if (taskId) {
-      void loadTaskDetail(taskId);
+    if (complaintId && complaints.length > 0) {
+      const target = complaints.find(
+        (c) => c.complaintId === complaintId || c._id === complaintId
+      );
+      if (target) {
+        void loadComplaintWorkDetail(target);
+      }
     }
-  }, [searchParams, loadTaskDetail]);
+  }, [searchParams, complaints, loadComplaintWorkDetail]);
 
   useEffect(() => {
-    if (tasks.length > 0 && !selectedTask && !searchParams.get("taskId")) {
-      void loadTaskDetail(tasks[0]._id);
+    if (
+      complaints.length > 0 &&
+      !selectedComplaintId &&
+      !searchParams.get("id") &&
+      !searchParams.get("complaintId")
+    ) {
+      void loadComplaintWorkDetail(complaints[0]);
     }
-  }, [tasks, selectedTask, searchParams, loadTaskDetail]);
+  }, [complaints, selectedComplaintId, searchParams, loadComplaintWorkDetail]);
 
   const handleSearch = () => {
     setAppliedSearch(search.trim());
     setPage(1);
   };
 
-  const handleSelectTask = (task: Task) => {
-    void loadTaskDetail(task._id);
+  const handleSelectComplaint = (complaint: Complaint) => {
+    void loadComplaintWorkDetail(complaint);
   };
 
   if (!ready) {
@@ -629,33 +800,33 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     <DashboardShell
       role={role}
       title="My Tasks"
-      subtitle="Tasks assigned by Service Head"
+      subtitle="Active complaints assigned to you or your team"
     >
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Assigned"
-            value={stats?.total ?? 0}
+            value={stats.total}
             icon={ClipboardList}
             iconClass="bg-blue-500/15 text-blue-400"
           />
           <StatCard
             label="In Progress"
-            value={stats?.inProgress ?? 0}
+            value={stats.inProgress}
             icon={Clock}
             iconClass="bg-amber-500/15 text-amber-400"
           />
           <StatCard
             label="Pending"
-            value={stats?.pending ?? 0}
+            value={stats.pending}
             icon={AlertCircle}
             iconClass="bg-orange-500/15 text-orange-400"
           />
           <StatCard
-            label="Completed Today"
-            value={stats?.completedToday ?? 0}
+            label="Scheduled / Revisit"
+            value={stats.revisit}
             icon={CheckCircle2}
-            iconClass="bg-emerald-500/15 text-emerald-400"
+            iconClass="bg-indigo-500/15 text-indigo-400"
           />
         </div>
 
@@ -666,7 +837,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Search tasks (Order ID, Customer, Address)..."
+              placeholder="Search complaints (ID, customer, address)..."
               className="h-10 rounded-xl border-white/10 bg-white/5 pl-9 text-white"
             />
           </div>
@@ -675,7 +846,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              {["All", "Pending", "In Progress", "Completed", "Need Re-visit", "Need Material", "Overdue"].map(
+              {["All", "Assigned", "In Progress", "Awaiting Reassignment", "Revisit", "Site Visit", "Material Required", "Overdue"].map(
                 (s) => (
                   <SelectItem key={s} value={s}>
                     {s === "All" ? "All Status" : s}
@@ -689,7 +860,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
               <SelectValue placeholder="All Priority" />
             </SelectTrigger>
             <SelectContent>
-              {["All", "Low", "Medium", "High", "Critical"].map((p) => (
+              {["All", "Low", "Medium", "High"].map((p) => (
                 <SelectItem key={p} value={p}>
                   {p === "All" ? "All Priority" : p}
                 </SelectItem>
@@ -699,8 +870,9 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
           <Input
             type="date"
             value={dateFilter}
+            max={new Date().toISOString().split("T")[0]}
             onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-            className="h-10 w-[160px] rounded-xl border-white/10 bg-white/5 text-white"
+            className="h-10 w-[160px] rounded-xl border-white/10 bg-white/5 text-white hidden"
           />
           <Button
             variant="outline"
@@ -714,28 +886,28 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
         <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
           <div className={cn(panelClass, "flex flex-col p-4")}>
-            <h3 className="mb-3 text-sm font-semibold text-white">Assigned Tasks</h3>
+            <h3 className="mb-3 text-sm font-semibold text-white">Assigned Complaints</h3>
             {isLoading ? (
               <div className="flex flex-1 items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40" />
               </div>
-            ) : tasks.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-400">No tasks found</p>
+            ) : complaints.length === 0 ? (
+              <p className="py-12 text-center text-sm text-slate-400">No active complaints assigned to you</p>
             ) : (
               <div className="space-y-3">
-                {tasks.map((task) => (
-                  <TaskListCard
-                    key={task._id}
-                    task={task}
-                    selected={selectedTask?._id === task._id}
-                    onSelect={() => handleSelectTask(task)}
+                {complaints.map((complaint) => (
+                  <ComplaintListCard
+                    key={complaint._id}
+                    complaint={complaint}
+                    selected={selectedComplaintId === complaint.complaintId}
+                    onSelect={() => handleSelectComplaint(complaint)}
                   />
                 ))}
               </div>
             )}
             <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-400">
               <span>
-                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} tasks
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} complaints
               </span>
               <div className="flex gap-1">
                 <Button
@@ -771,13 +943,18 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
                 canUpdate={canUpdate}
                 onRefresh={() => {
                   void refetch();
-                  void loadTaskDetail(selectedTask._id);
+                  if (selectedComplaintId) {
+                    const complaint = complaints.find((c) => c.complaintId === selectedComplaintId);
+                    if (complaint) {
+                      void loadComplaintWorkDetail(complaint);
+                    }
+                  }
                 }}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">
                 <ClipboardList className="mb-3 h-12 w-12 opacity-30" />
-                <p>Select a task to view details</p>
+                <p>Select a complaint to view work details</p>
               </div>
             )}
           </div>

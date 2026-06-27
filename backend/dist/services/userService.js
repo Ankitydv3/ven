@@ -46,12 +46,16 @@ exports.getAssignableUsers = getAssignableUsers;
 exports.resolveAssigneeById = resolveAssigneeById;
 exports.getUserById = getUserById;
 exports.updateUserById = updateUserById;
+exports.updateUserAvatar = updateUserAvatar;
+exports.removeUserAvatar = removeUserAvatar;
 exports.deleteUserById = deleteUserById;
 exports.resetUserPassword = resetUserPassword;
 exports.changeOwnPassword = changeOwnPassword;
 exports.exportUsersCSV = exportUsersCSV;
 exports.generateCredentialsPdf = generateCredentialsPdf;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const User_1 = __importDefault(require("../models/User"));
 const ApiError_1 = require("../utils/ApiError");
 const employeeId_1 = require("../utils/employeeId");
@@ -312,11 +316,65 @@ async function updateUserById(id, payload, actor) {
         ...(payload.name ? { name: payload.name.trim() } : {}),
         ...(payload.email ? { email: payload.email.toLowerCase().trim() } : {}),
         ...(payload.mobile ? { mobile: payload.mobile.trim() } : {}),
+        ...(payload.password ? { password: await bcryptjs_1.default.hash(payload.password, 10) } : {}),
         ...(!isSelfUpdate && payload.role ? { role: payload.role } : {}),
         ...(!isSelfUpdate && payload.status ? { status: payload.status } : {}),
         ...(!isSelfUpdate && payload.teamName ? await teamFieldsFromDb(payload.teamName) : {}),
+        ...(!isSelfUpdate && payload.subAdminType !== undefined ? { subAdminType: payload.subAdminType } : {}),
+        ...(!isSelfUpdate && payload.designation !== undefined
+            ? { designation: payload.designation.trim() }
+            : {}),
+        ...(!isSelfUpdate && payload.department !== undefined
+            ? { department: payload.department.trim() }
+            : {}),
     };
     const user = await User_1.default.findByIdAndUpdate(id, update, { new: true, runValidators: true }).select("-password");
+    if (!user) {
+        throw new ApiError_1.ApiError(404, "User not found");
+    }
+    return user;
+}
+function deleteAvatarFile(avatarUrl) {
+    if (!avatarUrl || !avatarUrl.startsWith("/uploads/avatars/"))
+        return;
+    const filePath = path_1.default.join(process.cwd(), avatarUrl.replace(/^\//, ""));
+    if (fs_1.default.existsSync(filePath)) {
+        fs_1.default.unlinkSync(filePath);
+    }
+}
+async function assertCanUpdateUserAvatar(id, actor) {
+    const existing = await User_1.default.findOne({ $and: [{ _id: id }, NOT_DELETED_FILTER] });
+    if (!existing) {
+        throw new ApiError_1.ApiError(404, "User not found");
+    }
+    const isSelfUpdate = actor.id === id;
+    if (!isSelfUpdate) {
+        const scope = resolveUserManageScope(actor);
+        if (scope.selfOnly) {
+            throw new ApiError_1.ApiError(403, "You can only update your own profile picture");
+        }
+        if (scope.scopedDepartment && existing.department !== scope.scopedDepartment) {
+            throw new ApiError_1.ApiError(403, "User not in your department scope");
+        }
+        if (!(0, rbac_1.canManageRole)(actor.role, existing.role)) {
+            throw new ApiError_1.ApiError(403, "You cannot modify this user");
+        }
+    }
+    return existing;
+}
+async function updateUserAvatar(id, avatarPath, actor) {
+    const existing = await assertCanUpdateUserAvatar(id, actor);
+    deleteAvatarFile(existing.avatarUrl);
+    const user = await User_1.default.findByIdAndUpdate(id, { avatarUrl: avatarPath }, { new: true, runValidators: true }).select("-password");
+    if (!user) {
+        throw new ApiError_1.ApiError(404, "User not found");
+    }
+    return user;
+}
+async function removeUserAvatar(id, actor) {
+    const existing = await assertCanUpdateUserAvatar(id, actor);
+    deleteAvatarFile(existing.avatarUrl);
+    const user = await User_1.default.findByIdAndUpdate(id, { avatarUrl: "" }, { new: true, runValidators: true }).select("-password");
     if (!user) {
         throw new ApiError_1.ApiError(404, "User not found");
     }

@@ -31,7 +31,7 @@ const tabMeta: Record<PortalTab, { eyebrow: string; title: string; description: 
   complaint: {
     eyebrow: "New request",
     title: "Register complaint",
-    description: "Fill out the form and our team will take it from here.",
+    description: "Raise a Complaint in 60 Seconds",
   },
 };
 
@@ -76,23 +76,33 @@ export function PortalScreen() {
   const meta = tabMeta[activeTab];
 
   return (
-    <div className="flex h-screen w-full overflow-hidden flex-col bg-app md:flex-row">
-      {/* Left — tabs + dynamic form */}
-      <PortalImagePanel />
-      <div className="relative flex w-full flex-col md:h-screen md:w-1/2">
+    <div className="min-h-screen w-full bg-[#020a17] lg:grid lg:grid-cols-[minmax(0,1fr)_min(100%,520px)]">
+      {/* Left: hero image */}
+      <div className="relative hidden min-h-[240px] lg:block lg:min-h-screen">
+        <PortalImagePanel />
         <div
-          className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full opacity-30 blur-[120px]"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to right, rgba(2,29,56,0.15) 0%, rgba(2,29,56,0.45) 100%)",
+          }}
+        />
+      </div>
+
+      {/* Right: form panel */}
+      <div className="relative flex min-h-screen w-full flex-col border-white/[0.06] bg-[#021D38]/90 lg:border-l lg:min-h-screen">
+        <div
+          className="pointer-events-none absolute -top-32 -right-20 h-80 w-80 rounded-full opacity-30 blur-[120px]"
           style={{ background: "radial-gradient(circle, #378ADD, transparent)" }}
         />
         <div
-          className="pointer-events-none absolute -bottom-24 -right-20 h-72 w-72 rounded-full opacity-20 blur-[100px]"
+          className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full opacity-20 blur-[100px]"
           style={{ background: "radial-gradient(circle, #185FA5, transparent)" }}
         />
-
         <FloatingBubbles />
 
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col px-6 py-8 md:py-12">
-          <div className="mb-6 flex flex-wrap gap-2">
+        <div className="relative z-10 flex min-h-screen flex-col px-4 py-6 sm:px-6 sm:py-8 lg:max-h-screen lg:min-h-0 lg:py-10">
+          <div className="mb-4 flex flex-wrap gap-2 sm:mb-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -115,10 +125,8 @@ export function PortalScreen() {
             })}
           </div>
 
-          <div
-            className="flex min-h-0 flex-1 flex-col rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6 backdrop-blur-2xl sm:p-8"
-          >
-            <div className="mb-6 shrink-0">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#021D38]/80 p-4 backdrop-blur-2xl sm:rounded-3xl sm:p-6">
+            <div className="mb-3 shrink-0 sm:mb-4">
               <p
                 className="mb-1 text-[10px] font-medium uppercase tracking-[0.28em]"
                 style={{ color: "rgba(133,183,235,0.65)" }}
@@ -126,22 +134,22 @@ export function PortalScreen() {
                 {meta.eyebrow}
               </p>
               <h1
-                className="mb-1.5 text-2xl font-light leading-tight tracking-tight text-white sm:text-3xl"
+                className="mb-1 text-xl font-light leading-tight tracking-tight text-white sm:text-2xl md:text-3xl"
                 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
               >
                 {meta.title}
               </h1>
-              <p className="text-sm font-light leading-relaxed text-white/35">{meta.description}</p>
+              <p className="text-xs font-light leading-relaxed text-white/50 sm:text-sm">{meta.description}</p>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 pb-2">
               {activeTab === "login" && <LoginFields />}
               {activeTab === "track" && <TrackPanel />}
               {activeTab === "complaint" && <ComplaintRegistrationForm variant="portal" source="WEBSITE" />}
             </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-2 text-[11px] text-white/25">
+          <div className="mt-4 flex shrink-0 items-center gap-2 text-[11px] text-white/25">
             <span
               className="block h-1.5 w-1.5 animate-pulse rounded-full"
               style={{ background: "#378ADD", boxShadow: "0 0 6px #378ADD" }}
@@ -150,9 +158,6 @@ export function PortalScreen() {
           </div>
         </div>
       </div>
-
-      {/* Right — fixed image */}
-      
     </div>
   );
 }

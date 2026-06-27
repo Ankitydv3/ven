@@ -3,7 +3,6 @@
 import { TableElement, THead, TH, TR, TD } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Card, SectionHeading } from "@/components/ui/card";
-
 import { ReportsEmptyState } from "./ReportsStates";
 
 export interface TeamPerformanceRow {
@@ -55,7 +54,7 @@ export function TeamPerformanceTable({ data }: TeamPerformanceTableProps) {
                 <TR
                   key={row.team}
                   className={cn(
-                    "border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/40",
+                    "border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/40 cursor-pointer transition-colors hover:bg-white/[0.04]",
                     row.isTotal && "border-t-2 border-slate-200 bg-slate-50/80 font-semibold dark:border-slate-700 dark:bg-slate-800/30"
                   )}
                 >
@@ -90,6 +89,7 @@ export function TeamPerformanceTable({ data }: TeamPerformanceTableProps) {
           </TableElement>
         </div>
       )}
+
     </Card>
   );
 }

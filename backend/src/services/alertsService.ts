@@ -2,10 +2,11 @@ import Complaint from "../models/Complaint";
 import Task from "../models/Task";
 import TaskAlert from "../models/TaskAlert";
 import MaterialAlert from "../models/MaterialAlert";
+import MaterialRequest from "../models/MaterialRequest";
 import { getMaterialAlertsForUser } from "./materialRequestService";
 import { listActiveTeamNames } from "./teamService";
 import { applyOverdueUpdates } from "./taskService";
-import { isAdminRole } from "../utils/teamScope";
+import { isAdminRole, isAccountant, isServiceHead } from "../utils/teamScope";
 
 export interface TeamReport {
   team: string;
@@ -21,6 +22,7 @@ export interface MaterialAlertItem {
   _id: string;
   type: string;
   requestId: string;
+  complaintId?: string;
   title: string;
   message: string;
   read: boolean;
@@ -31,12 +33,81 @@ export interface TaskAlertItem {
   _id: string;
   type: string;
   taskId: string;
+  complaintId?: string;
   title: string;
   message: string;
   teamName?: string;
   priority?: string;
   read: boolean;
   createdAt: string;
+}
+
+function buildTaskAlertFilter(scopeFilter?: Record<string, unknown>) {
+  const alertFilter: Record<string, unknown> = { read: false };
+  if (scopeFilter?.assignedTeamName) {
+    alertFilter.teamName = scopeFilter.assignedTeamName;
+  }
+  if (scopeFilter?.assignedUserId) {
+    alertFilter.userId = scopeFilter.assignedUserId;
+  }
+  return alertFilter;
+}
+
+function buildMaterialAlertFilter(
+  userId: string,
+  role: string,
+  subAdminType?: string
+) {
+  if (
+    isAdminRole(role) ||
+    isServiceHead({ role, subAdminType }) ||
+    isAccountant({ role, subAdminType })
+  ) {
+    return { read: false };
+  }
+
+  if (role === "store_manager") {
+    return {
+      read: false,
+      $or: [{ userId }, { targetRole: "store_manager" }],
+    };
+  }
+
+  return { read: false, userId };
+}
+
+async function attachComplaintIdsToTaskAlerts(alerts: TaskAlertItem[]) {
+  if (alerts.length === 0) return alerts;
+
+  const taskIds = [...new Set(alerts.map((a) => a.taskId))];
+  const tasks = await Task.find({ taskId: { $in: taskIds } })
+    .select("taskId complaintId")
+    .lean();
+  const complaintByTaskId = new Map(
+    tasks.map((task) => [task.taskId as string, task.complaintId as string | undefined])
+  );
+
+  return alerts.map((alert) => ({
+    ...alert,
+    complaintId: complaintByTaskId.get(alert.taskId),
+  }));
+}
+
+async function attachComplaintIdsToMaterialAlerts(alerts: MaterialAlertItem[]) {
+  if (alerts.length === 0) return alerts;
+
+  const requestIds = [...new Set(alerts.map((a) => a.requestId))];
+  const requests = await MaterialRequest.find({ requestId: { $in: requestIds } })
+    .select("requestId complaintId")
+    .lean();
+  const complaintByRequestId = new Map(
+    requests.map((request) => [request.requestId as string, request.complaintId as string | undefined])
+  );
+
+  return alerts.map((alert) => ({
+    ...alert,
+    complaintId: complaintByRequestId.get(alert.requestId),
+  }));
 }
 
 function buildTeamMessage(
@@ -86,14 +157,7 @@ export async function getAlertsData(filters?: {
     taskMatch.assignedTeamName = filters.team;
   }
 
-  const alertFilter: Record<string, unknown> = {};
-  if (filters?.scopeFilter?.assignedTeamName) {
-    alertFilter.teamName = filters.scopeFilter.assignedTeamName;
-  }
-  if (filters?.scopeFilter?.assignedUserId) {
-    alertFilter.userId = filters.scopeFilter.assignedUserId;
-    alertFilter.read = false;
-  }
+  const alertFilter = buildTaskAlertFilter(filters?.scopeFilter);
 
   const [pendingComplaints, taskAgg, taskAlerts, materialAlerts] = await Promise.all([
     filters?.teamOnly
@@ -171,6 +235,8 @@ export async function getAlertsData(filters?: {
     createdAt: a.createdAt.toISOString(),
   }));
 
+  alerts = await attachComplaintIdsToTaskAlerts(alerts);
+
   if (filters?.q) {
     const q = filters.q.toLowerCase();
     alerts = alerts.filter(
@@ -190,6 +256,8 @@ export async function getAlertsData(filters?: {
     read: a.read,
     createdAt: a.createdAt.toISOString(),
   }));
+
+  materialAlertItems = await attachComplaintIdsToMaterialAlerts(materialAlertItems);
 
   if (filters?.q) {
     const q = filters.q.toLowerCase();
@@ -212,5 +280,25 @@ export async function getAlertsData(filters?: {
       taskAlerts: alerts.length,
       materialAlerts: materialAlertItems.length,
     },
+  };
+}
+
+export async function clearAllAlertsForUser(
+  userId: string,
+  userRole: string,
+  subAdminType?: string,
+  scopeFilter?: Record<string, unknown>
+) {
+  const taskFilter = buildTaskAlertFilter(scopeFilter);
+  const materialFilter = buildMaterialAlertFilter(userId, userRole, subAdminType);
+
+  const [taskResult, materialResult] = await Promise.all([
+    TaskAlert.updateMany(taskFilter, { $set: { read: true } }),
+    MaterialAlert.updateMany(materialFilter, { $set: { read: true } }),
+  ]);
+
+  return {
+    clearedTaskAlerts: taskResult.modifiedCount,
+    clearedMaterialAlerts: materialResult.modifiedCount,
   };
 }

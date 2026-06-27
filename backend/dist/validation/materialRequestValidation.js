@@ -12,13 +12,20 @@ exports.materialRequestCreateSchema = zod_1.z.object({
     complaintId: zod_1.z.string().trim().optional(),
 });
 exports.materialRequestStatusSchema = zod_1.z.object({
-    status: zod_1.z.enum(["WAITING", "OUT_OF_STOCK", "GRANTED"]),
+    decision: zod_1.z.enum(["WAIT", "DECLINE", "GRANT"]),
+    availability: zod_1.z.enum(["AVAILABLE", "OUT_OF_STOCK"]),
     storeManagerRemarks: zod_1.z.string().trim().optional().default(""),
+    revisitDate: zod_1.z.string().trim().optional(),
+    revisitTimeSlot: zod_1.z.string().trim().optional(),
 });
 exports.materialServiceHeadSchema = zod_1.z.object({
     decision: zod_1.z.enum(["APPROVED", "DENIED"]),
     serviceHeadRemarks: zod_1.z.string().trim().optional().default(""),
+    revisitDate: zod_1.z.string().trim().optional(),
+    revisitTimeSlot: zod_1.z.string().trim().optional(),
+    stockDecision: zod_1.z.enum(["STOCK_AVAILABLE", "OUT_OF_STOCK"]).optional(),
 });
 exports.materialPaymentConfirmSchema = zod_1.z.object({
     confirmed: zod_1.z.literal(true),
+    paymentMode: zod_1.z.enum(["received", "onsite"]),
 });

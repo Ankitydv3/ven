@@ -70,6 +70,7 @@ export interface TaskFilters {
   dueDate?: string;
   startDate?: string;
   endDate?: string;
+  upcoming?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;

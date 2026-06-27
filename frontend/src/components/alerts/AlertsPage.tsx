@@ -13,18 +13,21 @@ import {
   TriangleAlert,
   Users,
   XCircle,
+  Eye,
+  CheckCheck,
+  User,
+  CalendarDays,
+  Tag,
+  FileText,
+  X,
   Bell,
   ChevronRight,
   SlidersHorizontal,
   Zap,
   Activity,
-  CalendarDays,
-  Tag,
-  User,
-  FileText,
   AlertCircle,
   ArrowUpRight,
-  CheckCheck,
+  Package,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -47,9 +50,18 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
-import type { AlertsResponse, Complaint, Priority, TeamReport } from "@/lib/types";
-import { useAlerts, useConfirmComplaint, useDeclineComplaint } from "@/hooks/useAlerts";
+import { useRouter } from "next/navigation";
+import { getComplaintDetailsPath, getNotificationHref } from "@/lib/record-navigation";
+import type { AlertsResponse, Complaint, MaterialAlertItem, Priority, TeamReport } from "@/lib/types";
+import { useAlerts, useConfirmComplaint, useDeclineComplaint, useClearAlerts } from "@/hooks/useAlerts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { readUser } from "@/lib/storage";
+import {
+  buildNotifications,
+  dismissNotificationIds,
+  getDismissedNotificationIds,
+} from "@/lib/notifications";
+import { toast } from "sonner";
 
 /* ─── helpers ─────────────────────────────────────────── */
 
@@ -76,6 +88,46 @@ const fadeUp = {
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, scale: 0.97 },
 };
+
+function MaterialAlertRow({
+  alert,
+  index,
+  onClick,
+}: {
+  alert: MaterialAlertItem;
+  index: number;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      type="button"
+      variants={fadeUp}
+      initial="initial"
+      animate="animate"
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+      onClick={onClick}
+      className="group w-full cursor-pointer rounded-2xl border border-cyan-500/10 bg-[#080f1e]/70 p-4 text-left backdrop-blur-md transition-all hover:border-cyan-500/30 hover:bg-[#0b1628]/80"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10">
+          <Package className="h-4 w-4 text-cyan-400" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-white">{alert.title}</p>
+            <code className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
+              {alert.requestId}
+            </code>
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500">{alert.message}</p>
+          <p className="mt-2 text-[10px] text-slate-600">
+            {format(new Date(alert.createdAt), "dd MMM yyyy, hh:mm a")}
+          </p>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
 
 /* ─── Detail Field helper ─────────────────────────────── */
 
@@ -300,7 +352,7 @@ function ComplaintRow({
       <div className="pl-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-violet-500/10 ring-1 ring-violet-500/20">
               <Globe className="h-4 w-4 text-violet-400" />
             </div>
             <div className="min-w-0">
@@ -326,134 +378,36 @@ function ComplaintRow({
           <p className="text-[11px] text-slate-600">
             {complaint.createdAt ? format(new Date(complaint.createdAt), "dd MMM yyyy") : "—"}
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onConfirm}
-              disabled={confirming || declining}
+              disabled={confirming}
               className="flex h-7 items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-400 ring-1 ring-emerald-500/20 transition hover:bg-emerald-500/20 disabled:opacity-50"
             >
               {confirming ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
               Confirm
             </button>
             <button
+              type="button"
               onClick={onDecline}
-              disabled={confirming || declining}
+              disabled={declining}
               className="flex h-7 items-center gap-1 rounded-lg bg-rose-500/10 px-2.5 text-[11px] font-semibold text-rose-400 ring-1 ring-rose-500/20 transition hover:bg-rose-500/20 disabled:opacity-50"
             >
-              {declining ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
               Decline
+            </button>
+            <button
+              type="button"
+              onClick={onClick}
+              className="flex h-7 items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 text-[11px] font-semibold text-blue-400 ring-1 ring-blue-500/20 transition hover:bg-blue-500/20"
+            >
+              <Eye className="h-3 w-3" />
+              Details
             </button>
           </div>
         </div>
       </div>
     </motion.div>
-  );
-}
-
-/* ─── Complaint Detail Modal ──────────────────────────── */
-
-function ComplaintDetailModal({
-  complaint,
-  open,
-  onClose,
-  onConfirm,
-  onDecline,
-  confirming,
-  declining,
-}: {
-  complaint: Complaint | null;
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  onDecline: () => void;
-  confirming: boolean;
-  declining: boolean;
-}) {
-  if (!complaint) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="border-white/8 bg-[#080f1e] p-0 text-white shadow-2xl sm:max-w-lg overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/60 to-transparent" />
-
-        {/* Header */}
-        <div className="border-b border-white/5 p-6 pb-5">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-500/10 ring-1 ring-violet-500/20">
-              <Globe className="h-6 w-6 text-violet-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <DialogTitle className="text-base font-bold text-white">{complaint.title}</DialogTitle>
-                <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide", priorityBadgeClass(complaint.priority))}>
-                  {complaint.priority}
-                </span>
-              </div>
-              <code className="mt-1 inline-block rounded bg-white/5 px-2 py-0.5 font-mono text-xs text-violet-300">
-                {complaint.complaintId}
-              </code>
-            </div>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="space-y-4 p-6">
-          {complaint.description && (
-            <div className="rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/5">
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-600">Description</p>
-              <p className="text-sm leading-relaxed text-slate-300">{complaint.description}</p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DetailField icon={User} label="Client" value={complaint.clientName} />
-            <DetailField icon={CalendarDays} label="Received" value={
-              complaint.createdAt
-                ? format(new Date(complaint.createdAt), "dd MMM yyyy, hh:mm a")
-                : "—"
-            } />
-            <DetailField icon={Tag} label="Priority" value={
-              <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs", priorityBadgeClass(complaint.priority))}>
-                {complaint.priority}
-              </span>
-            } />
-            <DetailField icon={FileText} label="Complaint ID" value={complaint.complaintId} mono />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/5 px-6 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="rounded-xl text-slate-500 hover:text-slate-300"
-          >
-            Close
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={onDecline}
-              disabled={confirming || declining}
-              className="rounded-xl bg-rose-500/10 px-4 text-rose-400 ring-1 ring-rose-500/20 hover:bg-rose-500/20"
-            >
-              {declining ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1.5 h-3.5 w-3.5" />}
-              Decline
-            </Button>
-            <Button
-              size="sm"
-              onClick={onConfirm}
-              disabled={confirming || declining}
-              className="rounded-xl bg-emerald-500/15 px-4 text-emerald-400 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25"
-            >
-              {confirming ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
-              Confirm
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -643,6 +597,7 @@ function AlertsSkeleton() {
 /* ─── Main Page ───────────────────────────────────────── */
 
 export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
+  const router = useRouter();
   const isAdmin = role === "admin";
 
   // Left panel state
@@ -656,14 +611,20 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
   const [selectedReport, setSelectedReport] = useState<TeamReport | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [complaintModalOpen, setComplaintModalOpen] = useState(false);
-
   // Decline modal (separate)
   const [declineTarget, setDeclineTarget] = useState<Complaint | null>(null);
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
+  const [dismissedVersion, setDismissedVersion] = useState(0);
+
+  const user = readUser();
+  const clearMutation = useClearAlerts();
+
+  const dismissed = useMemo(() => {
+    void dismissedVersion;
+    return getDismissedNotificationIds(user?.id);
+  }, [user?.id, dismissedVersion]);
 
   const filters = useMemo(
     () => ({
@@ -681,7 +642,6 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
     setActionId(complaint._id);
     try {
       await confirmMutation.mutateAsync(complaint._id);
-      setComplaintModalOpen(false);
     } finally {
       setActionId(null);
     }
@@ -690,7 +650,6 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
   const openDecline = (complaint: Complaint) => {
     setDeclineTarget(complaint);
     setDeclineReason("");
-    setComplaintModalOpen(false);
     setDeclineModalOpen(true);
   };
 
@@ -707,17 +666,73 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
     }
   };
 
+  const notifications = useMemo(() => {
+    if (!data) return [];
+    return buildNotifications(role, data, dismissed);
+  }, [role, data, dismissed]);
+
+  const handleClearAll = async () => {
+    if (notifications.length === 0) return;
+    try {
+      await clearMutation.mutateAsync();
+      if (user?.id) {
+        dismissNotificationIds(
+          user.id,
+          notifications.map((item) => item.id)
+        );
+      }
+      setDismissedVersion((v) => v + 1);
+      toast.success("All notifications cleared");
+    } catch {
+      // Error toast handled in mutation
+    }
+  };
+
+  const filteredMaterialAlerts = useMemo(() => {
+    const q = complaintSearch.toLowerCase();
+    let list = (data?.materialAlerts ?? []).filter(
+      (alert) => !dismissed.has(`material-${alert._id}`)
+    );
+    if (q) {
+      list = list.filter(
+        (alert) =>
+          alert.title.toLowerCase().includes(q) ||
+          alert.message.toLowerCase().includes(q) ||
+          alert.requestId.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [data, complaintSearch, dismissed]);
+
   // Filter complaints client-side by search
   const filteredComplaints = useMemo(() => {
     const q = complaintSearch.toLowerCase();
-    if (!q || !data) return data?.pendingComplaints ?? [];
-    return data.pendingComplaints.filter(
-      (c) =>
-        c.title?.toLowerCase().includes(q) ||
-        c.clientName?.toLowerCase().includes(q) ||
-        c.complaintId?.toLowerCase().includes(q)
-    );
-  }, [data, complaintSearch]);
+    let list =
+      data?.pendingComplaints.filter((c) => !dismissed.has(`complaint-${c._id}`)) ?? [];
+    if (q) {
+      list = list.filter(
+        (c) =>
+          c.title?.toLowerCase().includes(q) ||
+          c.clientName?.toLowerCase().includes(q) ||
+          c.complaintId?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [data, complaintSearch, dismissed]);
+
+  const filteredTaskAlerts = useMemo(() => {
+    const q = complaintSearch.toLowerCase();
+    let list = (data?.taskAlerts ?? []).filter((alert) => !dismissed.has(`task-${alert._id}`));
+    if (q) {
+      list = list.filter(
+        (alert) =>
+          alert.title.toLowerCase().includes(q) ||
+          alert.message.toLowerCase().includes(q) ||
+          alert.taskId.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [data, complaintSearch, dismissed]);
 
   if (isLoading) {
     return (
@@ -756,6 +771,26 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
       title="Alerts"
       subtitle="Live overview of team tasks and incoming complaints."
     >
+      {notifications.length > 0 && (
+        <div className="mb-4 flex items-center justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={clearMutation.isPending}
+            onClick={() => void handleClearAll()}
+            className="gap-1.5 rounded-xl border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+          >
+            {clearMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCheck className="h-4 w-4" />
+            )}
+            Clear messages
+          </Button>
+        </div>
+      )}
+
       {/* Two-column split — stacks on mobile, side-by-side on lg+ */}
       <div className="flex h-[calc(100vh-160px)] flex-col gap-4 lg:flex-row">
 
@@ -811,13 +846,10 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
                   key={complaint._id}
                   complaint={complaint}
                   index={i}
-                  onClick={() => {
-                    setSelectedComplaint(complaint);
-                    setComplaintModalOpen(true);
-                  }}
+                  onClick={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
                   onConfirm={(e) => {
                     e.stopPropagation();
-                    handleConfirm(complaint);
+                    void handleConfirm(complaint);
                   }}
                   onDecline={(e) => {
                     e.stopPropagation();
@@ -830,56 +862,100 @@ export function AlertsPage({ role = "admin" }: { role?: "admin" | "team" }) {
             )}
           </SectionShell>
         ) : (
-          /* Team role: show task alerts instead of complaints */
+          /* Team role: task + material alerts */
           <SectionShell
-            title="My Task Alerts"
-            subtitle="Tasks assigned to you"
-            count={data.taskAlerts?.length}
+            title="My Alerts"
+            subtitle="Tasks and material updates assigned to you"
+            count={filteredTaskAlerts.length + filteredMaterialAlerts.length}
             countClass="bg-blue-500/10 text-blue-400"
             accent="blue"
             search={complaintSearch}
             onSearch={setComplaintSearch}
           >
-            {(data.taskAlerts ?? []).length === 0 ? (
-              <EmptyState message="No new task alerts. Assigned work appears here." />
+            {filteredTaskAlerts.length === 0 && filteredMaterialAlerts.length === 0 ? (
+              <EmptyState message="No new alerts. Assigned work appears here." />
             ) : (
-              (data.taskAlerts ?? []).map((alert, i) => (
-                <motion.div
-                  key={alert._id}
-                  variants={fadeUp}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: i * 0.05, duration: 0.3 }}
-                  className="rounded-2xl border border-blue-500/10 bg-[#080f1e]/70 p-4"
-                >
-                  <p className="text-sm font-semibold text-white">{alert.title}</p>
-                  <p className="mt-1 text-xs text-slate-500">{alert.message}</p>
-                  <code className="mt-2 inline-block rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                    {alert.taskId}
-                  </code>
-                </motion.div>
-              ))
+              <>
+                {filteredMaterialAlerts.map((alert, i) => (
+                  <MaterialAlertRow
+                    key={alert._id}
+                    alert={alert}
+                    index={i}
+                    onClick={() =>
+                      router.push(
+                        getNotificationHref(role, {
+                          kind: "material",
+                          complaintId: alert.complaintId,
+                          requestId: alert.requestId,
+                        })
+                      )
+                    }
+                  />
+                ))}
+                {filteredTaskAlerts.map((alert, i) => (
+                  <motion.button
+                    key={alert._id}
+                    type="button"
+                    variants={fadeUp}
+                    initial="initial"
+                    animate="animate"
+                    transition={{ delay: (filteredMaterialAlerts.length + i) * 0.05, duration: 0.3 }}
+                    onClick={() =>
+                      router.push(
+                        getNotificationHref(role, {
+                          kind: "task",
+                          complaintId: alert.complaintId,
+                          taskId: alert.taskId,
+                        })
+                      )
+                    }
+                    className="w-full rounded-2xl border border-blue-500/10 bg-[#080f1e]/70 p-4 text-left transition hover:border-blue-500/30 hover:bg-[#0b1628]/80"
+                  >
+                    <p className="text-sm font-semibold text-white">{alert.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{alert.message}</p>
+                    <code className="mt-2 inline-block rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                      {alert.taskId}
+                    </code>
+                  </motion.button>
+                ))}
+              </>
             )}
           </SectionShell>
         )}
       </div>
+
+      {isAdmin && filteredMaterialAlerts.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-white/5 bg-[#050c18]/60 p-4 backdrop-blur-xl">
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-white">Material Alerts</h3>
+            <p className="text-xs text-slate-600">Click an alert to open the related page</p>
+          </div>
+          <div className="space-y-2">
+            {filteredMaterialAlerts.map((alert, i) => (
+              <MaterialAlertRow
+                key={alert._id}
+                alert={alert}
+                index={i}
+                onClick={() =>
+                  router.push(
+                    getNotificationHref(role, {
+                      kind: "material",
+                      complaintId: alert.complaintId,
+                      requestId: alert.requestId,
+                    })
+                  )
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Team Report Detail Modal ── */}
       <TeamReportModal
         report={selectedReport}
         open={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
-      />
-
-      {/* ── Complaint Detail Modal ── */}
-      <ComplaintDetailModal
-        complaint={selectedComplaint}
-        open={complaintModalOpen}
-        onClose={() => setComplaintModalOpen(false)}
-        onConfirm={() => selectedComplaint && handleConfirm(selectedComplaint)}
-        onDecline={() => selectedComplaint && openDecline(selectedComplaint)}
-        confirming={actionId === selectedComplaint?._id && confirmMutation.isPending}
-        declining={actionId === selectedComplaint?._id && declineMutation.isPending}
       />
 
       {/* ── Decline Reason Modal ── */}

@@ -49,6 +49,7 @@ const taskSchema = new Schema(
     completedAt: { type: Date },
     remarks: { type: String, default: "" },
     isLocked: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true, index: true },
     history: { type: [taskHistorySchema], default: [] },
   },
   { timestamps: true }

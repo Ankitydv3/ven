@@ -1,4 +1,4 @@
-import type { TdHTMLAttributes, ThHTMLAttributes } from "react";
+import type { TdHTMLAttributes, ThHTMLAttributes, HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 export function Table({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -29,13 +29,14 @@ export function TD({ children, className, ...props }: TdHTMLAttributes<HTMLTable
   );
 }
 
-export function TR({ children, className }: { children: React.ReactNode; className?: string }) {
+export function TR({ children, className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
       className={cn(
         "border-t border-slate-100 transition hover:bg-white/70 dark:border-slate-800 dark:hover:bg-white/5",
         className
       )}
+      {...props}
     >
       {children}
     </tr>

@@ -11,12 +11,14 @@ exports.getComplaintOverview = getComplaintOverview;
 exports.getTopCategories = getTopCategories;
 exports.getRecentOrders = getRecentOrders;
 exports.getRecentComplaints = getRecentComplaints;
+exports.getPendingActions = getPendingActions;
 exports.getDashboard = getDashboard;
 const Complaint_1 = __importDefault(require("../models/Complaint"));
 const Order_1 = __importDefault(require("../models/Order"));
 const taskService_1 = require("../services/taskService");
 const teamService_1 = require("../services/teamService");
 const dashboardScope_1 = require("../utils/dashboardScope");
+const materialRequestService_1 = require("../services/materialRequestService");
 const complaintIssueTypes_1 = require("../utils/complaintIssueTypes");
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function getMonthRange(monthIndex, year) {
@@ -212,6 +214,11 @@ async function getRecentOrders(req, res) {
 }
 async function getRecentComplaints(req, res) {
     res.json({ recentComplaints: await buildRecentComplaints(scopeFromRequest(req)) });
+}
+async function getPendingActions(req, res) {
+    const limit = Math.min(Number(req.query.limit ?? 10) || 10, 25);
+    const result = await (0, materialRequestService_1.getPendingDashboardActions)(req.user, limit);
+    res.json(result);
 }
 async function getDashboard(req, res) {
     await (0, taskService_1.applyOverdueUpdates)();

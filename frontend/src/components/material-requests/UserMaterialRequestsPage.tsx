@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Plus, Upload, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, Plus, Upload, Download, Eye, History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
@@ -25,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { MaterialRequestHistoryModal } from "@/components/shared/material-request-history-modal";
 import {
   materialStatusBadgeClass,
   materialStatusLabel,
@@ -37,93 +39,284 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
 
-function MaterialRequestActions({ req, onDone }: { req: MaterialRequest; onDone: () => void }) {
+function MaterialRequestActions({
+  req,
+  onDone,
+  autoOpen = false,
+}: {
+  req: MaterialRequest;
+  onDone: () => void;
+  autoOpen?: boolean;
+}) {
   const user = readUser();
   const serviceHeadMutation = useServiceHeadReviewMaterial();
   const accountsMutation = useConfirmMaterialPayment();
+  const [open, setOpen] = useState(false);
   const [remarks, setRemarks] = useState("");
+  const [revisitDate, setRevisitDate] = useState("");
+  const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
 
-  const pendingServiceHead = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD" || req.status === "AWAITING_FINAL_GRANT";
-  const canServiceHead = isServiceHeadUser(user || undefined) && pendingServiceHead;
-  const canAccounts = isAccountantUser(user || undefined) && req.status === "AWAITING_ACCOUNTS";
+  const isMaterialReceived =
+    req.status === "AWAITING_MATERIAL_RECEIVED" || req.status === "AWAITING_FINAL_GRANT";
+  const isStockCheck = req.status === "AWAITING_STOCK_CHECK";
+  const isFinalStep = req.status === "GRANTED_BY_STORE";
+  const isInitialReview = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
+  const isAwaitingAccounts = req.status === "AWAITING_ACCOUNTS";
+
+  const isHead = isServiceHeadUser(user || undefined);
+  const isAcc = isAccountantUser(user || undefined);
+
+  const canServiceHead = isHead && (isInitialReview || isStockCheck || isMaterialReceived || isFinalStep || isAwaitingAccounts);
+  const canAccounts = isAcc && isAwaitingAccounts;
+
+  useEffect(() => {
+    if (autoOpen && (canServiceHead || canAccounts)) {
+      setOpen(true);
+    }
+  }, [autoOpen, canServiceHead, canAccounts]);
 
   if (!canServiceHead && !canAccounts) {
     return <span className="text-xs text-slate-500">—</span>;
   }
 
-  const handleServiceHead = async (decision: "APPROVED" | "DENIED") => {
+  const handleServiceHead = async (
+    decision: "APPROVED" | "DENIED" | "COMPLETED",
+    stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK"
+  ) => {
+    if (decision === "APPROVED" && (isMaterialReceived || isStockCheck || isFinalStep) && stockDecision !== "OUT_OF_STOCK" && !revisitDate) {
+      toast.error("Please select a revisit date");
+      return;
+    }
+
     try {
       await serviceHeadMutation.mutateAsync({
         id: req._id,
         decision,
         serviceHeadRemarks: remarks.trim() || undefined,
+        revisitDate: revisitDate || undefined,
+        revisitTimeSlot: revisitTimeSlot || undefined,
+        stockDecision,
       });
-      const action = req.status === "AWAITING_FINAL_GRANT" ? "Final grant" : "Approval";
-      toast.success(decision === "APPROVED" ? `${action} successful` : "Request denied");
+      toast.success(decision === "APPROVED" ? "Updated successfully" : "Request denied");
       setRemarks("");
+      setRevisitDate("");
+      setRevisitTimeSlot("");
+      setOpen(false);
       onDone();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
   };
 
-  const handleConfirmPayment = async () => {
+  const handleConfirmPayment = async (paymentMode: "received" | "onsite") => {
     try {
-      await accountsMutation.mutateAsync(req._id);
-      toast.success("Payment confirmed — sent to Store Manager");
+      await accountsMutation.mutateAsync({ id: req._id, paymentMode });
+      toast.success("Payment confirmed — sent to Service Head for stock check");
+      setOpen(false);
       onDone();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to confirm payment"));
     }
   };
 
+  const actionLabel = (canAccounts || (isHead && isAwaitingAccounts))
+    ? "Verify Payment"
+    : isStockCheck
+      ? "Stock Check"
+      : isMaterialReceived
+        ? "Material Received"
+        : isFinalStep
+          ? "Final Decision"
+          : "Review";
+
   return (
-    <div className="flex min-w-[200px] flex-col gap-2">
-      {(canServiceHead || canAccounts) && (
-        <Textarea
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder="Remarks (optional)"
-          className="min-h-[52px] rounded-lg border-white/10 bg-white/5 text-xs text-white"
-        />
-      )}
-      {canServiceHead && (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            className="h-8 flex-1 rounded-lg bg-emerald-600 text-xs hover:bg-emerald-500"
-            disabled={serviceHeadMutation.isPending}
-            onClick={() => void handleServiceHead("APPROVED")}
-          >
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 flex-1 rounded-lg border-red-500/30 text-xs text-red-300"
-            disabled={serviceHeadMutation.isPending}
-            onClick={() => void handleServiceHead("DENIED")}
-          >
-            Deny
-          </Button>
-        </div>
-      )}
-      {canAccounts && (
-        <Button
-          size="sm"
-          className="h-8 rounded-lg bg-yellow-600 text-xs hover:bg-yellow-500"
-          disabled={accountsMutation.isPending}
-          onClick={() => void handleConfirmPayment()}
+    <>
+      <Button
+        size="sm"
+        className="h-7 rounded-lg bg-blue-600 text-[10px] hover:bg-blue-500"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        {actionLabel}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="flex max-h-[90vh] max-w-md flex-col overflow-hidden rounded-2xl border-white/10 bg-app text-white"
+          onClick={(e) => e.stopPropagation()}
         >
-          Confirm Payment
-        </Button>
-      )}
-    </div>
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-base">{actionLabel} — {req.requestId}</DialogTitle>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2 pr-1">
+            <p className="text-xs text-slate-400">
+              {req.requestedBy} · {req.materialName} · {materialStatusLabel[req.status]}
+            </p>
+
+            <Textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder={isFinalStep ? "Final instructions / remarks" : "Remarks (optional)"}
+              className="min-h-[60px] rounded-lg border-white/10 bg-white/5 text-xs text-white"
+            />
+
+            {(isStockCheck || isMaterialReceived || isFinalStep) && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase text-slate-500">Revisit Date *</Label>
+                  <Input
+                    type="date"
+                    value={revisitDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setRevisitDate(e.target.value)}
+                    className="h-9 rounded-md border-white/10 bg-white/5 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase text-slate-500">Time Slot</Label>
+                  <select
+                    value={revisitTimeSlot}
+                    onChange={(e) => setRevisitTimeSlot(e.target.value)}
+                    className="h-9 w-full rounded-md border border-white/10 bg-app px-2 text-xs text-white"
+                  >
+                    <option value="">Select slot</option>
+                    {["9:00 AM - 12:00 PM", "12:00 PM - 3:00 PM", "3:00 PM - 6:00 PM", "Full Day"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {canServiceHead && isInitialReview && (
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED")}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/30 text-red-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("DENIED")}
+                >
+                  Deny
+                </Button>
+              </div>
+            )}
+
+            {canServiceHead && isStockCheck && (
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED", "STOCK_AVAILABLE")}
+                >
+                  Stock Available & Reschedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-orange-500/30 text-orange-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED", "OUT_OF_STOCK")}
+                >
+                  Out of Stock → Send to Store
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-red-500/30 text-red-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("DENIED")}
+                >
+                  Deny
+                </Button>
+              </div>
+            )}
+
+            {canServiceHead && isMaterialReceived && (
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED")}
+                >
+                  Material Received & Reschedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/30 text-red-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("DENIED")}
+                >
+                  Deny
+                </Button>
+              </div>
+            )}
+
+            {canServiceHead && isFinalStep && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                    disabled={serviceHeadMutation.isPending}
+                    onClick={() => void handleServiceHead("APPROVED")}
+                  >
+                    Approve & Reschedule
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-red-500/30 text-red-300"
+                    disabled={serviceHeadMutation.isPending}
+                    onClick={() => void handleServiceHead("DENIED")}
+                  >
+                    Reject
+                  </Button>
+                </div>
+                <Button
+                  className="w-full bg-slate-600 hover:bg-slate-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("COMPLETED")}
+                >
+                  Mark as Completed
+                </Button>
+              </div>
+            )}
+
+            {(canAccounts || (isHead && isAwaitingAccounts)) && (
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                  disabled={accountsMutation.isPending}
+                  onClick={() => void handleConfirmPayment("received")}
+                >
+                  Payment Received
+                </Button>
+                <Button
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-500"
+                  disabled={accountsMutation.isPending}
+                  onClick={() => void handleConfirmPayment("onsite")}
+                >
+                  Payment Onsite
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
 export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const isAdminView = role === "admin";
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { ready } = useSession(role);
   const user = readUser();
   const {
@@ -140,6 +333,24 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
 
   const createMutation = useCreateMaterialRequest();
   const [open, setOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<MaterialRequest | null>(null);
+  const [actionTargetId, setActionTargetId] = useState<string | null>(null);
+
+  // Handle auto-open from dashboard deep link
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const action = searchParams.get("action");
+    if (!id || requests.length === 0) return;
+
+    const target = requests.find((r) => r._id === id || r.requestId === id);
+    if (!target) return;
+
+    if (action === "review") {
+      setActionTargetId(target._id);
+    } else {
+      setHistoryTarget(target);
+    }
+  }, [searchParams, requests]);
   const [imagePreview, setImagePreview] = useState("");
   const [form, setForm] = useState({
     materialName: "",
@@ -335,11 +546,24 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                         />
                       </label>
                       {imagePreview && (
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="mt-2 max-h-32 rounded-lg border border-white/10"
-                        />
+                        <div className="relative mt-2 inline-block">
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            className="max-h-32 rounded-lg border border-white/10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImagePreview("");
+                              setForm((f) => ({ ...f, imageUrl: "" }));
+                            }}
+                            className="absolute -right-2 -top-2 rounded-full bg-red-500/90 p-1 text-white hover:bg-red-500"
+                            aria-label="Remove image"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                     <p className="text-xs text-slate-400">
@@ -363,7 +587,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           </div>
         </div>
 
-        <div className={cn(panelClass, "overflow-hidden")}>
+        <div className={cn(panelClass, "overflow-x-auto")}>
           {isLoading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-white/40" />
@@ -384,33 +608,59 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                   {isAdminView ? (
                     <>
                       <TH>Team</TH>
+                      <TH>Customer</TH>
+                      <TH>Customer ID</TH>
+                      <TH>Paid / Unpaid</TH>
                       <TH>Material Name</TH>
                       <TH>Quantity</TH>
                       <TH>Requested By</TH>
                       <TH>Request Date</TH>
                       <TH>Status</TH>
                       <TH>Remarks</TH>
+                      <TH>History</TH>
                       <TH>Actions</TH>
                     </>
                   ) : (
                     <>
                       <TH>Image</TH>
                       <TH>Request ID</TH>
+                      <TH>Customer</TH>
+                      <TH>Customer ID</TH>
+                      <TH>Paid / Unpaid</TH>
                       <TH>Material Name</TH>
                       <TH>Quantity</TH>
                       <TH>Request Date</TH>
                       <TH>Status</TH>
                       <TH>Store Manager Remarks</TH>
+                      <TH>History</TH>
                     </>
                   )}
                 </TR>
               </THead>
               <tbody>
                 {requests.map((req) => (
-                  <TR key={req._id}>
+                  <TR
+                    key={req._id}
+                    className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                    onClick={() => setHistoryTarget(req)}
+                  >
                     {isAdminView ? (
                       <>
                         <TD className="font-medium">{req.department || "—"}</TD>
+                        <TD className="text-slate-200">{req.customerName || "—"}</TD>
+                        <TD className="font-mono text-xs text-blue-300">{req.customerId || req.orderId || req.complaintId || "—"}</TD>
+                        <TD>
+                          <Badge
+                            className={cn(
+                              "border text-[10px]",
+                              req.orderPaid
+                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                                : "border-amber-500/30 bg-amber-500/15 text-amber-400"
+                            )}
+                          >
+                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          </Badge>
+                        </TD>
                         <TD>{req.materialName}</TD>
                         <TD>
                           {req.quantity} {req.unit}
@@ -425,8 +675,33 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                         <TD className="text-slate-400">
                           {req.serviceHeadRemarks || req.storeManagerRemarks || "—"}
                         </TD>
+                        <TD onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 rounded-lg border-white/10 text-xs text-slate-300"
+                            onClick={() => setHistoryTarget(req)}
+                          >
+                            <History className="h-3.5 w-3.5" />
+                            History
+                          </Button>
+                        </TD>
                         <TD>
-                          <MaterialRequestActions req={req} onDone={() => void refetch()} />
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                              onClick={() => setHistoryTarget(req)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <MaterialRequestActions
+                              req={req}
+                              onDone={() => void refetch()}
+                              autoOpen={actionTargetId === req._id}
+                            />
+                          </div>
                         </TD>
                       </>
                     ) : (
@@ -442,7 +717,31 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             <span className="text-xs text-slate-500">—</span>
                           )}
                         </TD>
-                        <TD className="font-mono text-sm">{req.requestId}</TD>
+                        <TD className="font-mono text-sm">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryTarget(req);
+                            }}
+                            className="hover:underline text-blue-400"
+                          >
+                            {req.requestId}
+                          </button>
+                        </TD>
+                        <TD className="text-slate-200">{req.customerName || "—"}</TD>
+                        <TD className="font-mono text-xs text-blue-300">{req.customerId || req.orderId || req.complaintId || "—"}</TD>
+                        <TD>
+                          <Badge
+                            className={cn(
+                              "border text-[10px]",
+                              req.orderPaid
+                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                                : "border-amber-500/30 bg-amber-500/15 text-amber-400"
+                            )}
+                          >
+                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          </Badge>
+                        </TD>
                         <TD>{req.materialName}</TD>
                         <TD>
                           {req.quantity} {req.unit}
@@ -453,7 +752,30 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             {materialStatusLabel[req.status]}
                           </Badge>
                         </TD>
-                        <TD className="text-slate-400">{req.storeManagerRemarks || "—"}</TD>
+                        <TD className="text-slate-400">
+                          <span className="truncate max-w-[150px]">{req.storeManagerRemarks || "—"}</span>
+                        </TD>
+                        <TD onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 rounded-lg border-white/10 text-xs text-slate-300"
+                              onClick={() => setHistoryTarget(req)}
+                            >
+                              <History className="h-3.5 w-3.5" />
+                              History
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                              onClick={() => setHistoryTarget(req)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TD>
                       </>
                     )}
                   </TR>
@@ -463,6 +785,12 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           )}
         </div>
       </div>
+
+      <MaterialRequestHistoryModal
+        request={historyTarget}
+        open={Boolean(historyTarget)}
+        onClose={() => setHistoryTarget(null)}
+      />
     </DashboardShell>
   );
 }

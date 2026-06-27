@@ -38,6 +38,8 @@ exports.listUsers = listUsers;
 exports.listAssignableUsers = listAssignableUsers;
 exports.readUser = readUser;
 exports.updateUserHandler = updateUserHandler;
+exports.uploadUserAvatarHandler = uploadUserAvatarHandler;
+exports.removeUserAvatarHandler = removeUserAvatarHandler;
 exports.deleteUserHandler = deleteUserHandler;
 exports.resetPasswordHandler = resetPasswordHandler;
 exports.exportUsersCSVHandler = exportUsersCSVHandler;
@@ -124,13 +126,32 @@ async function updateUserHandler(req, res) {
         throw new ApiError_1.ApiError(403, "You do not have permission to edit users");
     }
     if (isSelfUpdate) {
-        const { name, email, mobile } = req.body;
-        const user = await userService.updateUserById(String(req.params.id), { name, email, mobile }, req.user);
+        const { name, email, mobile, password } = req.body;
+        const user = await userService.updateUserById(String(req.params.id), { name, email, mobile, password }, req.user);
         res.json({ message: "Profile updated successfully", user });
         return;
     }
     const user = await userService.updateUserById(String(req.params.id), req.body, req.user);
     res.json({ message: "User updated successfully", user });
+}
+async function uploadUserAvatarHandler(req, res) {
+    if (!req.user) {
+        throw new ApiError_1.ApiError(401, "Unauthorized");
+    }
+    const file = req.file;
+    if (!file) {
+        throw new ApiError_1.ApiError(400, "Profile picture file is required");
+    }
+    const avatarPath = `/uploads/avatars/${file.filename}`;
+    const user = await userService.updateUserAvatar(String(req.params.id), avatarPath, req.user);
+    res.json({ message: "Profile picture updated", user });
+}
+async function removeUserAvatarHandler(req, res) {
+    if (!req.user) {
+        throw new ApiError_1.ApiError(401, "Unauthorized");
+    }
+    const user = await userService.removeUserAvatar(String(req.params.id), req.user);
+    res.json({ message: "Profile picture removed", user });
 }
 async function deleteUserHandler(req, res) {
     if (!req.user || !(0, rbac_1.canDeleteUsers)(req.user.role)) {

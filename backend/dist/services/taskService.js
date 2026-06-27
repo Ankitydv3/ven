@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.blocksComplaintTaskAssignment = blocksComplaintTaskAssignment;
 exports.assertComplaintEligibleForTaskAssignment = assertComplaintEligibleForTaskAssignment;
+exports.createComplaintAssignmentTask = createComplaintAssignmentTask;
 exports.backfillDueDateKeys = backfillDueDateKeys;
 exports.applyOverdueUpdates = applyOverdueUpdates;
 exports.createTask = createTask;
 exports.getTasks = getTasks;
+exports.findTaskByLookup = findTaskByLookup;
 exports.getTaskById = getTaskById;
 exports.getCalendarTaskCounts = getCalendarTaskCounts;
 exports.getTaskStats = getTaskStats;
@@ -21,6 +23,7 @@ exports.syncComplaintAssigneeFromTask = syncComplaintAssigneeFromTask;
 exports.syncComplaintTaskStatus = syncComplaintTaskStatus;
 exports.deleteTaskById = deleteTaskById;
 exports.getRecentTaskAlerts = getRecentTaskAlerts;
+const mongoose_1 = require("mongoose");
 const Task_1 = __importDefault(require("../models/Task"));
 const TaskAlert_1 = __importDefault(require("../models/TaskAlert"));
 const Complaint_1 = __importDefault(require("../models/Complaint"));
@@ -31,16 +34,27 @@ const materialRequestService_1 = require("./materialRequestService");
 const ApiError_1 = require("../utils/ApiError");
 const teamScope_1 = require("../utils/teamScope");
 const dateKey_1 = require("../utils/dateKey");
-const BLOCKED_COMPLAINT_TASK_STATUSES = ["In Progress", "Completed", "Need Material"];
+const complaintAssignmentService_1 = require("./complaintAssignmentService");
+const BLOCKED_COMPLAINT_TASK_STATUSES = ["Completed"];
 function blocksComplaintTaskAssignment(status) {
-    return status === "In Progress" || status === "Completed";
+    return status === "Completed" || status === "Cancelled";
 }
 async function assertComplaintEligibleForTaskAssignment(complaintId) {
-    const existingTask = await Task_1.default.findOne({ complaintId });
-    if (existingTask && BLOCKED_COMPLAINT_TASK_STATUSES.includes(existingTask.status)) {
+    const existingTask = await Task_1.default.findOne({
+        complaintId,
+        ...(0, complaintAssignmentService_1.activeTaskQuery)(),
+        status: { $nin: BLOCKED_COMPLAINT_TASK_STATUSES },
+    });
+    if (existingTask) {
         throw new ApiError_1.ApiError(400, `Cannot assign: complaint already has task ${existingTask.taskId} in ${existingTask.status} status`);
     }
     return existingTask;
+}
+async function createComplaintAssignmentTask(payload) {
+    if (payload.complaintId) {
+        await (0, complaintAssignmentService_1.supersedeComplaintTasks)(payload.complaintId);
+    }
+    return createTaskInternal(payload, { skipComplaintEligibilityCheck: true });
 }
 function startOfDay(date) {
     const d = new Date(date);
@@ -135,10 +149,23 @@ async function applyOverdueUpdates() {
     }
 }
 async function createTask(payload) {
-    if (payload.complaintId) {
+    return createTaskInternal(payload, { skipComplaintEligibilityCheck: false });
+}
+async function createTaskInternal(payload, options) {
+    if (payload.complaintId && !options.skipComplaintEligibilityCheck) {
         await assertComplaintEligibleForTaskAssignment(payload.complaintId);
     }
-    const assignee = await resolveAssignee(payload.assignedUserId);
+    let assignee = {};
+    if (payload.assignedUserId) {
+        assignee = await resolveAssignee(payload.assignedUserId);
+    }
+    else if (payload.assignedTeamName) {
+        const team = await Team_1.default.findOne({ teamName: payload.assignedTeamName }).lean();
+        assignee = {
+            assignedTeamName: payload.assignedTeamName,
+            assignedTeamId: team?._id,
+        };
+    }
     const taskId = await (0, taskId_1.generateTaskId)();
     const dueDateKey = (0, dateKey_1.dateKeyFromValue)(payload.dueDate);
     const task = await Task_1.default.create({
@@ -154,6 +181,7 @@ async function createTask(payload) {
         dueDateKey,
         remarks: payload.remarks ?? "",
         isLocked: false,
+        isActive: true,
         history: [
             {
                 action: "Task Assigned",
@@ -165,7 +193,7 @@ async function createTask(payload) {
             },
         ],
     });
-    await createTaskAlert("task_assigned", task, `Task ${task.taskId} assigned to ${task.assignedUserName} (${task.assignedTeamName})`);
+    await createTaskAlert("task_assigned", task, `Task ${task.taskId} assigned to ${task.assignedUserName || task.assignedTeamName} (${task.assignedTeamName})`);
     return task.toObject();
 }
 async function getTasks(options) {
@@ -208,7 +236,15 @@ async function getTasks(options) {
     if (options.priority && options.priority !== "All") {
         filter.priority = options.priority;
     }
-    if (options.dueDate) {
+    if (options.upcoming) {
+        const todayKey = (0, dateKey_1.todayDateKey)();
+        filter.status = { $nin: ["Completed", "Cancelled"] };
+        filter.$or = [
+            { dueDateKey: { $gte: todayKey } },
+            { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
+        ];
+    }
+    else if (options.dueDate) {
         filter.dueDateKey = options.dueDate;
     }
     else if (options.startDate || options.endDate) {
@@ -240,9 +276,26 @@ async function getTasks(options) {
     }));
     return { items: enrichedItems, total };
 }
-async function getTaskById(id) {
+async function findTaskByLookup(id, options) {
     await applyOverdueUpdates();
-    const task = await Task_1.default.findById(id).lean();
+    const useLean = options?.lean ?? false;
+    if (mongoose_1.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)) {
+        const byId = useLean ? await Task_1.default.findById(id).lean() : await Task_1.default.findById(id);
+        if (byId)
+            return byId;
+    }
+    let task = useLean
+        ? await Task_1.default.findOne({ ...(0, complaintAssignmentService_1.activeTaskQuery)(), taskId: id }).lean()
+        : await Task_1.default.findOne({ ...(0, complaintAssignmentService_1.activeTaskQuery)(), taskId: id });
+    if (task)
+        return task;
+    task = useLean
+        ? await Task_1.default.findOne((0, complaintAssignmentService_1.activeTaskQuery)(id)).sort({ createdAt: -1 }).lean()
+        : await Task_1.default.findOne((0, complaintAssignmentService_1.activeTaskQuery)(id)).sort({ createdAt: -1 });
+    return task ?? null;
+}
+async function getTaskById(id) {
+    const task = await findTaskByLookup(id, { lean: true });
     if (!task) {
         throw new ApiError_1.ApiError(404, "Task not found");
     }
@@ -382,15 +435,19 @@ async function assertTaskAccess(user, task) {
     if ((0, teamScope_1.isAdminRole)(user.role)) {
         return;
     }
+    const team = user.team ?? user.teamName;
+    const assigneeId = task.assignedUserId ? String(task.assignedUserId) : "";
     if (user.role === "team_lead") {
-        const team = user.team ?? user.teamName;
         if (team && task.assignedTeamName === team) {
             return;
         }
         throw new ApiError_1.ApiError(403, "You do not have access to this task");
     }
     if (user.role === "team") {
-        if (task.assignedUserId && String(task.assignedUserId) === user.id) {
+        if (assigneeId && assigneeId === user.id) {
+            return;
+        }
+        if (team && task.assignedTeamName === team && !assigneeId) {
             return;
         }
         throw new ApiError_1.ApiError(403, "You do not have access to this task");
@@ -410,11 +467,18 @@ async function updateTaskById(id, payload, actor) {
     const previousAssignee = task.assignedUserId?.toString();
     let reassigned = false;
     if (payload.assignedUserId && payload.assignedUserId !== previousAssignee) {
-        if (task.status === "Completed") {
-            throw new ApiError_1.ApiError(400, "Cannot reassign a completed task");
+        if (task.status === "Completed" || task.status === "Cancelled") {
+            throw new ApiError_1.ApiError(400, "Cannot reassign a completed or cancelled task");
         }
-        if (!["Pending", "In Progress", "Overdue"].includes(task.status)) {
-            throw new ApiError_1.ApiError(400, "Only pending or in-progress tasks can be reassigned");
+        const reassignable = [
+            "Pending",
+            "In Progress",
+            "Overdue",
+            "Need Re-visit",
+            "Need Material",
+        ];
+        if (!reassignable.includes(task.status)) {
+            throw new ApiError_1.ApiError(400, "This task cannot be reassigned in its current status");
         }
         const assignee = await resolveAssignee(payload.assignedUserId);
         task.assignedUserId = assignee.assignedUserId;
@@ -498,7 +562,11 @@ async function applyStatusChange(task, status, options) {
     task.isLocked = false;
 }
 async function patchTaskStatusById(id, status, actor, options) {
-    const task = await Task_1.default.findById(id);
+    const found = await findTaskByLookup(id);
+    if (!found || !("_id" in found)) {
+        throw new ApiError_1.ApiError(404, "Task not found");
+    }
+    const task = await Task_1.default.findById(found._id);
     if (!task) {
         throw new ApiError_1.ApiError(404, "Task not found");
     }
@@ -528,11 +596,11 @@ async function patchTaskStatusById(id, status, actor, options) {
                 throw new ApiError_1.ApiError(400, "Only pending or re-visit tasks can be started");
             }
             if (task.status === "Need Material") {
-                throw new ApiError_1.ApiError(400, "Cannot start task while waiting for material approval");
+                throw new ApiError_1.ApiError(400, "Cannot Update Task while waiting for material approval");
             }
         }
         else {
-            throw new ApiError_1.ApiError(403, "You can only start tasks or update in-progress tasks");
+            throw new ApiError_1.ApiError(403, "You can only Update Tasks or update in-progress tasks");
         }
         if (task.status === "Completed" || task.isLocked) {
             throw new ApiError_1.ApiError(400, "Completed tasks cannot be updated");
@@ -567,6 +635,9 @@ async function patchTaskStatusById(id, status, actor, options) {
             status: "Need Material",
             createdAt: new Date(),
         });
+        if (task.complaintId) {
+            await Complaint_1.default.updateOne({ complaintId: task.complaintId }, { $set: { siteVisitStatus: "Material Required" } });
+        }
     }
     if (options?.notes) {
         task.remarks = options.notes;
@@ -574,6 +645,9 @@ async function patchTaskStatusById(id, status, actor, options) {
     if (status === "Need Re-visit" && options?.revisitDate) {
         task.dueDate = options.revisitDate;
         task.dueDateKey = (0, dateKey_1.dateKeyFromValue)(options.revisitDate);
+        if (task.complaintId) {
+            await Complaint_1.default.updateOne({ complaintId: task.complaintId }, { $set: { siteVisitStatus: "Revisit" } });
+        }
     }
     await task.save();
     if (status === "Need Material" && options?.materialName && options?.quantity) {
@@ -627,8 +701,9 @@ async function syncComplaintFromTask(complaintId, taskStatus, actor, taskAssigne
     syncComplaintAssignee(complaint, taskAssignee);
     if (taskStatus === "In Progress" && complaint.status === "Assigned") {
         complaint.status = "In Progress";
+        complaint.siteVisitStatus = "Pending";
         complaint.history.push({
-            action: "Task Started (Schedule)",
+            action: "Site Visit Started",
             by: actor?.name ?? "Team",
             role: actor?.role ?? "team",
             team: taskAssignee?.assignedTeamName,
@@ -641,6 +716,7 @@ async function syncComplaintFromTask(complaintId, taskStatus, actor, taskAssigne
     if (taskStatus === "Completed") {
         const wasCompleted = complaint.status === "Completed";
         complaint.status = "Completed";
+        complaint.siteVisitStatus = "Completed";
         complaint.completedBy = actor?.name ?? complaint.completedBy ?? "Team";
         complaint.completedDate = new Date();
         if (options?.photoUrl) {
@@ -684,7 +760,7 @@ async function syncComplaintAssigneeFromTask(complaintId, taskAssignee) {
     await complaint.save();
 }
 async function syncComplaintTaskStatus(complaintId, status) {
-    const task = await Task_1.default.findOne({ complaintId });
+    const task = await Task_1.default.findOne((0, complaintAssignmentService_1.activeTaskQuery)(complaintId)).sort({ createdAt: -1 });
     if (!task || task.status === "Completed") {
         return;
     }

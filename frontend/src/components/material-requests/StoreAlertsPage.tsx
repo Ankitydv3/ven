@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +16,7 @@ import {
   FileText,
   CheckCircle2,
   Clock,
+  Hourglass,
   XCircle,
   AlertTriangle,
   ChevronRight,
@@ -22,10 +24,11 @@ import {
   Globe,
   Trash2,
   CheckCheck,
+  Eye,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
-import { useAlerts } from "@/hooks/useAlerts";
+import { useAlerts, useClearAlerts } from "@/hooks/useAlerts";
 import { useMaterialRequests, useUpdateMaterialRequestStatus } from "@/hooks/useMaterialRequests";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,9 +59,16 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { MaterialRequest } from "@/services/material-requests";
 import {
-  materialStatusBadgeClass,
+  getMaterialStatusBadgeClass,
   materialStatusLabel,
 } from "@/services/material-requests";
+import { getNotificationHref } from "@/lib/record-navigation";
+import { readUser } from "@/lib/storage";
+import {
+  buildNotifications,
+  dismissNotificationIds,
+  getDismissedNotificationIds,
+} from "@/lib/notifications";
 
 /* ─── helpers ─────────────────────────────────────────── */
 
@@ -168,18 +178,53 @@ function EmptyState({ message, accent = "blue" }: { message: string; accent?: "b
 /* ─── Main Page ───────────────────────────────────────── */
 
 export function StoreAlertsPage() {
+  const router = useRouter();
   const { ready } = useSession("store");
   const { data: alertsData, isLoading: alertsLoading, refetch: refetchAlerts } = useAlerts();
   const { data: requestsData, isLoading: requestsLoading, refetch: refetchRequests } = useMaterialRequests({ limit: 100 });
   const updateMutation = useUpdateMaterialRequestStatus();
+  const clearMutation = useClearAlerts();
 
   const [alertSearch, setAlertSearch] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<MaterialRequest | null>(null);
   const [remarks, setRemarks] = useState("");
+  const [dismissedVersion, setDismissedVersion] = useState(0);
 
-  const materialAlerts = alertsData?.materialAlerts ?? [];
+  const user = readUser();
+  const dismissed = useMemo(() => {
+    void dismissedVersion;
+    return getDismissedNotificationIds(user?.id);
+  }, [user?.id, dismissedVersion]);
+
+  const materialAlerts = useMemo(
+    () => (alertsData?.materialAlerts ?? []).filter((alert) => !dismissed.has(`material-${alert._id}`)),
+    [alertsData, dismissed]
+  );
   const requests = requestsData?.items ?? [];
+
+  const notifications = useMemo(() => {
+    if (!alertsData) return [];
+    return buildNotifications("store", alertsData, dismissed);
+  }, [alertsData, dismissed]);
+
+  const handleClearAll = async () => {
+    if (notifications.length === 0) return;
+    try {
+      await clearMutation.mutateAsync();
+      if (user?.id) {
+        dismissNotificationIds(
+          user.id,
+          notifications.map((item) => item.id)
+        );
+      }
+      setDismissedVersion((v) => v + 1);
+      toast.success("All notifications cleared");
+      void refetchAlerts();
+    } catch {
+      toast.error("Failed to clear notifications");
+    }
+  };
 
   const filteredAlerts = useMemo(() => {
     const q = alertSearch.toLowerCase();
@@ -201,14 +246,15 @@ export function StoreAlertsPage() {
     );
   }, [requests, requestSearch]);
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleUpdateStatus = async (id: string, decision: "WAIT" | "DECLINE" | "GRANT", availability: "AVAILABLE" | "OUT_OF_STOCK") => {
     try {
       await updateMutation.mutateAsync({
         id,
-        status: status as any,
+        decision,
+        availability,
         storeManagerRemarks: remarks.trim() || undefined,
       });
-      toast.success(`Request marked as ${materialStatusLabel[status as keyof typeof materialStatusLabel]}`);
+      toast.success(`Decision submitted successfully`);
       setSelectedRequest(null);
       setRemarks("");
       void refetchRequests();
@@ -232,6 +278,26 @@ export function StoreAlertsPage() {
       title="Material Management"
       subtitle="Handle alerts and material requests efficiently."
     >
+      {notifications.length > 0 && (
+        <div className="mb-4 flex items-center justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={clearMutation.isPending}
+            onClick={() => void handleClearAll()}
+            className="gap-1.5 rounded-xl border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+          >
+            {clearMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCheck className="h-4 w-4" />
+            )}
+            Clear messages
+          </Button>
+        </div>
+      )}
+
       <div className="flex h-[calc(100vh-160px)] flex-col gap-4 lg:flex-row">
         {/* ── LEFT: New & Active Alerts ── */}
         <SectionShell
@@ -259,8 +325,13 @@ export function StoreAlertsPage() {
                 transition={{ delay: i * 0.05 }}
                 className="group relative cursor-pointer rounded-2xl border border-amber-500/10 bg-[#080f1e]/70 p-4 backdrop-blur-md transition-all hover:border-amber-500/30 hover:bg-[#0b1628]/80"
                 onClick={() => {
-                  const req = requests.find(r => r.requestId === alert.requestId);
-                  if (req) setSelectedRequest(req);
+                  router.push(
+                    getNotificationHref("store", {
+                      kind: "material",
+                      complaintId: alert.complaintId,
+                      requestId: alert.requestId,
+                    })
+                  );
                 }}
               >
                 <div className="flex items-start gap-3">
@@ -326,7 +397,7 @@ export function StoreAlertsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-white">{req.materialName}</p>
-                      <Badge className={cn("shrink-0 border-0 text-[10px] font-bold uppercase", materialStatusBadgeClass[req.status])}>
+                      <Badge className={cn("shrink-0 font-bold uppercase", getMaterialStatusBadgeClass(req.status))}>
                         {materialStatusLabel[req.status]}
                       </Badge>
                     </div>
@@ -339,27 +410,41 @@ export function StoreAlertsPage() {
                       <p className="text-[10px] text-slate-600">
                         {format(new Date(req.requestDate), "dd MMM yyyy")}
                       </p>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <button className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/5 transition-colors">
-                            <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 border-white/10 bg-[#0b1424] text-white">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "GRANTED"); }}>
-                            <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" />
-                            Mark as Granted
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "WAITING"); }}>
-                            <Clock className="mr-2 h-4 w-4 text-amber-400" />
-                            Waiting Stock
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "OUT_OF_STOCK"); }}>
-                            <XCircle className="mr-2 h-4 w-4 text-rose-400" />
-                            Out of Stock
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                          onClick={() => setSelectedRequest(req)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/5 transition-colors">
+                              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 border-white/10 bg-[#0b1424] text-white">
+                            <DropdownMenuItem onClick={() => setSelectedRequest(req)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View & Full Actions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "GRANT", "AVAILABLE"); }}>
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" />
+                              Available: Grant & Forward
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "WAIT", "OUT_OF_STOCK"); }}>
+                              <Clock className="mr-2 h-4 w-4 text-amber-400" />
+                              Out of Stock: Wait
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "DECLINE", "OUT_OF_STOCK"); }}>
+                              <XCircle className="mr-2 h-4 w-4 text-rose-400" />
+                              Out of Stock: Decline
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -382,7 +467,7 @@ export function StoreAlertsPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <DialogTitle className="text-base font-bold text-white">{selectedRequest?.materialName}</DialogTitle>
-                  <Badge className={cn("border-0 text-[10px] font-bold uppercase", selectedRequest ? materialStatusBadgeClass[selectedRequest.status] : "")}>
+                  <Badge className={cn("font-bold uppercase", selectedRequest ? getMaterialStatusBadgeClass(selectedRequest.status) : "")}>
                     {selectedRequest ? materialStatusLabel[selectedRequest.status] : ""}
                   </Badge>
                 </div>
@@ -436,18 +521,22 @@ export function StoreAlertsPage() {
                     Take Action
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 border-white/10 bg-[#0b1424] text-white">
-                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "GRANTED")}>
+                <DropdownMenuContent align="end" className="w-56 border-white/10 bg-[#0b1424] text-white">
+                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "GRANT", "AVAILABLE")}>
                     <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" />
-                    Grant Request
+                    Available: Grant & Forward
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "WAITING")}>
+                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "WAIT", "AVAILABLE")}>
                     <Clock className="mr-2 h-4 w-4 text-amber-400" />
-                    Waiting Stock
+                    Available: Wait
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "OUT_OF_STOCK")}>
+                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "WAIT", "OUT_OF_STOCK")}>
+                    <Hourglass className="mr-2 h-4 w-4 text-orange-400" />
+                    Out of Stock: Wait
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "DECLINE", "OUT_OF_STOCK")}>
                     <XCircle className="mr-2 h-4 w-4 text-rose-400" />
-                    Out of Stock
+                    Out of Stock: Decline
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

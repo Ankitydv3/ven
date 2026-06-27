@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { Ban, Loader2, MoreHorizontal, RotateCcw, UserRound } from "lucide-react";
+import { Ban, Eye, Loader2, MoreHorizontal, RotateCcw, UserRound } from "lucide-react";
 import type { Task, TaskStatus } from "@/lib/task.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   panelClass,
   priorityAccentClass,
   priorityBadgeClass,
+  REASSIGNABLE_TASK_STATUSES,
   statusBadgeVariant,
 } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
@@ -29,21 +30,25 @@ const ACTIVE_STATUSES: TaskStatus[] = ["Pending", "In Progress", "Overdue"];
 interface AssignedTasksTableProps {
   tasks: Task[];
   selectedDateLabel: string;
+  viewMode?: "upcoming" | "date";
   isLoading?: boolean;
   canManage?: boolean;
   canUpdateProgress?: boolean;
   assignableUsers?: Array<{ _id: string; name: string; teamName?: string }>;
   onTaskCompleted?: (task: Task) => void;
+  onViewTask?: (task: Task) => void;
 }
 
 export function AssignedTasksTable({
   tasks,
   selectedDateLabel,
+  viewMode = "date",
   isLoading,
   canManage,
   canUpdateProgress,
   assignableUsers = [],
   onTaskCompleted,
+  onViewTask,
 }: AssignedTasksTableProps) {
   const patchMutation = usePatchTaskStatus();
   const reopenMutation = useReopenTask();
@@ -92,11 +97,17 @@ export function AssignedTasksTable({
     <div className={cn(panelClass, "overflow-hidden")}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned Tasks</p>
-          <p className="text-sm text-slate-500">Tasks for {selectedDateLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {viewMode === "upcoming" ? "Upcoming Tasks" : "Assigned Tasks"}
+          </p>
+          <p className="text-sm text-slate-500">
+            {viewMode === "upcoming"
+              ? "All active tasks from today onward"
+              : `Tasks for ${selectedDateLabel}`}
+          </p>
         </div>
         <Badge variant="info" className="rounded-full">
-          Selected Date
+          {viewMode === "upcoming" ? "Upcoming" : "Selected Date"}
         </Badge>
       </div>
 
@@ -106,9 +117,17 @@ export function AssignedTasksTable({
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex min-h-[200px] flex-col items-center justify-center px-6 text-center">
-          <p className="font-medium text-white">No tasks for this date</p>
+          <p className="font-medium text-white">
+            {viewMode === "upcoming" ? "No upcoming tasks" : "No tasks for this date"}
+          </p>
           <p className="mt-1 text-sm text-slate-500">
-            {canManage ? "Create a task or select another date on the calendar." : "No tasks are assigned to you on this date."}
+            {viewMode === "upcoming"
+              ? canManage
+                ? "Create a task or check a specific date on the calendar."
+                : "You have no active tasks scheduled from today onward."
+              : canManage
+                ? "Create a task or select another date on the calendar."
+                : "No tasks are assigned to you on this date."}
           </p>
         </div>
       ) : (
@@ -131,9 +150,10 @@ export function AssignedTasksTable({
                 <tr
                   key={task._id}
                   className={cn(
-                    "border-b border-white/[0.04] border-l-4 hover:bg-white/[0.02]",
+                    "border-b border-white/[0.04] border-l-4 hover:bg-white/[0.04] cursor-pointer transition-colors",
                     priorityAccentClass[task.priority] ?? "border-l-slate-500"
                   )}
+                  onClick={() => onViewTask?.(task)}
                 >
                   <TD>
                     <p className="font-semibold text-white">{task.title}</p>
@@ -166,73 +186,85 @@ export function AssignedTasksTable({
                   <TD className="whitespace-nowrap text-slate-300">
                     {formatDueDate(task.dueDateKey ?? task.dueDate)}
                   </TD>
-                  {(canManage || canUpdateProgress) && (
-                    <TD>
-                      <div className="flex items-center gap-1">
-                        {canUpdateProgress && ACTIVE_STATUSES.includes(task.status) && (
-                          <>
-                            {task.status !== "In Progress" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={patchMutation.isPending}
-                                onClick={() => void handleStatus(task, "In Progress")}
-                              >
-                                Start
-                              </Button>
-                            )}
+                  <TD>
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                        onClick={() => onViewTask?.(task)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canUpdateProgress && ACTIVE_STATUSES.includes(task.status) && (
+                        <>
+                          {task.status !== "In Progress" && (
                             <Button
                               size="sm"
+                              variant="outline"
                               className="h-7 text-xs"
                               disabled={patchMutation.isPending}
-                              onClick={() => void handleStatus(task, "Completed")}
+                              onClick={() => void handleStatus(task, "In Progress")}
                             >
-                              Complete
+                              Start
                             </Button>
-                          </>
-                        )}
-                        {canManage && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {task.isLocked && (
-                                <DropdownMenuItem onClick={() => void handleReopen(task)}>
-                                  <RotateCcw className="mr-2 h-4 w-4" />
-                                  Reopen Task
-                                </DropdownMenuItem>
-                              )}
-                              {!task.isLocked &&
-                                ["Pending", "In Progress", "Overdue"].includes(task.status) && (
-                                  <>
-                                    {assignableUsers.map((user) => (
-                                      <DropdownMenuItem
-                                        key={user._id}
-                                        onClick={() => void handleReassign(task, user._id)}
-                                      >
-                                        <UserRound className="mr-2 h-4 w-4" />
-                                        Assign to {user.name}
-                                      </DropdownMenuItem>
-                                    ))}
+                          )}
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={patchMutation.isPending}
+                            onClick={() => void handleStatus(task, "Completed")}
+                          >
+                            Complete
+                          </Button>
+                        </>
+                      )}
+                      {canManage && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onViewTask?.(task)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            {task.isLocked && (
+                              <DropdownMenuItem onClick={() => void handleReopen(task)}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Reopen Task
+                              </DropdownMenuItem>
+                            )}
+                            {!task.isLocked &&
+                              REASSIGNABLE_TASK_STATUSES.includes(
+                                task.status as (typeof REASSIGNABLE_TASK_STATUSES)[number]
+                              ) && (
+                                <>
+                                  {assignableUsers.map((user) => (
                                     <DropdownMenuItem
-                                      className="text-red-400"
-                                      onClick={() => void handleCancel(task)}
+                                      key={user._id}
+                                      onClick={() => void handleReassign(task, user._id)}
                                     >
-                                      <Ban className="mr-2 h-4 w-4" />
-                                      Cancel Task
+                                      <UserRound className="mr-2 h-4 w-4" />
+                                      Assign to {user.name}
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </TD>
-                  )}
+                                  ))}
+                                  <DropdownMenuItem
+                                    className="text-red-400"
+                                    onClick={() => void handleCancel(task)}
+                                  >
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Cancel Task
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </TD>
                 </tr>
               ))}
             </tbody>

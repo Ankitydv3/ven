@@ -17,6 +17,8 @@ import { ScheduleMonthCalendar } from "@/components/schedule/ScheduleMonthCalend
 import { AssignedTasksTable } from "@/components/schedule/AssignedTasksTable";
 import { CreateTaskModal } from "@/components/schedule/CreateTaskModal";
 import { TeamSelectItems } from "@/components/shared/TeamSelectItems";
+import { useRouter } from "next/navigation";
+import { navigateToTask } from "@/lib/record-navigation";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -26,11 +28,13 @@ import {
 } from "@/components/ui/select";
 import { fetchAssignableUsers } from "@/services/users";
 import { formatDueDate, toDateKey } from "@/lib/task-constants";
+import { cn } from "@/lib/utils";
 import type { TaskPayload } from "@/lib/task.types";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
 import { feedbackTargetFromTask } from "@/lib/feedback-target";
 
 export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
+  const router = useRouter();
   const { ready, user } = useSession(role);
   const canManage = canManageSchedules(user?.role);
   const canUpdateProgress = canUpdateScheduleProgress(user?.role);
@@ -39,9 +43,14 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState(toDateKey(today));
+  const [taskView, setTaskView] = useState<"upcoming" | "date">("upcoming");
   const [teamFilter, setTeamFilter] = useState("all");
 
   const [createOpen, setCreateOpen] = useState(false);
+
+  const openTask = (task: { complaintId?: string; _id?: string; taskId?: string }) => {
+    navigateToTask(router, role, task);
+  };
 
   const teamParam = teamFilter !== "all" ? teamFilter : undefined;
 
@@ -52,7 +61,9 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
     teamParam
   );
   const { data: tasksData, isLoading: tasksLoading, isFetching: tasksFetching } = useTasks({
-    dueDate: selectedDate,
+    ...(taskView === "upcoming"
+      ? { upcoming: true }
+      : { dueDate: selectedDate }),
     team: teamParam,
     limit: 50,
     sortBy: "dueDate",
@@ -81,6 +92,12 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
     setCalendarYear(now.getFullYear());
     setCalendarMonth(now.getMonth() + 1);
     setSelectedDate(toDateKey(now));
+    setTaskView("upcoming");
+  };
+
+  const handleSelectDate = (date: string) => {
+    setSelectedDate(date);
+    setTaskView("date");
   };
 
   if (!ready) return null;
@@ -122,7 +139,11 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
           )}
         </div>
 
-        <TaskStatsCards stats={stats} isLoading={statsLoading} />
+        <TaskStatsCards
+          stats={stats}
+          isLoading={statsLoading}
+          onUpcomingClick={() => setTaskView("upcoming")}
+        />
 
         <div className="grid gap-5 xl:grid-cols-2">
           <ScheduleTaskStatusChart stats={stats} isLoading={statsLoading} />
@@ -130,7 +151,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
             year={calendarYear}
             month={calendarMonth}
             selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
+            onSelectDate={handleSelectDate}
             onMonthChange={(y, m) => {
               setCalendarYear(y);
               setCalendarMonth(m);
@@ -140,14 +161,43 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
           />
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={taskView === "upcoming" ? "default" : "outline"}
+            className={cn(
+              "rounded-full",
+              taskView === "upcoming" && "bg-blue-600 hover:bg-blue-500"
+            )}
+            onClick={() => setTaskView("upcoming")}
+          >
+            Upcoming Tasks
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={taskView === "date" ? "default" : "outline"}
+            className={cn(
+              "rounded-full",
+              taskView === "date" && "bg-blue-600 hover:bg-blue-500"
+            )}
+            onClick={() => setTaskView("date")}
+          >
+            {formatDueDate(selectedDate)}
+          </Button>
+        </div>
+
         <AssignedTasksTable
           tasks={tasks}
-          selectedDateLabel={selectedDateLabel}
+          selectedDateLabel={taskView === "upcoming" ? "all upcoming" : selectedDateLabel}
+          viewMode={taskView}
           isLoading={tasksLoading || tasksFetching}
           canManage={canManage}
           canUpdateProgress={canUpdateProgress}
           assignableUsers={assignableUsers}
           onTaskCompleted={(task) => openFeedback(feedbackTargetFromTask(task))}
+          onViewTask={openTask}
         />
       </div>
 

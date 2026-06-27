@@ -109,7 +109,7 @@ async function seedCoreData() {
             deletedAt: null,
         },
     }, { upsert: true });
-    const storePassword = await bcryptjs_1.default.hash("123456", 10);
+    const storePassword = await bcryptjs_1.default.hash("store@5500", 10);
     await User_1.default.updateOne({ email: "store@oknadesigns.com" }, {
         $set: {
             employeeId: "EMPST001",

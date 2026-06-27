@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,13 +25,7 @@ type LoginValues = z.infer<typeof schema>;
 
 export function LoginFields() {
   const [pending, startTransition] = useTransition();
-  const [mounted, setMounted] = useState(false);
-  
-const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(schema),
@@ -55,8 +49,6 @@ const [showPassword, setShowPassword] = useState(false);
       }
     });
   });
-
-  if (!mounted) return null;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">

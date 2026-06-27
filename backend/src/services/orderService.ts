@@ -72,15 +72,18 @@ function normalizePhoneDigits(phone: string) {
 }
 
 export async function lookupOrdersByPhone(phone: string) {
-  const digits = normalizePhoneDigits(phone);
-  if (digits.length !== 10) {
-    throw new ApiError(400, "Enter a valid 10-digit mobile number");
-  }
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 0) return [];
 
-  const orders = await Order.find({
-    $or: [{ phone: digits }, { phone: { $regex: `${digits}$` } }],
-  })
+  // For 10 digit exact match or suffix match
+  // For shorter digits, partial match
+  const filter = digits.length >= 10
+    ? { $or: [{ phone: digits }, { phone: { $regex: `${digits}$` } }] }
+    : { phone: { $regex: digits } };
+
+  const orders = await Order.find(filter)
     .sort({ createdAt: -1 })
+    .limit(20)
     .select(
       "orderId customerName phone email address city state pincode materialType deliveryDate paid status createdAt salesPerson"
     )

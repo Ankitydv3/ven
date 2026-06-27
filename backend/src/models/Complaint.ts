@@ -14,6 +14,21 @@ const historySchema = new Schema(
   { _id: false }
 );
 
+const assignmentSchema = new Schema(
+  {
+    assignedTeam: { type: String, default: "" },
+    assignedUserId: { type: Schema.Types.ObjectId, ref: "User" },
+    assignedUserName: { type: String, default: "" },
+    assignedBy: { type: String, default: "" },
+    assignedAt: { type: Date, default: Date.now },
+    endedAt: { type: Date },
+    endReason: { type: String, enum: ["completed", "reassigned", "cancelled"], default: "" },
+    taskId: { type: String, default: "" },
+    status: { type: String, enum: ["active", "completed", "superseded"], default: "active" },
+  },
+  { _id: false }
+);
+
 const complaintSchema = new Schema(
   {
     complaintId: { type: String, required: true, unique: true, index: true },
@@ -30,12 +45,15 @@ const complaintSchema = new Schema(
     quotationUrl: { type: String, default: "" },
     availableDate: { type: String, default: "" },
     availableTime: { type: String, default: "" },
+    availability: { type: String, default: "" },
+    timeSlot: { type: String, default: "" },
+    locationCoordinates: { type: String, default: "" },
     assignedTeam: { type: String },
     assignedUserId: { type: Schema.Types.ObjectId, ref: "User", index: true },
     assignedUserName: { type: String, default: "", index: true },
     status: {
       type: String,
-      enum: ["Pending Review", "Declined", "Pending Assignment", "Assigned", "In Progress", "Completed"],
+      enum: ["Pending Review", "Declined", "Pending Assignment", "Assigned", "In Progress", "Completed", "Site Visit", "Material Required", "Material Granted", "Revisit", "Cancelled"],
       default: "Pending Review",
       index: true
     },
@@ -44,11 +62,18 @@ const complaintSchema = new Schema(
     completionPictureUrl: { type: String, default: "" },
     assignedBy: { type: String, default: "" },
     completedBy: { type: String, default: "" },
+    createdBy: { type: String, default: "" },
     assignedDate: { type: Date },
     completedDate: { type: Date },
     deadline: { type: Date },
     paymentStatus: { type: String, enum: ["Pending", "Paid", "Partially Paid"], default: "Pending" },
-    history: { type: [historySchema], default: [] }
+    siteVisitStatus: {
+      type: String,
+      enum: ["Pending", "Completed", "Material Required", "Material Granted", "Revisit", ""],
+      default: "Pending"
+    },
+    history: { type: [historySchema], default: [] },
+    assignments: { type: [assignmentSchema], default: [] },
   },
   { timestamps: true }
 );

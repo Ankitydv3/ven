@@ -1,7 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { ComplaintsPage } from "@/components/complaints/ComplaintsPage";
+import { Loader2 } from "lucide-react";
 
 export default function TeamComplaintsPage() {
-  return <ComplaintsPage role="team" />;
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-app"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>}>
+      <ComplaintsPage role="team" />
+    </Suspense>
+  );
 }

@@ -36,6 +36,8 @@ export const userUpdateSchema = z
     status: z.enum(["active", "disabled"]).optional(),
     teamName: z.string().trim().min(1).optional(),
     subAdminType: subAdminTypeField,
+    designation: z.string().trim().max(120).optional(),
+    department: z.string().trim().max(120).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field is required",
@@ -44,6 +46,12 @@ export const userUpdateSchema = z
     message: "Team assignment is required for team users",
     path: ["teamName"],
   });
+
+export const profileSelfUpdateSchema = z.object({
+  name: z.string().min(2, "Full name is required").max(120),
+  email: z.string().email("Valid email is required"),
+  mobile: z.string().min(10, "Valid phone number is required").max(15),
+});
 
 export const resetPasswordSchema = z
   .object({

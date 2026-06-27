@@ -25,6 +25,7 @@
         CalendarDays,
         CreditCard,
         Package,
+        History,
       } from "lucide-react";
       import { Button } from "@/components/ui/button";
       import { Badge } from "@/components/ui/badge";
@@ -39,8 +40,9 @@
       import { cn } from "@/lib/utils";
       import { navGroups, type NavItem } from "@/lib/constants";
       import { motion, AnimatePresence } from "framer-motion";
-      import { usePendingAlertsCount } from "@/hooks/useAlerts";
       import { DashboardSearch } from "@/components/layout/dashboard-search";
+      import { usePendingAlertsCount } from "@/hooks/useAlerts";
+      import { UserAvatar } from "@/components/profile/UserAvatar";
 
       // Icon mapping for nav items
       const iconMap: Record<string, any> = {
@@ -62,6 +64,7 @@
         "Audit Log": Clock,
         "User Management": UserCog,
         "Material Requests": Package,
+        History: History,
       };
 
       function NavLinkItem({
@@ -162,11 +165,10 @@
         return team ?? "Team Mode";
       }
 
-      function getUserInitials(name?: string) {
-        if (!name?.trim()) return "U";
-        const parts = name.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-        return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+      function getSettingsHref(role: "admin" | "team" | "store") {
+        if (role === "admin") return "/admin/settings";
+        if (role === "store") return "/store/settings";
+        return "/team/settings";
       }
 
       export function DashboardShell({
@@ -215,7 +217,7 @@
         }, [isMobileMenuOpen]);
 
         const roleBadgeLabel = getRoleBadgeLabel(role, user?.team);
-        const userInitials = getUserInitials(user?.name);
+        const settingsHref = getSettingsHref(role);
 
         const handleSignOut = () => {
           clearSession();
@@ -327,7 +329,7 @@
 
                   {role === "admin" ? (
                     <div className="w-full lg:max-w-xl lg:flex-1 lg:px-4">
-                      <DashboardSearch navItems={navItems} />
+                      <DashboardSearch navItems={navItems} role="admin" />
                     </div>
                   ) : null}
 
@@ -338,18 +340,14 @@
                       size="sm"
                       className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 whitespace-nowrap"
                       onClick={() => {
-                        const target =
-                          user?.role === "admin" || user?.role === "super_admin"
-                            ? "/admin/alerts"
-                            : "/team/alerts";
-                        window.location.href = target;
+                        window.location.href = alertsHref;
                       }}
                     >
                       <Bell className="h-4 w-4 mr-1.5" />
                       {pendingAlerts > 0 && (
                         <Badge
                           variant="destructive"
-                          className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]"
+                          className="ml-1.5 h-5 min-w-5 rounded-full px-1 flex items-center justify-center text-[10px]"
                         >
                           {pendingAlerts > 99 ? "99+" : pendingAlerts}
                         </Badge>
@@ -362,9 +360,12 @@
                           size="sm"
                           className="rounded-full border-white/10 bg-white/5 pl-1.5 pr-2.5 text-white hover:bg-white/10"
                         >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/20 text-xs font-semibold text-blue-300">
-                            {userInitials}
-                          </span>
+                          <UserAvatar
+                            name={user?.name ?? "User"}
+                            avatarUrl={user?.avatarUrl}
+                            className="h-7 w-7 rounded-full text-xs"
+                            textClassName="text-blue-300"
+                          />
                           <span className="hidden max-w-[120px] truncate sm:inline">
                             {user?.name ?? "Profile"}
                           </span>
@@ -385,6 +386,13 @@
                           <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
                           <p className="text-xs text-slate-400 truncate">{user?.email ?? "Signed in"}</p>
                         </div>
+                        <DropdownMenuSeparator className="my-2 bg-white/10" />
+                        <DropdownMenuItem asChild className="rounded-xl px-3 py-2.5 cursor-pointer">
+                          <Link href={settingsHref} className="flex items-center gap-2 text-white">
+                            <Settings className="h-4 w-4" />
+                            Settings
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator className="my-2 bg-white/10" />
                         <DropdownMenuItem
                           variant="destructive"

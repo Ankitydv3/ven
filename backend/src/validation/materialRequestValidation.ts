@@ -11,15 +11,22 @@ export const materialRequestCreateSchema = z.object({
 });
 
 export const materialRequestStatusSchema = z.object({
-  status: z.enum(["WAITING", "OUT_OF_STOCK", "GRANTED"]),
+  decision: z.enum(["WAIT", "DECLINE", "GRANT"]),
+  availability: z.enum(["AVAILABLE", "OUT_OF_STOCK"]),
   storeManagerRemarks: z.string().trim().optional().default(""),
+  revisitDate: z.string().trim().optional(),
+  revisitTimeSlot: z.string().trim().optional(),
 });
 
 export const materialServiceHeadSchema = z.object({
   decision: z.enum(["APPROVED", "DENIED"]),
   serviceHeadRemarks: z.string().trim().optional().default(""),
+  revisitDate: z.string().trim().optional(),
+  revisitTimeSlot: z.string().trim().optional(),
+  stockDecision: z.enum(["STOCK_AVAILABLE", "OUT_OF_STOCK"]).optional(),
 });
 
 export const materialPaymentConfirmSchema = z.object({
   confirmed: z.literal(true),
+  paymentMode: z.enum(["received", "onsite"]),
 });

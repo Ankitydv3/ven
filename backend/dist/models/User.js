@@ -20,6 +20,7 @@ const userSchema = new mongoose_1.Schema({
     },
     designation: { type: String, default: "" },
     department: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", index: true },
     teamName: { type: String, index: true },
     team: { type: String },

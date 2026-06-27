@@ -90,6 +90,7 @@ async function login(req, res) {
             designation: user.designation ?? undefined,
             department: user.department ?? undefined,
             subAdminType: user.subAdminType ?? undefined,
+            avatarUrl: user.avatarUrl ?? undefined,
         },
     });
 }

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAlerts = getAlerts;
+exports.clearAlerts = clearAlerts;
 const alertsService_1 = require("../services/alertsService");
 const teamScope_1 = require("../utils/teamScope");
 async function getAlerts(req, res) {
@@ -18,4 +19,9 @@ async function getAlerts(req, res) {
         subAdminType: req.user?.subAdminType,
     });
     res.json(data);
+}
+async function clearAlerts(req, res) {
+    const scopeFilter = (0, teamScope_1.taskVisibilityFilter)(req.user);
+    const result = await (0, alertsService_1.clearAllAlertsForUser)(req.user?.id ?? "", req.user?.role ?? "", req.user?.subAdminType, Object.keys(scopeFilter).length > 0 ? scopeFilter : undefined);
+    res.json({ message: "All notifications cleared", ...result });
 }

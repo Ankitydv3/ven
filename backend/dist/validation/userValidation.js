@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changePasswordSchema = exports.resetPasswordSchema = exports.userUpdateSchema = exports.userCreateSchema = void 0;
+exports.changePasswordSchema = exports.resetPasswordSchema = exports.profileSelfUpdateSchema = exports.userUpdateSchema = exports.userCreateSchema = void 0;
 const zod_1 = require("zod");
 const createRoles = ["admin", "sub_admin", "team", "store_manager"];
 const allRoles = ["super_admin", "admin", "sub_admin", "team", "manager", "team_lead", "accountant", "customer", "store_manager"];
@@ -34,6 +34,8 @@ exports.userUpdateSchema = zod_1.z
     status: zod_1.z.enum(["active", "disabled"]).optional(),
     teamName: zod_1.z.string().trim().min(1).optional(),
     subAdminType: subAdminTypeField,
+    designation: zod_1.z.string().trim().max(120).optional(),
+    department: zod_1.z.string().trim().max(120).optional(),
 })
     .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field is required",
@@ -41,6 +43,11 @@ exports.userUpdateSchema = zod_1.z
     .refine((data) => data.role !== "team" || Boolean(data.teamName), {
     message: "Team assignment is required for team users",
     path: ["teamName"],
+});
+exports.profileSelfUpdateSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2, "Full name is required").max(120),
+    email: zod_1.z.string().email("Valid email is required"),
+    mobile: zod_1.z.string().min(10, "Valid phone number is required").max(15),
 });
 exports.resetPasswordSchema = zod_1.z
     .object({

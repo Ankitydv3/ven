@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchAlerts, confirmComplaint, declineComplaint, type AlertsFilters } from "@/services/alerts";
+import { fetchAlerts, confirmComplaint, declineComplaint, clearAlerts, type AlertsFilters } from "@/services/alerts";
 import { readUser } from "@/lib/storage";
 import { isAdminPortalRole } from "@/lib/rbac";
 import { toast } from "sonner";
@@ -39,6 +39,19 @@ export function useDeclineComplaint() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to decline complaint");
+    },
+  });
+}
+
+export function useClearAlerts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => clearAlerts(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to clear notifications");
     },
   });
 }

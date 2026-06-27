@@ -19,11 +19,21 @@ import { errorHandler, notFound } from "./middleware/errorHandler";
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 app.use(cors({ origin: process.env.CLIENT_URL ?? "http://localhost:3000", credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(
+  "/uploads",
+  express.static(path.join(process.cwd(), "uploads"), {
+    setHeaders(res) {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("Access-Control-Allow-Origin", process.env.CLIENT_URL ?? "http://localhost:3000");
+    },
+  })
+);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

@@ -64,11 +64,17 @@ export function useServiceHeadReviewMaterial() {
       id,
       decision,
       serviceHeadRemarks,
+      revisitDate,
+      revisitTimeSlot,
+      stockDecision,
     }: {
       id: string;
-      decision: "APPROVED" | "DENIED";
+      decision: "APPROVED" | "DENIED" | "COMPLETED";
       serviceHeadRemarks?: string;
-    }) => serviceHeadReviewMaterialRequest(id, { decision, serviceHeadRemarks }),
+      revisitDate?: string;
+      revisitTimeSlot?: string;
+      stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK";
+    }) => serviceHeadReviewMaterialRequest(id, { decision, serviceHeadRemarks, revisitDate, revisitTimeSlot, stockDecision }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });
@@ -81,7 +87,8 @@ export function useServiceHeadReviewMaterial() {
 export function useConfirmMaterialPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => confirmMaterialPayment(id),
+    mutationFn: ({ id, paymentMode }: { id: string; paymentMode: "received" | "onsite" }) =>
+      confirmMaterialPayment(id, paymentMode),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });
@@ -97,13 +104,19 @@ export function useUpdateMaterialRequestStatus() {
   return useMutation({
     mutationFn: ({
       id,
-      status,
+      decision,
+      availability,
       storeManagerRemarks,
+      revisitDate,
+      revisitTimeSlot,
     }: {
       id: string;
-      status: "WAITING" | "OUT_OF_STOCK" | "GRANTED";
+      decision: "WAIT" | "DECLINE" | "GRANT";
+      availability: "AVAILABLE" | "OUT_OF_STOCK";
       storeManagerRemarks?: string;
-    }) => updateMaterialRequestStatus(id, { status, storeManagerRemarks }),
+      revisitDate?: string;
+      revisitTimeSlot?: string;
+    }) => updateMaterialRequestStatus(id, { decision, availability, storeManagerRemarks, revisitDate, revisitTimeSlot }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });

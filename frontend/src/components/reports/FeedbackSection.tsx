@@ -1,9 +1,12 @@
 "use client";
 
-import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { getComplaintDetailsPath } from "@/lib/record-navigation";
+import { Star, ThumbsUp, ThumbsDown, Eye } from "lucide-react";
 import { TableElement, THead, TH, TR, TD } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ReportsEmptyState } from "./ReportsStates";
 import type { FeedbackItem, UserFeedbackRow } from "@/services/reportService";
 
@@ -35,13 +38,13 @@ export function UserFeedbackTable({ data, showTeam = true }: UserFeedbackTablePr
   return (
     <Card delay={0} className="flex h-full flex-col">
       <div className="mb-4">
-  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-    Feedback by Team Member
-  </h3>
-  <p className="text-sm text-slate-500 dark:text-slate-400">
-    Volume and rating per agent
-  </p>
-</div>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+          Feedback by Team Member
+        </h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Volume and rating per agent
+        </p>
+      </div>
       {data.length === 0 ? (
         <ReportsEmptyState
           title="No feedback data"
@@ -105,6 +108,7 @@ export function UserFeedbackTable({ data, showTeam = true }: UserFeedbackTablePr
           </TableElement>
         </div>
       )}
+
     </Card>
   );
 }
@@ -116,6 +120,7 @@ interface FeedbackListProps {
 }
 
 export function FeedbackList({ title, items, variant }: FeedbackListProps) {
+  const router = useRouter();
   const isPositive = variant === "positive";
   const Icon = isPositive ? ThumbsUp : ThumbsDown;
 
@@ -149,15 +154,23 @@ export function FeedbackList({ title, items, variant }: FeedbackListProps) {
           description="Customer ratings will appear here once submitted."
         />
       ) : (
-        <div className="max-h-80 space-y-2.5 overflow-y-auto pl-1.5 pr-1">
+        <div className="max-h-80 space-y-2.5 overflow-y-auto pl-1.5 pr-1 custom-scrollbar">
           {items.map((item) => (
             <div
               key={item.feedbackId}
-              className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800/60 dark:bg-slate-800/30"
+              className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800/60 dark:bg-slate-800/30 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.04]"
+              onClick={() => {
+                if (item.complaintId) {
+                  router.push(getComplaintDetailsPath("admin", item.complaintId));
+                }
+              }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{item.customerName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{item.customerName}</p>
+                    <Eye className="h-3 w-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {item.complaintId} · {item.assignedUserName}
                   </p>
@@ -171,6 +184,7 @@ export function FeedbackList({ title, items, variant }: FeedbackListProps) {
           ))}
         </div>
       )}
+
     </Card>
   );
 }

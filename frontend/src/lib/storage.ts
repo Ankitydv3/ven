@@ -16,6 +16,7 @@ export interface SessionUser {
   designation?: string;
   department?: string;
   subAdminType?: string;
+  avatarUrl?: string;
 }
 
 export function saveSession(token: string, user: SessionUser) {

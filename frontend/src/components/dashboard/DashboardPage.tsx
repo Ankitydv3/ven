@@ -1,70 +1,81 @@
-  "use client";
+"use client";
 
-  import type { ComponentType, ReactNode } from "react";
-  import { useMemo, useState } from "react";
-  // import { useQuery, useQueryClient } from "@tanstack/react-query";
-  import { motion, AnimatePresence } from "framer-motion";
-  import {
-    AreaChart,
-    Area,
-    BarChart,
-    Bar,
-    Pie,
-    PieChart,
-    Cell,
-    CartesianGrid,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-    Legend,
-  } from "recharts";
-  import {
-    ShoppingCart,
-    ClipboardList,
-    CheckCircle2,
-    AlertTriangle,
-    Wallet,
-    ListTodo,
-    Clock,
-    Package,
-    CreditCard,
-    Lock,
-    Droplets,
-    Move,
-    AlignCenter,
-    MoreHorizontal,
-    TrendingUp,
-    TrendingDown,
-    Activity,
-    ArrowUpRight,
-    Zap,
-    RefreshCw,
-    Calendar,
-    Play,
-  } from "lucide-react";
-  import { toast } from "sonner";
-  import { useQuery, useQueryClient } from "@tanstack/react-query";
-  import { DashboardShell } from "@/components/layout/dashboard-shell";
-  import { Badge } from "@/components/ui/badge";
-  import { Skeleton } from "@/components/ui/skeleton";
-  import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
-  import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-  } from "@/components/ui/dialog";
-  import { useSession } from "@/hooks/use-session";
-  import { fetchDashboardPage } from "@/services/dashboard";
-  import { fetchComplaints, startComplaint } from "@/services/complaints";
-  import { fetchTasks, patchTaskStatus } from "@/services/task.service";
-  import { fetchOrders } from "@/services/orders";
-  import type { DashboardPageData } from "@/lib/types";
-  import { cn } from "@/lib/utils";
-  import { statusBadgeVariant } from "@/lib/task-constants";
-  import type { Task } from "@/lib/task.types";
-
+import type { ComponentType, ReactNode } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  Pie,
+  PieChart,
+  Cell,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Legend,
+} from "recharts";
+import {
+  ShoppingCart,
+  ClipboardList,
+  CheckCircle2,
+  AlertTriangle,
+  Wallet,
+  ListTodo,
+  Clock,
+  Package,
+  CreditCard,
+  Lock,
+  Droplets,
+  Move,
+  AlignCenter,
+  MoreHorizontal,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  ArrowUpRight,
+  Zap,
+  RefreshCw,
+  Calendar,
+  Play,
+  Eye,
+  Users, // Added
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button"; // ← ADD THIS
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  getComplaintDetailsPath,
+  navigateToComplaint,
+  navigateToMaterialRequest,
+  navigateToTask,
+} from "@/lib/record-navigation";
+import { useSession } from "@/hooks/use-session";
+import { readUser } from "@/lib/storage";
+import { fetchDashboardPage } from "@/services/dashboard";
+import { fetchComplaints, startComplaint } from "@/services/complaints";
+import { fetchTasks, patchTaskStatus } from "@/services/task.service";
+import { fetchOrders } from "@/services/orders";
+import { materialStatusLabel, getMaterialStatusBadgeClass } from "@/services/material-requests";
+import type { DashboardPageData, DashboardPendingAction } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { statusBadgeVariant } from "@/lib/task-constants";
+import type { Task } from "@/lib/task.types";
   /* ═══════════════════════════════════════════════════════
     DESIGN TOKENS
   ═══════════════════════════════════════════════════════ */
@@ -117,6 +128,19 @@
     "Alignment issue":        AlignCenter,
     Others:                   MoreHorizontal,
   };
+
+  function taskBadge(status: string) {
+    return statusBadgeVariant[status] ?? "default";
+  }
+
+  function TeamBadge({ name }: { name: string }) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-inset ring-blue-500/20">
+        <Users className="h-3 w-3" />
+        {name}
+      </span>
+    );
+  }
 
   /* ═══════════════════════════════════════════════════════
     FADE-UP VARIANTS
@@ -312,9 +336,10 @@
     title: string;
     type: "complaint" | "task" | "order";
     filters: any;
-    role: "admin" | "team";
+    role: "admin" | "team" | "store";
   }) {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const { data, isLoading } = useQuery<{ items: any[]; total: number; page: number; limit: number }>({
       queryKey: ["dashboard-details", type, filters],
       queryFn: () => {
@@ -352,7 +377,16 @@
                 {items.map((item: any) => (
                   <div
                     key={item._id}
-                    className="p-4 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05] transition-all group"
+                    className="p-4 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05] transition-all group cursor-pointer"
+                    onClick={() => {
+                      if (type === "complaint") {
+                        navigateToComplaint(router, role, item);
+                      } else if (type === "task") {
+                        navigateToTask(router, role, item);
+                      } else {
+                        router.push(`${role === "admin" ? "/admin" : "/team"}/orders?q=${encodeURIComponent(item.orderId)}`);
+                      }
+                    }}
                   >
                     <div className="flex justify-between items-start mb-2.5">
                       <div className="min-w-0">
@@ -377,7 +411,7 @@
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed h-8">
+                    <p className="text-xs text-slate-400 mb-4 leading-relaxed break-words">
                       {type === "complaint"
                         ? item.description
                         : type === "task"
@@ -386,20 +420,22 @@
                     </p>
 
                     <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
-                      <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <Calendar className="h-3 w-3" />
                           {new Date(item.createdAt).toLocaleDateString()}
                         </div>
                         {item.location && (
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <Package className="h-3 w-3" />
-                            <span className="truncate">{item.location}</span>
+                            <Package className="h-3 w-3 shrink-0" />
+                            <span className="break-words line-clamp-1 group-hover:line-clamp-none transition-all">
+                              {item.location}
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         {role === "team" && type === "task" && item.status === "Pending" && (
                           <button
                             onClick={async () => {
@@ -408,14 +444,15 @@
                                 toast.success("Task started");
                                 await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
                                 await queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
+                                navigateToTask(router, role, item);
                               } catch (err) {
-                                toast.error("Failed to start task");
+                                toast.error("Failed to Update Task");
                               }
                             }}
                             className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
                           >
                             <Play className="h-3 w-3" />
-                            Start Task
+                            Update Task
                           </button>
                         )}
                         {role === "team" && type === "complaint" && item.status === "Assigned" && (
@@ -602,7 +639,7 @@
   }: {
     unresolved: DashboardPageData["unresolvedReasons"];
     resolved: DashboardPageData["resolvedReasons"];
-    onItemClick?: (name: string, view: "resolved" | "unresolved") => void;
+    onItemClick?: (name: string, view: "unresolved" | "resolved") => void;
   }) {
     const [view, setView] = useState<"unresolved" | "resolved">("unresolved");
     const data = view === "unresolved" ? unresolved : resolved;
@@ -617,31 +654,19 @@
               Analysis
             </p>
             <h3 className="text-base font-bold text-white">
-              {view === "unresolved" ? "Unresolved" : "Resolved"} Complaints — By Reason
+              Complaints — By Reason
             </h3>
           </div>
 
-          {/* toggle */}
-          <div
-            className="inline-flex rounded-full p-1"
-            style={{ background: "rgba(0,0,0,0.35)", border: `1px solid ${BORDER}` }}
-          >
-            {(["resolved", "unresolved"] as const).map((v) => (
+          <div className="flex rounded-lg bg-white/5 p-1 ring-1 ring-white/10">
+            {(["unresolved", "resolved"] as const).map((v) => (
               <button
                 key={v}
-                type="button"
                 onClick={() => setView(v)}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition-all duration-200",
-                  view === v
-                    ? "text-slate-900 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                  "rounded-md px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all",
+                  view === v ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
                 )}
-                style={
-                  view === v
-                    ? { background: `linear-gradient(135deg,${ACCENT},${ACCENT2})` }
-                    : {}
-                }
               >
                 {v}
               </button>
@@ -756,7 +781,7 @@
               </div>
             ) : (
               <p className="text-sm text-slate-500">
-                No {view} complaints to display right now.
+                No unresolved complaints to display right now.
               </p>
             )}
           </motion.div>
@@ -830,20 +855,28 @@
   /* ═══════════════════════════════════════════════════════
     SUMMARY TABLES
   ═══════════════════════════════════════════════════════ */
-  function SummaryTables({ data, role }: { data: DashboardPageData; role: "admin" | "team" }) {
+  function SummaryTables({ data, role }: { data: DashboardPageData; role: "admin" | "team" | "store" }) {
     const queryClient = useQueryClient();
+    const router = useRouter();
+    const user = readUser();
+    const isFullAdmin = user?.role === "admin" || user?.role === "super_admin";
+    const isStoreManager = user?.role === "store_manager" || role === "store";
+    const isUnifiedDashboard = isFullAdmin || user?.role === "sub_admin" || isStoreManager;
+    const showMaterialTasks = isUnifiedDashboard || data.pendingActions.length > 0;
+    const showRecentComplaints = isFullAdmin;
 
-    function taskBadge(status: string) {
-      return statusBadgeVariant[status] ?? "default";
-    }
+    const handleOpenMaterialRequest = (item: DashboardPendingAction) => {
+      navigateToMaterialRequest(router, role, { _id: item._id, requestId: item.requestId }, { action: "review" });
+    };
 
-    const handleStartTask = async (taskId: string) => {
+    const handleStartTask = async (task: Task) => {
       try {
-        await patchTaskStatus(taskId, "In Progress");
+        await patchTaskStatus(task._id, "In Progress");
         toast.success("Task started");
         await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        navigateToTask(router, role, task);
       } catch (err) {
-        toast.error("Failed to start task");
+        toast.error("Failed to Update Task");
       }
     };
 
@@ -858,63 +891,85 @@
     };
 
     return (
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         {/* Site Visits */}
-        <GlassCard className="p-5 lg:p-6">
-          <div className="mb-4 flex items-center justify-between">
+        <GlassCard className="p-5 lg:p-6 shadow-xl">
+          <div className="mb-6 flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
-                Today
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
+                Today's Schedule
               </p>
-              <h3 className="text-base font-bold text-white">Site Visits</h3>
+              <h3 className="text-lg font-bold text-white">Site Visits</h3>
             </div>
             <span
-              className="rounded-full px-2.5 py-1 text-xs font-semibold"
-              style={{ background: `${ACCENT}18`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+              className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+              style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
             >
-              {data.todaysSiteVisits.length} scheduled
+              {data.todaysSiteVisits.length} Tasks
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <Table className="bg-transparent min-w-[520px]">
+          <div className="overflow-x-auto custom-scrollbar">
+            <Table className="bg-transparent min-w-[600px]">
               <TableElement>
                 <THead>
-                  <tr>
-                    <TH>Task ID</TH>
+                  <tr className="border-b border-white/5">
+                    <TH className="w-[100px] py-4">Task ID</TH>
                     <TH>Customer</TH>
                     <TH>Location</TH>
-                    <TH>Status</TH>
-                    <TH className="text-right">Action</TH>
+                    <TH className="w-[120px]">Status</TH>
+                    <TH className="w-[80px] text-right">Action</TH>
                   </tr>
                 </THead>
-                <tbody>
+                <tbody className="divide-y divide-white/[0.02]">
                   {data.todaysSiteVisits.length === 0 ? (
                     <TR>
-                      <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm">
+                      <TD colSpan={5} className="py-12 text-center text-slate-500 text-sm italic">
                         No site visits scheduled today.
                       </TD>
                     </TR>
                   ) : (
                     data.todaysSiteVisits.map((visit: Task) => (
-                      <TR key={visit._id}>
-                        <TD className="font-mono text-xs text-white">{visit.taskId}</TD>
-                        <TD className="text-slate-300">{visit.complaint?.clientName ?? visit.title}</TD>
-                        <TD className="max-w-[130px] truncate text-slate-400 text-xs">
+                      <TR
+                        key={visit._id}
+                        className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
+                        onClick={() => navigateToTask(router, role, visit)}
+                      >
+                        <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">
+                          <Link
+                            href={visit.complaintId ? getComplaintDetailsPath(role, visit.complaintId) : `${role === "admin" ? "/admin" : "/team"}/schedule?q=${visit.taskId}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:underline hover:text-blue-300 transition-colors"
+                          >
+                            {visit.taskId}
+                          </Link>
+                        </TD>
+                        <TD className="py-4 font-medium text-slate-200">{visit.complaint?.clientName ?? visit.title}</TD>
+                        <TD className="py-4 max-w-[150px] truncate text-slate-400 text-xs">
                           {visit.complaint?.location ?? "—"}
                         </TD>
-                        <TD>
-                          <Badge variant={taskBadge(visit.status)}>{visit.status}</Badge>
+                        <TD className="py-4">
+                          <Badge variant={taskBadge(visit.status)} className="font-bold">{visit.status}</Badge>
                         </TD>
-                        <TD className="text-right">
-                          {role === "team" && visit.status === "Pending" && (
-                            <button
-                              onClick={() => handleStartTask(visit._id)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20"
+                        <TD className="py-4 text-right">
+                          <div className="flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                              onClick={() => navigateToTask(router, role, visit)}
                             >
-                              <Play className="h-3 w-3" />
-                              Start
-                            </button>
-                          )}
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {role === "team" && visit.status === "Pending" && (
+                              <button
+                                onClick={() => void handleStartTask(visit)}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20"
+                              >
+                                <Play className="h-3 w-3" />
+                                Start
+                              </button>
+                            )}
+                          </div>
                         </TD>
                       </TR>
                     ))
@@ -925,80 +980,202 @@
           </div>
         </GlassCard>
 
-        {/* Recent Complaints */}
-        <GlassCard className="p-5 lg:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
-                Latest
-              </p>
-              <h3 className="text-base font-bold text-white">Recent Complaints</h3>
-            </div>
-            <span
-              className="rounded-full px-2.5 py-1 text-xs font-semibold"
-              style={{ background: `${ACCENT}18`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
-            >
-              {data.recentComplaints.length} entries
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <Table className="bg-transparent min-w-[520px]">
-              <TableElement>
-                <THead>
-                  <tr>
-                    <TH>ID</TH>
-                    <TH>Customer</TH>
-                    <TH>Status</TH>
-                    <TH>Date</TH>
-                    <TH className="text-right">Action</TH>
-                  </tr>
-                </THead>
-                <tbody>
-                  {data.recentComplaints.length === 0 ? (
-                    <TR>
-                      <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm">
-                        No recent complaints found.
-                      </TD>
-                    </TR>
-                  ) : (
-                    data.recentComplaints.map((c) => (
-                      <TR key={c._id ?? c.complaintId}>
-                        <TD className="font-mono text-xs text-white">{c.complaintId}</TD>
-                        <TD className="text-slate-300">{c.clientName ?? "—"}</TD>
-                        <TD>
-                          <Badge
-                            variant={
-                              c.status === "Completed" || c.status === "Resolved"
-                                ? "success"
-                                : c.status === "In Progress"
-                                ? "info"
-                                : "warning"
-                            }
+        {/* Tasks to do / Recent complaints */}
+        <GlassCard className="p-5 lg:p-6 shadow-xl">
+          {showMaterialTasks && (
+            <>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
+                    Action Required
+                  </p>
+                  <h3 className="text-lg font-bold text-white">Tasks to Do</h3>
+                </div>
+                <span
+                  className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+                >
+                  {data.pendingActions.length} Pending
+                </span>
+              </div>
+              <div className="overflow-x-auto custom-scrollbar">
+                <Table className="bg-transparent min-w-[650px]">
+                  <TableElement>
+                    <THead>
+                      <tr className="border-b border-white/5">
+                        <TH className="w-[110px] py-4">Request ID</TH>
+                        <TH>Material</TH>
+                        <TH>Complaint</TH>
+                        <TH className="w-[140px]">Status</TH>
+                        <TH className="w-[60px] text-right">Action</TH>
+                      </tr>
+                    </THead>
+                    <tbody className="divide-y divide-white/[0.02]">
+                      {data.pendingActions.length === 0 ? (
+                        <TR>
+                          <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm italic">
+                            No material requests waiting for your action.
+                          </TD>
+                        </TR>
+                      ) : (
+                        data.pendingActions.map((item) => (
+                          <TR
+                            key={item._id}
+                            className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
+                            onClick={() => handleOpenMaterialRequest(item)}
                           >
-                            {c.status}
-                          </Badge>
-                        </TD>
-                        <TD className="text-slate-500 text-xs">
-                          {new Date(c.updatedAt).toLocaleDateString()}
-                        </TD>
-                        <TD className="text-right">
-                          {role === "team" && c.status === "Assigned" && (
-                            <button
-                              onClick={() => handleStartComplaint(c._id!)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
-                            >
-                              <Play className="h-3 w-3" />
-                              Start
-                            </button>
-                          )}
-                        </TD>
-                      </TR>
-                    ))
-                  )}
-                </tbody>
-              </TableElement>
-            </Table>
-          </div>
+                            <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">{item.requestId}</TD>
+                            <TD className="py-4">
+                              <p className="font-medium text-slate-200">{item.materialName}</p>
+                              <p className="text-xs text-slate-500">
+                                {item.quantity} {item.unit} · {item.requestedBy}
+                              </p>
+                            </TD>
+                            <TD className="py-4 text-slate-300 text-sm">
+                              {item.complaintId ? (
+                                <span>
+                                  {item.complaintId}
+                                  {item.clientName ? ` · ${item.clientName}` : ""}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </TD>
+                            <TD className="py-4">
+                              <Badge className={cn("font-bold", getMaterialStatusBadgeClass(item.status))}>
+                                {materialStatusLabel[item.status] ?? item.status}
+                              </Badge>
+                            </TD>
+                            <TD className="py-4 text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenMaterialRequest(item);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TD>
+                          </TR>
+                        ))
+                      )}
+                    </tbody>
+                  </TableElement>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {showRecentComplaints && (
+            <>
+              <div className={cn("mb-6 flex items-center justify-between", showMaterialTasks && "mt-8 border-t border-white/5 pt-8")}>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
+                    Latest Activity
+                  </p>
+                  <h3 className="text-lg font-bold text-white">Recent Complaints</h3>
+                </div>
+                <span
+                  className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+                >
+                  {data.recentComplaints.length} Entries
+                </span>
+              </div>
+              <div className="overflow-x-auto custom-scrollbar">
+                <Table className="bg-transparent min-w-[650px]">
+                  <TableElement>
+                    <THead>
+                      <tr className="border-b border-white/5">
+                        <TH className="w-[100px] py-4">ID</TH>
+                        <TH>Customer</TH>
+                        <TH className="w-[120px]">Status</TH>
+                        <TH className="w-[100px]">Date</TH>
+                        <TH className="w-[140px]">Assigned Team</TH>
+                        <TH className="w-[60px] text-right">Action</TH>
+                      </tr>
+                    </THead>
+                    <tbody className="divide-y divide-white/[0.02]">
+                      {data.recentComplaints.length === 0 ? (
+                        <TR>
+                          <TD colSpan={6} className="py-12 text-center text-slate-500 text-sm italic">
+                            No recent complaints found.
+                          </TD>
+                        </TR>
+                      ) : (
+                        data.recentComplaints.map((c) => (
+                          <TR
+                            key={c._id ?? c.complaintId}
+                            className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
+                            onClick={() => navigateToComplaint(router, role, c)}
+                          >
+                            <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">
+                              <Link
+                                href={getComplaintDetailsPath(role, c.complaintId)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="hover:underline hover:text-blue-300 transition-colors"
+                              >
+                                {c.complaintId}
+                              </Link>
+                            </TD>
+                            <TD className="py-4 font-medium text-slate-200">{c.clientName ?? "—"}</TD>
+                            <TD className="py-4">
+                              <Badge
+                                className="font-bold"
+                                variant={
+                                  c.status === "Completed" || c.status === "Resolved"
+                                    ? "success"
+                                    : c.status === "In Progress"
+                                    ? "info"
+                                    : "warning"
+                                }
+                              >
+                                {c.status}
+                              </Badge>
+                            </TD>
+                            <TD className="py-4 text-slate-400 text-xs">
+                              {new Date(c.updatedAt).toLocaleDateString()}
+                            </TD>
+                            <TD className="py-4">
+                              {c.assignedTeam ? (
+                                <TeamBadge name={c.assignedTeam} />
+                              ) : (
+                                <span className="text-slate-500 text-[11px] italic">Not Assigned</span>
+                              )}
+                            </TD>
+                            <TD className="py-4 text-right">
+                               <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                 <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                                    onClick={() => navigateToComplaint(router, role, c)}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  {role === "team" && c.status === "Assigned" && (
+                                    <button
+                                      onClick={() => handleStartComplaint(c._id!)}
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+                                    >
+                                      <Play className="h-3 w-3" />
+                                      Start
+                                    </button>
+                                  )}
+                              </div>
+                            </TD>
+                          </TR>
+                        ))
+                      )}
+                    </tbody>
+                  </TableElement>
+                </Table>
+              </div>
+            </>
+          )}
         </GlassCard>
       </div>
     );
@@ -1007,8 +1184,23 @@
   /* ═══════════════════════════════════════════════════════
     PAGE ROOT
   ═══════════════════════════════════════════════════════ */
-  export function DashboardPage({ role }: { role: "admin" | "team" }) {
+  export function DashboardPage({ role }: { role: "admin" | "team" | "store" }) {
     const { ready } = useSession(role);
+    const user = readUser();
+    const isFullAdmin = user?.role === "admin" || user?.role === "super_admin";
+    const isStoreManager = user?.role === "store_manager" || role === "store";
+    const activitySubtitle = isFullAdmin
+      ? "Today's site visits, pending material requests, and latest complaints"
+      : user?.role === "sub_admin" || isStoreManager
+        ? "Material requests waiting for your action"
+        : "Today's site visits and the latest complaints";
+
+    const activitySection = (data: DashboardPageData) => (
+      <motion.div variants={fadeUp}>
+        <SectionLabel eyebrow="Activity" title="Recent Activity" subtitle={activitySubtitle} />
+        <SummaryTables data={data} role={role} />
+      </motion.div>
+    );
     const { data, isLoading, refetch, isFetching } = useQuery({
       queryKey: ["dashboard"],
       queryFn: fetchDashboardPage,
@@ -1159,6 +1351,8 @@
             variants={stagger}
             className="space-y-8"
           >
+            {!isFullAdmin && data && activitySection(data)}
+
             {/* ── Section: Complaint Overview KPIs ── */}
             <motion.section variants={fadeUp} className="space-y-4">
               <div className="flex items-start justify-between gap-4">
@@ -1252,15 +1446,8 @@
               />
             </motion.div>
 
-            {/* ── Summary tables ── */}
-            <motion.div variants={fadeUp}>
-              <SectionLabel
-                eyebrow="Activity"
-                title="Recent Activity"
-                subtitle="Today's site visits and the latest complaints"
-              />
-              <SummaryTables data={data} role={role} />
-            </motion.div>
+            {isFullAdmin && activitySection(data)}
+
           </motion.div>
         )}
       </DashboardShell>

@@ -4,14 +4,66 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAlertsData = getAlertsData;
+exports.clearAllAlertsForUser = clearAllAlertsForUser;
 const Complaint_1 = __importDefault(require("../models/Complaint"));
 const Task_1 = __importDefault(require("../models/Task"));
 const TaskAlert_1 = __importDefault(require("../models/TaskAlert"));
 const MaterialAlert_1 = __importDefault(require("../models/MaterialAlert"));
+const MaterialRequest_1 = __importDefault(require("../models/MaterialRequest"));
 const materialRequestService_1 = require("./materialRequestService");
 const teamService_1 = require("./teamService");
 const taskService_1 = require("./taskService");
 const teamScope_1 = require("../utils/teamScope");
+function buildTaskAlertFilter(scopeFilter) {
+    const alertFilter = { read: false };
+    if (scopeFilter?.assignedTeamName) {
+        alertFilter.teamName = scopeFilter.assignedTeamName;
+    }
+    if (scopeFilter?.assignedUserId) {
+        alertFilter.userId = scopeFilter.assignedUserId;
+    }
+    return alertFilter;
+}
+function buildMaterialAlertFilter(userId, role, subAdminType) {
+    if ((0, teamScope_1.isAdminRole)(role) ||
+        (0, teamScope_1.isServiceHead)({ role, subAdminType }) ||
+        (0, teamScope_1.isAccountant)({ role, subAdminType })) {
+        return { read: false };
+    }
+    if (role === "store_manager") {
+        return {
+            read: false,
+            $or: [{ userId }, { targetRole: "store_manager" }],
+        };
+    }
+    return { read: false, userId };
+}
+async function attachComplaintIdsToTaskAlerts(alerts) {
+    if (alerts.length === 0)
+        return alerts;
+    const taskIds = [...new Set(alerts.map((a) => a.taskId))];
+    const tasks = await Task_1.default.find({ taskId: { $in: taskIds } })
+        .select("taskId complaintId")
+        .lean();
+    const complaintByTaskId = new Map(tasks.map((task) => [task.taskId, task.complaintId]));
+    return alerts.map((alert) => ({
+        ...alert,
+        complaintId: complaintByTaskId.get(alert.taskId),
+    }));
+}
+async function attachComplaintIdsToMaterialAlerts(alerts) {
+    if (alerts.length === 0)
+        return alerts;
+    const requestIds = [...new Set(alerts.map((a) => a.requestId))];
+    const requests = await MaterialRequest_1.default.find({ requestId: { $in: requestIds } })
+        .select("requestId complaintId")
+        .lean();
+    const complaintByRequestId = new Map(requests.map((request) => [request.requestId, request.complaintId]));
+    return alerts.map((alert) => ({
+        ...alert,
+        complaintId: complaintByRequestId.get(alert.requestId),
+    }));
+}
 function buildTeamMessage(team, total, completed, pending) {
     if (total === 0) {
         return { message: `${team} has no assigned tasks`, status: "no_tasks" };
@@ -40,14 +92,7 @@ async function getAlertsData(filters) {
     if (filters?.team && filters.team !== "All Teams") {
         taskMatch.assignedTeamName = filters.team;
     }
-    const alertFilter = {};
-    if (filters?.scopeFilter?.assignedTeamName) {
-        alertFilter.teamName = filters.scopeFilter.assignedTeamName;
-    }
-    if (filters?.scopeFilter?.assignedUserId) {
-        alertFilter.userId = filters.scopeFilter.assignedUserId;
-        alertFilter.read = false;
-    }
+    const alertFilter = buildTaskAlertFilter(filters?.scopeFilter);
     const [pendingComplaints, taskAgg, taskAlerts, materialAlerts] = await Promise.all([
         filters?.teamOnly
             ? Promise.resolve([])
@@ -116,6 +161,7 @@ async function getAlertsData(filters) {
         read: a.read,
         createdAt: a.createdAt.toISOString(),
     }));
+    alerts = await attachComplaintIdsToTaskAlerts(alerts);
     if (filters?.q) {
         const q = filters.q.toLowerCase();
         alerts = alerts.filter((a) => a.taskId.toLowerCase().includes(q) ||
@@ -131,6 +177,7 @@ async function getAlertsData(filters) {
         read: a.read,
         createdAt: a.createdAt.toISOString(),
     }));
+    materialAlertItems = await attachComplaintIdsToMaterialAlerts(materialAlertItems);
     if (filters?.q) {
         const q = filters.q.toLowerCase();
         materialAlertItems = materialAlertItems.filter((a) => a.requestId.toLowerCase().includes(q) ||
@@ -148,5 +195,17 @@ async function getAlertsData(filters) {
             taskAlerts: alerts.length,
             materialAlerts: materialAlertItems.length,
         },
+    };
+}
+async function clearAllAlertsForUser(userId, userRole, subAdminType, scopeFilter) {
+    const taskFilter = buildTaskAlertFilter(scopeFilter);
+    const materialFilter = buildMaterialAlertFilter(userId, userRole, subAdminType);
+    const [taskResult, materialResult] = await Promise.all([
+        TaskAlert_1.default.updateMany(taskFilter, { $set: { read: true } }),
+        MaterialAlert_1.default.updateMany(materialFilter, { $set: { read: true } }),
+    ]);
+    return {
+        clearedTaskAlerts: taskResult.modifiedCount,
+        clearedMaterialAlerts: materialResult.modifiedCount,
     };
 }

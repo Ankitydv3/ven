@@ -1,7 +1,8 @@
 // components/payments/PaymentTable.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePayments, useDownloadInvoice, useExportPaymentsCSV } from "@/hooks/usePayments";
 import { TableElement, THead, TH, TR, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import type { Payment } from "@/lib/types";
 
 const statusColors = {
   Completed: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400",
@@ -36,6 +38,8 @@ const statusColors = {
 };
 
 export function PaymentTable() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
@@ -65,6 +69,17 @@ export function PaymentTable() {
   };
 
   const totalPages = data ? Math.ceil(data.total / limit) : 1;
+
+  // Handle auto-open if id is in URL
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (id && data?.items && data.items.length > 0) {
+      const target = data.items.find(p => p._id === id || p.paymentId === id);
+      if (target) {
+        setSearch(target.paymentId);
+      }
+    }
+  }, [searchParams, data?.items]);
 
   return (
     <div className="space-y-4">
@@ -180,10 +195,19 @@ export function PaymentTable() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="border-t border-slate-100 transition hover:bg-slate-50/50 dark:border-white/5 dark:hover:bg-white/5"
+                    className="border-t border-slate-100 transition-colors hover:bg-slate-50/50 dark:border-white/5 dark:hover:bg-white/[0.04] cursor-pointer"
+                    onClick={() => setSearch(payment.paymentId)}
                   >
                     <TD className="font-mono text-xs font-semibold text-[#185FA5] dark:text-[#85B7EB]">
-                      {payment.paymentId}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearch(payment.paymentId);
+                        }}
+                        className="hover:underline"
+                      >
+                        {payment.paymentId}
+                      </button>
                     </TD>
                     <TD className="font-mono text-xs text-slate-500">
                       {payment.orderId || "-"}
@@ -218,16 +242,13 @@ export function PaymentTable() {
                       {format(new Date(payment.createdAt), "dd MMM yyyy")}
                     </TD>
                     <TD className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                           title="View Details"
-                          onClick={() => {
-                            // Navigate to payment details
-                            window.location.href = `/admin/payments/${payment._id}`;
-                          }}
+                          onClick={() => setSearch(payment.paymentId)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -287,6 +308,7 @@ export function PaymentTable() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

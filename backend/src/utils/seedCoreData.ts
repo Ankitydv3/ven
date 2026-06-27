@@ -126,7 +126,7 @@ const adminPassword = await bcrypt.hash("123456", 10);
     { upsert: true }
   );
 
-  const storePassword = await bcrypt.hash("123456", 10);
+  const storePassword = await bcrypt.hash("store@5500", 10);
   await User.updateOne(
     { email: "store@oknadesigns.com" },
     {

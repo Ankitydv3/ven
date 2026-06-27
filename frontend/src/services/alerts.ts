@@ -20,3 +20,10 @@ export async function declineComplaint(id: string, reason?: string) {
   const { data } = await api.patch<{ complaint: Complaint; message: string }>(`/complaints/${id}/decline`, { reason });
   return data;
 }
+
+export async function clearAlerts() {
+  const { data } = await api.patch<{ message: string; clearedTaskAlerts: number; clearedMaterialAlerts: number }>(
+    "/alerts/clear"
+  );
+  return data;
+}

@@ -6,6 +6,7 @@ exports.materialRequestStatsHandler = materialRequestStatsHandler;
 exports.readMaterialRequestHandler = readMaterialRequestHandler;
 exports.serviceHeadReviewHandler = serviceHeadReviewHandler;
 exports.confirmMaterialPaymentHandler = confirmMaterialPaymentHandler;
+exports.getUserActivityHistoryHandler = getUserActivityHistoryHandler;
 exports.updateMaterialRequestStatusHandler = updateMaterialRequestStatusHandler;
 const materialRequestService_1 = require("../services/materialRequestService");
 const teamScope_1 = require("../utils/teamScope");
@@ -62,7 +63,7 @@ async function serviceHeadReviewHandler(req, res) {
         name: req.user?.name ?? "Service Head",
         role: req.user?.role ?? "sub_admin",
         subAdminType: req.user?.subAdminType,
-    }, req.body.serviceHeadRemarks);
+    }, req.body.serviceHeadRemarks, req.body.revisitDate, req.body.revisitTimeSlot, req.body.stockDecision);
     res.json({
         message: req.body.decision === "APPROVED"
             ? "Material request approved"
@@ -75,13 +76,21 @@ async function confirmMaterialPaymentHandler(req, res) {
         name: req.user?.name ?? "Accounts",
         role: req.user?.role ?? "accountant",
         subAdminType: req.user?.subAdminType,
-    });
+    }, req.body.paymentMode);
     res.json({ message: "Payment confirmed — forwarded to Store Manager", request });
+}
+async function getUserActivityHistoryHandler(req, res) {
+    const { userId, q } = req.query;
+    if (!userId) {
+        throw new ApiError_1.ApiError(400, "userId is required");
+    }
+    const history = await (0, materialRequestService_1.getUserActivityHistory)(userId, q);
+    res.json(history);
 }
 async function updateMaterialRequestStatusHandler(req, res) {
     if (req.user?.role !== "store_manager" && !(0, teamScope_1.isAdminRole)(req.user?.role)) {
         throw new ApiError_1.ApiError(403, "Only Store Manager can update material request status");
     }
-    const request = await (0, materialRequestService_1.updateMaterialRequestStatus)(req.params.id, req.body.status, { name: req.user?.name ?? "Store Manager", role: req.user?.role ?? "store_manager" }, req.body.storeManagerRemarks);
+    const request = await (0, materialRequestService_1.updateMaterialRequestStatus)(req.params.id, req.body.decision, req.body.availability, { name: req.user?.name ?? "Store Manager", role: req.user?.role ?? "store_manager" }, req.body.storeManagerRemarks, req.body.revisitDate, req.body.revisitTimeSlot);
     res.json({ message: "Material request updated", request });
 }

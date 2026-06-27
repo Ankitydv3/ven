@@ -20,6 +20,10 @@ export interface UserPayload {
   confirmPassword?: string;
   role: string;
   teamName?: string;
+  subAdminType?: "accountant" | "plant_head";
+  designation?: string;
+  department?: string;
+  status?: "active" | "disabled";
 }
 
 export interface ResetPasswordPayload {
@@ -43,8 +47,22 @@ export async function createUser(payload: UserPayload) {
   return data;
 }
 
-export async function updateUser(id: string, payload: Partial<UserPayload & { status: "active" | "disabled" }>) {
+export async function updateUser(id: string, payload: Partial<UserPayload>) {
   const { data } = await api.put<{ message: string; user: ManagedUser }>(`/users/${id}`, payload);
+  return data;
+}
+
+export async function uploadUserAvatar(id: string, file: File) {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  const { data } = await api.post<{ message: string; user: ManagedUser }>(`/users/${id}/avatar`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function removeUserAvatar(id: string) {
+  const { data } = await api.delete<{ message: string; user: ManagedUser }>(`/users/${id}/avatar`);
   return data;
 }
 

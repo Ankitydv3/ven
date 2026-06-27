@@ -9,6 +9,7 @@ const materialRequestController_1 = require("../controllers/materialRequestContr
 const router = (0, express_1.Router)();
 router.use(auth_1.authRequired);
 router.get("/stats", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.materialRequestStatsHandler));
+router.get("/user-history", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.getUserActivityHistoryHandler));
 router.get("/", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.listMaterialRequestsHandler));
 router.get("/:id", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.readMaterialRequestHandler));
 router.post("/", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialRequestCreateSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.createMaterialRequestHandler));

@@ -11,6 +11,7 @@ import type {
   DashboardTaskSummary,
   DashboardTrendPoint,
   RecentComplaintItem,
+  DashboardPendingAction,
 } from "@/lib/types";
 
 export async function fetchDashboard() {
@@ -18,9 +19,17 @@ export async function fetchDashboard() {
   return data;
 }
 
+export async function fetchPendingActions(limit = 10) {
+  const { data } = await api.get<{ role: string; items: DashboardPendingAction[] }>(
+    "/dashboard/pending-actions",
+    { params: { limit } }
+  );
+  return data;
+}
+
 export async function fetchDashboardPage() {
   const todayKey = toDateKey(new Date());
-  const [summary, monthlyTrend, unresolvedReasons, resolvedReasons, complaintOverview, categories, todaysSiteVisits, recentComplaints, dashboardMain] = await Promise.all([
+  const [summary, monthlyTrend, unresolvedReasons, resolvedReasons, complaintOverview, categories, todaysSiteVisits, recentComplaints, pendingActions, dashboardMain] = await Promise.all([
     api.get<DashboardKpiSummary>("/dashboard/summary").then((response) => response.data),
     api.get<{ monthlyTrend: DashboardTrendPoint[] }>("/dashboard/monthly-trend").then((response) => response.data.monthlyTrend),
     api.get<{ unresolvedReasons: DashboardReasonPoint[] }>("/dashboard/unresolved-reasons").then((response) => response.data.unresolvedReasons),
@@ -33,6 +42,7 @@ export async function fetchDashboardPage() {
       })
       .then((response) => response.data.items),
     api.get<{ recentComplaints: RecentComplaintItem[] }>("/complaints/recent").then((response) => response.data.recentComplaints),
+    api.get<{ role: string; items: DashboardPendingAction[] }>("/dashboard/pending-actions").then((response) => response.data.items),
     api.get<DashboardResponse>("/dashboard").then((response) => response.data),
   ]);
 
@@ -54,6 +64,7 @@ export async function fetchDashboardPage() {
     categories,
     todaysSiteVisits,
     recentComplaints,
+    pendingActions,
     teamStats: dashboardMain.teamStats ?? [],
     taskStats,
   } satisfies DashboardPageData;

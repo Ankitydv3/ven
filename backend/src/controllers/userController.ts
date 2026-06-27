@@ -98,10 +98,10 @@ export async function updateUserHandler(req: AuthRequest, res: Response) {
   }
 
   if (isSelfUpdate) {
-    const { name, email, mobile } = req.body as Record<string, string>;
+    const { name, email, mobile, password } = req.body as Record<string, string>;
     const user = await userService.updateUserById(
       String(req.params.id),
-      { name, email, mobile },
+      { name, email, mobile, password },
       req.user
     );
     res.json({ message: "Profile updated successfully", user });
@@ -110,6 +110,30 @@ export async function updateUserHandler(req: AuthRequest, res: Response) {
 
   const user = await userService.updateUserById(String(req.params.id), req.body, req.user);
   res.json({ message: "User updated successfully", user });
+}
+
+export async function uploadUserAvatarHandler(req: AuthRequest, res: Response) {
+  if (!req.user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const file = req.file;
+  if (!file) {
+    throw new ApiError(400, "Profile picture file is required");
+  }
+
+  const avatarPath = `/uploads/avatars/${file.filename}`;
+  const user = await userService.updateUserAvatar(String(req.params.id), avatarPath, req.user);
+  res.json({ message: "Profile picture updated", user });
+}
+
+export async function removeUserAvatarHandler(req: AuthRequest, res: Response) {
+  if (!req.user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const user = await userService.removeUserAvatar(String(req.params.id), req.user);
+  res.json({ message: "Profile picture removed", user });
 }
 
 export async function deleteUserHandler(req: AuthRequest, res: Response) {

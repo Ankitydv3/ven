@@ -4,6 +4,7 @@ import {
   assertTaskAccess,
   createTask,
   deleteTaskById,
+  findTaskByLookup,
   getCalendarTaskCounts,
   getTaskById,
   getTasks,
@@ -14,6 +15,7 @@ import {
 } from "../services/taskService";
 import Task from "../models/Task";
 import { canUpdateScheduleProgress } from "../utils/permissions";
+import { dashboardTaskScopeFilter } from "../utils/dashboardScope";
 import { isAdminRole, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
 import { submitTaskFeedbackByMongoId } from "../services/feedbackService";
@@ -27,6 +29,7 @@ function parseListQuery(query: Record<string, string | undefined>) {
     dueDate: query.dueDate,
     startDate: query.startDate,
     endDate: query.endDate,
+    upcoming: query.upcoming === "true",
     page: Number(query.page ?? "1") || 1,
     limit: Number(query.limit ?? "10") || 10,
     sortBy: query.sortBy ?? "dueDate",
@@ -36,14 +39,19 @@ function parseListQuery(query: Record<string, string | undefined>) {
 
 export async function listTasks(req: AuthRequest, res: Response) {
   const parsed = parseListQuery(req.query as Record<string, string | undefined>);
-  const scopeFilter = taskVisibilityFilter(req.user);
-  const isScopedUser = isTeamRole(req.user?.role);
+  const dashboardScope = dashboardTaskScopeFilter(req.user);
+  const teamScope = taskVisibilityFilter(req.user);
+  const scopeFilter =
+    Object.keys(dashboardScope).length > 0
+      ? dashboardScope
+      : Object.keys(teamScope).length > 0
+        ? teamScope
+        : undefined;
+  const isScopedUser = Boolean(scopeFilter);
 
   const result = await getTasks({
     ...parsed,
-    ...(Object.keys(scopeFilter).length > 0
-      ? { scopeFilter }
-      : { team: parsed.team }),
+    ...(scopeFilter ? { scopeFilter } : { team: parsed.team }),
   });
 
   res.json({
@@ -79,7 +87,7 @@ export async function updateTaskHandler(req: AuthRequest, res: Response) {
 }
 
 export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
-  const existing = await Task.findById(req.params.id as string).lean();
+  const existing = await findTaskByLookup(req.params.id as string, { lean: true });
   if (!existing) {
     throw new ApiError(404, "Task not found");
   }

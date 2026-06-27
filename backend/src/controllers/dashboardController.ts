@@ -5,6 +5,7 @@ import type { AuthRequest } from "../middleware/auth";
 import { getTaskStats, applyOverdueUpdates } from "../services/taskService";
 import { listActiveTeamNames } from "../services/teamService";
 import { resolveDashboardScope, type DashboardScope } from "../utils/dashboardScope";
+import { getPendingDashboardActions } from "../services/materialRequestService";
 import {
   COMPLAINT_ISSUE_TYPES,
   buildIssueTitleFilter,
@@ -267,6 +268,12 @@ export async function getRecentOrders(req: AuthRequest, res: Response) {
 
 export async function getRecentComplaints(req: AuthRequest, res: Response) {
   res.json({ recentComplaints: await buildRecentComplaints(scopeFromRequest(req)) });
+}
+
+export async function getPendingActions(req: AuthRequest, res: Response) {
+  const limit = Math.min(Number(req.query.limit ?? 10) || 10, 25);
+  const result = await getPendingDashboardActions(req.user, limit);
+  res.json(result);
 }
 
 export async function getDashboard(req: AuthRequest, res: Response) {

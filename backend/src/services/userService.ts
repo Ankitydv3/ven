@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+import fs from "fs";
+import path from "path";
 import User from "../models/User";
 import { ApiError } from "../utils/ApiError";
 import { generateEmployeeId, generateUsername, teamNameToSlug } from "../utils/employeeId";
@@ -28,9 +30,13 @@ export interface UserUpdatePayload {
   name?: string;
   email?: string;
   mobile?: string;
+  password?: string;
   role?: string;
   status?: "active" | "disabled";
   teamName?: string;
+  subAdminType?: SubAdminType;
+  designation?: string;
+  department?: string;
 }
 
 export interface UserListOptions {
@@ -354,15 +360,88 @@ export async function updateUserById(id: string, payload: UserUpdatePayload, act
     ...(payload.name ? { name: payload.name.trim() } : {}),
     ...(payload.email ? { email: payload.email.toLowerCase().trim() } : {}),
     ...(payload.mobile ? { mobile: payload.mobile.trim() } : {}),
+    ...(payload.password ? { password: await bcrypt.hash(payload.password, 10) } : {}),
     ...(!isSelfUpdate && payload.role ? { role: payload.role } : {}),
     ...(!isSelfUpdate && payload.status ? { status: payload.status } : {}),
     ...(!isSelfUpdate && payload.teamName ? await teamFieldsFromDb(payload.teamName) : {}),
+    ...(!isSelfUpdate && payload.subAdminType !== undefined ? { subAdminType: payload.subAdminType } : {}),
+    ...(!isSelfUpdate && payload.designation !== undefined
+      ? { designation: payload.designation.trim() }
+      : {}),
+    ...(!isSelfUpdate && payload.department !== undefined
+      ? { department: payload.department.trim() }
+      : {}),
   };
 
   const user = await User.findByIdAndUpdate(id, update, { new: true, runValidators: true }).select("-password");
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  return user;
+}
+
+function deleteAvatarFile(avatarUrl?: string | null) {
+  if (!avatarUrl || !avatarUrl.startsWith("/uploads/avatars/")) return;
+  const filePath = path.join(process.cwd(), avatarUrl.replace(/^\//, ""));
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+async function assertCanUpdateUserAvatar(id: string, actor: JwtUser) {
+  const existing = await User.findOne({ $and: [{ _id: id }, NOT_DELETED_FILTER] });
+  if (!existing) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const isSelfUpdate = actor.id === id;
+  if (!isSelfUpdate) {
+    const scope = resolveUserManageScope(actor);
+    if (scope.selfOnly) {
+      throw new ApiError(403, "You can only update your own profile picture");
+    }
+    if (scope.scopedDepartment && existing.department !== scope.scopedDepartment) {
+      throw new ApiError(403, "User not in your department scope");
+    }
+    if (!canManageRole(actor.role, existing.role)) {
+      throw new ApiError(403, "You cannot modify this user");
+    }
+  }
+
+  return existing;
+}
+
+export async function updateUserAvatar(id: string, avatarPath: string, actor: JwtUser) {
+  const existing = await assertCanUpdateUserAvatar(id, actor);
+  deleteAvatarFile(existing.avatarUrl);
+
+  const user = await User.findByIdAndUpdate(
+    id,
+    { avatarUrl: avatarPath },
+    { new: true, runValidators: true }
+  ).select("-password");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return user;
+}
+
+export async function removeUserAvatar(id: string, actor: JwtUser) {
+  const existing = await assertCanUpdateUserAvatar(id, actor);
+  deleteAvatarFile(existing.avatarUrl);
+
+  const user = await User.findByIdAndUpdate(
+    id,
+    { avatarUrl: "" },
+    { new: true, runValidators: true }
+  ).select("-password");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
   return user;
 }
 

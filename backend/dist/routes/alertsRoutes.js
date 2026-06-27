@@ -6,4 +6,5 @@ const alertsController_1 = require("../controllers/alertsController");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.get("/", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(alertsController_1.getAlerts));
+router.patch("/clear", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(alertsController_1.clearAlerts));
 exports.default = router;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   Package,
@@ -21,6 +22,7 @@ import {
   Square,
   RefreshCw,
   X,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -44,8 +46,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MaterialRequest } from "@/services/material-requests";
 import {
-  materialStatusBadgeClass,
+  getMaterialStatusBadgeClass,
   materialStatusLabel,
+  materialStoreActionLabel,
 } from "@/services/material-requests";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
@@ -55,19 +58,19 @@ import { getApiErrorMessage } from "@/lib/api";
 /* Types & constants                                                       */
 /* ----------------------------------------------------------------------- */
 
-type ActionableStatus = "WAITING" | "OUT_OF_STOCK" | "GRANTED";
 type SortOrder = "newest" | "oldest";
 type Urgency = "urgent" | "pending" | "normal";
 
-const ACTIONABLE_STATUSES: ActionableStatus[] = ["WAITING", "OUT_OF_STOCK", "GRANTED"];
-const QUEUE_STATUSES = ["AWAITING_STORE", "WAITING"];
+const QUEUE_STATUSES = ["AWAITING_STORE", "WAITING", "OUT_OF_STOCK", "WAITING_FOR_STOCK", "WAITING_BY_STORE"];
 
 const FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "QUEUE", label: "Needs action" },
   { value: "ALL", label: "All" },
   { value: "AWAITING_STORE", label: materialStatusLabel["AWAITING_STORE"] },
-  { value: "WAITING", label: materialStatusLabel["WAITING"] },
+  { value: "WAITING_FOR_STOCK", label: materialStatusLabel["WAITING_FOR_STOCK"] },
+  { value: "WAITING_BY_STORE", label: materialStatusLabel["WAITING_BY_STORE"] },
   { value: "OUT_OF_STOCK", label: materialStatusLabel["OUT_OF_STOCK"] },
+  { value: "GRANTED_BY_STORE", label: materialStatusLabel["GRANTED_BY_STORE"] },
   { value: "GRANTED", label: materialStatusLabel["GRANTED"] },
 ];
 
@@ -185,17 +188,20 @@ function EmptyState({
 
 function AuditTimeline({ history }: { history: MaterialRequest["history"] }) {
   if (!history || history.length === 0) return null;
+  const sorted = [...history].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
   return (
     <div className="border-t border-white/10 pt-3">
       <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
         <History className="h-3.5 w-3.5" /> Audit log
       </p>
       <div className="max-h-40 space-y-3 overflow-y-auto pr-1">
-        {history.map((h, i) => (
+        {sorted.map((h, i) => (
           <div key={i} className="flex gap-3 text-xs">
             <div className="flex flex-col items-center">
               <span className="h-2 w-2 shrink-0 rounded-full bg-blue-400" />
-              {i < history.length - 1 && <span className="mt-1 w-px flex-1 bg-white/10" />}
+              {i < sorted.length - 1 && <span className="mt-1 w-px flex-1 bg-white/10" />}
             </div>
             <div className="-mt-0.5 pb-1">
               <p className="text-slate-300">
@@ -301,7 +307,7 @@ function QuickActions({
   layout = "row",
 }: {
   pending: boolean;
-  onAction: (status: ActionableStatus) => void;
+  onAction: (action: string) => void;
   layout?: "row" | "full";
 }) {
   if (layout === "full") {
@@ -354,20 +360,22 @@ function RequestRow({
   onToggleSelect,
   onReview,
   onQuickAction,
+  onView,
   pending,
 }: {
   req: MaterialRequest;
   selected: boolean;
   onToggleSelect: () => void;
   onReview: () => void;
-  onQuickAction: (status: ActionableStatus) => void;
+  onQuickAction: (action: string) => void;
+  onView: () => void;
   pending: boolean;
 }) {
   const urgency = getUrgency(req);
   const canQuickAct = QUEUE_STATUSES.includes(req.status);
   return (
-    <TR>
-      <TD>
+    <TR className="cursor-pointer hover:bg-white/[0.04] transition-colors" onClick={onView}>
+      <TD onClick={(e) => e.stopPropagation()}>
         <button onClick={onToggleSelect} className="text-slate-400 hover:text-white">
           {selected ? <CheckSquare className="h-4 w-4 text-blue-400" /> : <Square className="h-4 w-4" />}
         </button>
@@ -389,12 +397,20 @@ function RequestRow({
         </div>
       </TD>
       <TD>
-        <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
+        <Badge className={getMaterialStatusBadgeClass(req.status)}>
           {materialStatusLabel[req.status]}
         </Badge>
       </TD>
       <TD>
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+            onClick={onView}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           {canQuickAct && <QuickActions pending={pending} onAction={onQuickAction} layout="row" />}
           <Button size="sm" variant="outline" className="rounded-lg border-white/10 text-white" onClick={onReview}>
             Review
@@ -411,13 +427,15 @@ function RequestCard({
   onToggleSelect,
   onReview,
   onQuickAction,
+  onView,
   pending,
 }: {
   req: MaterialRequest;
   selected: boolean;
   onToggleSelect: () => void;
   onReview: () => void;
-  onQuickAction: (status: ActionableStatus) => void;
+  onQuickAction: (action: string) => void;
+  onView: () => void;
   pending: boolean;
 }) {
   const urgency = getUrgency(req);
@@ -425,12 +443,13 @@ function RequestCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4 transition-colors",
+        "rounded-2xl border p-4 transition-colors cursor-pointer",
         selected ? "border-blue-500/40 bg-blue-500/5" : "border-white/5 bg-white/[0.03]"
       )}
+      onClick={onView}
     >
       <div className="flex items-start gap-3">
-        <button onClick={onToggleSelect} className="mt-1 text-slate-400 hover:text-white">
+        <button onClick={(e) => { e.stopPropagation(); onToggleSelect(); }} className="mt-1 text-slate-400 hover:text-white">
           {selected ? <CheckSquare className="h-4 w-4 text-blue-400" /> : <Square className="h-4 w-4" />}
         </button>
         <RequestImage url={req.imageUrl} alt={req.materialName} size="sm" />
@@ -440,9 +459,19 @@ function RequestCard({
               <p className="font-mono text-[11px] text-blue-400/80">{req.requestId}</p>
               <h4 className="truncate text-sm font-bold text-white">{req.materialName}</h4>
             </div>
-            <Badge className={cn("shrink-0 border text-[10px]", materialStatusBadgeClass[req.status])}>
-              {materialStatusLabel[req.status]}
-            </Badge>
+            <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+               <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                onClick={onView}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Badge className={cn("shrink-0", getMaterialStatusBadgeClass(req.status))}>
+                {materialStatusLabel[req.status]}
+              </Badge>
+            </div>
           </div>
           <p className="mt-1 text-xs text-slate-400">
             {req.requestedBy} · {req.department || "N/A"} · {req.quantity} {req.unit}
@@ -547,10 +576,10 @@ function KpiDetailsModal({
                     <Badge
                       className={cn(
                         "shrink-0 border-0 text-[10px] font-bold uppercase",
-                        materialStatusBadgeClass[item.status]
+                        getMaterialStatusBadgeClass(item.status)
                       )}
                     >
-                      {materialStatusLabel[item.status]}
+                      {materialStatusLabel[item.status] || item.status}
                     </Badge>
                   </div>
                   <p className="mb-4 line-clamp-2 h-8 text-xs leading-relaxed text-slate-400">
@@ -585,8 +614,14 @@ function ReviewModal({
   request,
   remarks,
   onRemarksChange,
-  action,
-  onActionChange,
+  availability,
+  onAvailabilityChange,
+  decision,
+  onDecisionChange,
+  revisitDate,
+  onRevisitDateChange,
+  revisitTimeSlot,
+  onRevisitTimeSlotChange,
   onSubmit,
   onClose,
   isSubmitting,
@@ -594,8 +629,14 @@ function ReviewModal({
   request: MaterialRequest | null;
   remarks: string;
   onRemarksChange: (v: string) => void;
-  action: ActionableStatus | null;
-  onActionChange: (v: ActionableStatus) => void;
+  availability: "AVAILABLE" | "OUT_OF_STOCK" | null;
+  onAvailabilityChange: (v: "AVAILABLE" | "OUT_OF_STOCK") => void;
+  decision: "WAIT" | "DECLINE" | "GRANT" | null;
+  onDecisionChange: (v: "WAIT" | "DECLINE" | "GRANT") => void;
+  revisitDate: string;
+  onRevisitDateChange: (v: string) => void;
+  revisitTimeSlot: string;
+  onRevisitTimeSlotChange: (v: string) => void;
   onSubmit: () => void;
   onClose: () => void;
   isSubmitting: boolean;
@@ -604,77 +645,160 @@ function ReviewModal({
     <Dialog open={Boolean(request)} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl border-white/10 bg-app text-white">
         <DialogHeader>
-          <DialogTitle>Review request {request?.requestId}</DialogTitle>
+          <DialogTitle>Store Manager Review — {request?.requestId}</DialogTitle>
         </DialogHeader>
         {request && (
-          <div className="space-y-4 text-sm">
+          <div className="space-y-5 text-sm">
             {request.imageUrl && (
-              <div>
-                <p className="mb-2 text-xs text-slate-400">Attached image</p>
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
                 <img
                   src={request.imageUrl}
                   alt={request.materialName}
-                  className="max-h-48 w-full rounded-xl border border-white/10 object-contain"
+                  className="max-h-48 w-full object-contain"
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs">
               <div>
-                <p className="text-xs text-slate-400">Requester</p>
-                <p className="font-medium">{request.requestedBy}</p>
+                <p className="text-slate-500 uppercase font-bold tracking-tighter">Material</p>
+                <p className="font-semibold text-white">{request.materialName}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400">Department</p>
-                <p className="font-medium">{request.department || "—"}</p>
+                <p className="text-slate-500 uppercase font-bold tracking-tighter">Quantity</p>
+                <p className="font-semibold text-white">{request.quantity} {request.unit}</p>
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Material</p>
-                <p className="font-medium">{request.materialName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Quantity</p>
-                <p className="font-medium">
-                  {request.quantity} {request.unit}
-                </p>
+              <div className="mt-1">
+                <p className="text-slate-500 uppercase font-bold tracking-tighter">Requester</p>
+                <p className="font-medium text-slate-300">{request.requestedBy} ({request.department || "—"})</p>
               </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Requester remarks</p>
-              <p className="text-slate-300">{request.remarks || "—"}</p>
+
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-tight text-slate-400">Decision & Action</p>
+
+              <div className="space-y-3">
+                <p className="text-[11px] text-slate-500">1. Select Stock Availability</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={availability === "AVAILABLE" ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 rounded-xl",
+                      availability === "AVAILABLE" && "bg-emerald-600 hover:bg-emerald-500"
+                    )}
+                    onClick={() => onAvailabilityChange("AVAILABLE")}
+                  >
+                    <Package className="mr-1.5 h-3.5 w-3.5" /> Stock Available
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={availability === "OUT_OF_STOCK" ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 rounded-xl",
+                      availability === "OUT_OF_STOCK" && "bg-red-600 hover:bg-red-500"
+                    )}
+                    onClick={() => onAvailabilityChange("OUT_OF_STOCK")}
+                  >
+                    <PackageX className="mr-1.5 h-3.5 w-3.5" /> Out of Stock
+                  </Button>
+                </div>
+
+                {availability === "AVAILABLE" && (
+                  <>
+                    <p className="text-[11px] text-slate-500">2. Available Material Actions</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={decision === "GRANT" ? "default" : "outline"}
+                        className={cn("flex-1 rounded-xl", decision === "GRANT" && "bg-blue-600")}
+                        onClick={() => onDecisionChange("GRANT")}
+                      >
+                        Grant & Forward
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={decision === "WAIT" ? "default" : "outline"}
+                        className={cn("flex-1 rounded-xl", decision === "WAIT" && "bg-orange-600")}
+                        onClick={() => onDecisionChange("WAIT")}
+                      >
+                        Wait
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {availability === "OUT_OF_STOCK" && (
+                  <>
+                    <p className="text-[11px] text-slate-500">2. Out of Stock Actions</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={decision === "WAIT" ? "default" : "outline"}
+                        className={cn("flex-1 rounded-xl", decision === "WAIT" && "bg-orange-600")}
+                        onClick={() => onDecisionChange("WAIT")}
+                      >
+                        Wait for Stock
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={decision === "DECLINE" ? "default" : "outline"}
+                        className={cn("flex-1 rounded-xl", decision === "DECLINE" && "bg-red-600")}
+                        onClick={() => onDecisionChange("DECLINE")}
+                      >
+                        Decline Request
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
+
+            {(decision === "WAIT") && (
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+                <div>
+                  <p className="mb-1 text-[10px] uppercase font-bold text-orange-400">Revisit date *</p>
+                  <input
+                    type="date"
+                    value={revisitDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => onRevisitDateChange(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] uppercase font-bold text-orange-400">Time slot</p>
+                  <select
+                    value={revisitTimeSlot}
+                    onChange={(e) => onRevisitTimeSlotChange(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-white/10 bg-app px-2 text-sm text-white"
+                  >
+                    <option value="">Select slot</option>
+                    {["9:00 AM - 12:00 PM", "12:00 PM - 3:00 PM", "3:00 PM - 6:00 PM", "Full Day"].map((s) => (
+                      <option key={s} value={s} className="bg-app">{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div>
-              <p className="mb-1.5 text-xs text-slate-400">Store manager remarks</p>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-tight text-slate-400">Remarks</p>
               <Textarea
                 value={remarks}
                 onChange={(e) => onRemarksChange(e.target.value)}
                 className="min-h-[70px] rounded-xl border-white/10 bg-white/5"
-                placeholder="Add comments visible to the requester..."
+                placeholder={decision === "DECLINE" ? "Reason for declining..." : "Instructions / comments..."}
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {ACTIONABLE_STATUSES.map((s) => (
-                <Button
-                  key={s}
-                  size="sm"
-                  variant={action === s ? "default" : "outline"}
-                  className={cn(
-                    "rounded-full",
-                    action === s && s === "GRANTED" && "bg-emerald-600 hover:bg-emerald-500",
-                    action === s && s === "WAITING" && "bg-orange-600 hover:bg-orange-500",
-                    action === s && s === "OUT_OF_STOCK" && "bg-red-600 hover:bg-red-500"
-                  )}
-                  onClick={() => onActionChange(s)}
-                >
-                  {materialStatusLabel[s]}
-                </Button>
-              ))}
-            </div>
+
             <Button
-              className="w-full rounded-xl bg-blue-600 hover:bg-blue-500"
-              disabled={!action || isSubmitting}
+              className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-6 font-bold uppercase tracking-wide"
+              disabled={!decision || isSubmitting || (decision === "WAIT" && !revisitDate)}
               onClick={onSubmit}
             >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit decision"}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
+              Submit Decision
             </Button>
             <AuditTimeline history={request.history} />
           </div>
@@ -690,6 +814,7 @@ function ReviewModal({
 
 export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | "requests" }) {
   const { ready } = useSession("store");
+  const searchParams = useSearchParams();
   const { data: stats, isLoading: statsLoading } = useMaterialRequestStats();
   const { data, isLoading, isError, error, refetch } = useMaterialRequests({ limit: 100 });
   const { data: alertsData } = useAlerts();
@@ -697,7 +822,10 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
 
   const [selected, setSelected] = useState<MaterialRequest | null>(null);
   const [remarks, setRemarks] = useState("");
-  const [action, setAction] = useState<ActionableStatus | null>(null);
+  const [availability, setAvailability] = useState<"AVAILABLE" | "OUT_OF_STOCK" | null>(null);
+  const [decision, setDecision] = useState<"WAIT" | "DECLINE" | "GRANT" | null>(null);
+  const [revisitDate, setRevisitDate] = useState("");
+  const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
@@ -758,14 +886,25 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
     });
   }, [requests, statusFilter, search, sortOrder]);
 
-  const allVisibleSelected =
-    filteredRequests.length > 0 && filteredRequests.every((r) => selectedIds.has(r._id));
-
   function openReview(req: MaterialRequest) {
     setSelected(req);
     setRemarks(req.storeManagerRemarks ?? "");
-    setAction(null);
+    setAvailability(null);
+    setDecision(null);
+    setRevisitDate(req.scheduledRevisitDate ?? "");
+    setRevisitTimeSlot(req.scheduledRevisitTimeSlot ?? "");
   }
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const action = searchParams.get("action");
+    if (!id || requests.length === 0 || action !== "review") return;
+    const target = requests.find((r) => r._id === id || r.requestId === id);
+    if (target) openReview(target);
+  }, [searchParams, requests]);
+
+  const allVisibleSelected =
+    filteredRequests.length > 0 && filteredRequests.every((r) => selectedIds.has(r._id));
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -782,11 +921,25 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
     setSelectedIds(allSelected ? new Set() : new Set(visibleIds));
   }
 
-  async function quickAction(req: MaterialRequest, status: ActionableStatus) {
+  async function quickAction(req: MaterialRequest, action: string) {
     setPendingRowId(req._id);
     try {
-      await updateMutation.mutateAsync({ id: req._id, status });
-      toast.success(`${req.requestId} marked as ${materialStatusLabel[status]}`);
+      if (action === "GRANTED") {
+        await updateMutation.mutateAsync({
+          id: req._id,
+          decision: "GRANT",
+          availability: "AVAILABLE",
+        });
+      } else {
+        // Mapping for quick action: No stock -> WAIT for stock
+        await updateMutation.mutateAsync({
+          id: req._id,
+          decision: "WAIT",
+          availability: "OUT_OF_STOCK",
+          revisitDate: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
+        });
+      }
+      toast.success(`${req.requestId} updated successfully`);
       void refetch();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
@@ -795,23 +948,36 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
     }
   }
 
-  async function handleBulkAction(status: ActionableStatus) {
+  async function handleBulkAction(action: string) {
     if (selectedIds.size === 0) return;
     setBulkPending(true);
     const ids = Array.from(selectedIds);
     let success = 0;
     for (const id of ids) {
       try {
-        await updateMutation.mutateAsync({ id, status });
+        if (action === "GRANTED") {
+          await updateMutation.mutateAsync({
+            id,
+            decision: "GRANT",
+            availability: "AVAILABLE",
+          });
+        } else {
+          await updateMutation.mutateAsync({
+            id,
+            decision: "WAIT",
+            availability: "OUT_OF_STOCK",
+            revisitDate: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
+          });
+        }
         success++;
       } catch {
-        // continue through the rest of the batch
+        // continue
       }
     }
     if (success === ids.length) {
-      toast.success(`${success} request${success === 1 ? "" : "s"} marked as ${materialStatusLabel[status]}`);
+      toast.success(`${success} requests updated successfully`);
     } else {
-      toast.error(`Updated ${success} of ${ids.length} requests. Some failed — please retry.`);
+      toast.error(`Updated ${success} of ${ids.length} requests. Some failed.`);
     }
     setSelectedIds(new Set());
     setBulkPending(false);
@@ -819,17 +985,27 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
   }
 
   async function handleAction() {
-    if (!selected || !action) return;
+    if (!selected || !decision || !availability) return;
+    if (decision === "WAIT" && !revisitDate) {
+      toast.error("Revisit date is required when material is not in stock");
+      return;
+    }
     try {
       await updateMutation.mutateAsync({
         id: selected._id,
-        status: action,
+        decision,
+        availability,
         storeManagerRemarks: remarks.trim() || undefined,
+        revisitDate: decision === "WAIT" ? revisitDate : undefined,
+        revisitTimeSlot: decision === "WAIT" ? revisitTimeSlot || undefined : undefined,
       });
-      toast.success(`Request marked as ${materialStatusLabel[action]}`);
+      toast.success(`Decision submitted successfully`);
       setSelected(null);
       setRemarks("");
-      setAction(null);
+      setAvailability(null);
+      setDecision(null);
+      setRevisitDate("");
+      setRevisitTimeSlot("");
       void refetch();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
@@ -999,6 +1175,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
                         onToggleSelect={() => toggleSelect(req._id)}
                         onReview={() => openReview(req)}
                         onQuickAction={(status) => quickAction(req, status)}
+                        onView={() => openReview(req)}
                         pending={updateMutation.isPending && pendingRowId === req._id}
                       />
                     ))}
@@ -1016,6 +1193,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
                     onToggleSelect={() => toggleSelect(req._id)}
                     onReview={() => openReview(req)}
                     onQuickAction={(status) => quickAction(req, status)}
+                    onView={() => openReview(req)}
                     pending={updateMutation.isPending && pendingRowId === req._id}
                   />
                 ))}
@@ -1069,10 +1247,22 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
         request={selected}
         remarks={remarks}
         onRemarksChange={setRemarks}
-        action={action}
-        onActionChange={setAction}
+        availability={availability}
+        onAvailabilityChange={setAvailability}
+        decision={decision}
+        onDecisionChange={setDecision}
+        revisitDate={revisitDate}
+        onRevisitDateChange={setRevisitDate}
+        revisitTimeSlot={revisitTimeSlot}
+        onRevisitTimeSlotChange={setRevisitTimeSlot}
         onSubmit={handleAction}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setSelected(null);
+          setAvailability(null);
+          setDecision(null);
+          setRevisitDate("");
+          setRevisitTimeSlot("");
+        }}
         isSubmitting={updateMutation.isPending}
       />
     </DashboardShell>

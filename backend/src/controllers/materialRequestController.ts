@@ -9,6 +9,7 @@ import {
   listMaterialRequests,
   serviceHeadReview,
   updateMaterialRequestStatus,
+  getUserActivityHistory,
 } from "../services/materialRequestService";
 import { isAdminRole, isAccountant, isServiceHead } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
@@ -82,7 +83,10 @@ export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) 
       role: req.user?.role ?? "sub_admin",
       subAdminType: req.user?.subAdminType,
     },
-    req.body.serviceHeadRemarks
+    req.body.serviceHeadRemarks,
+    req.body.revisitDate,
+    req.body.revisitTimeSlot,
+    req.body.stockDecision
   );
 
   res.json({
@@ -95,13 +99,26 @@ export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) 
 }
 
 export async function confirmMaterialPaymentHandler(req: AuthRequest, res: Response) {
-  const request = await confirmMaterialPayment(req.params.id as string, {
-    name: req.user?.name ?? "Accounts",
-    role: req.user?.role ?? "accountant",
-    subAdminType: req.user?.subAdminType,
-  });
+  const request = await confirmMaterialPayment(
+    req.params.id as string,
+    {
+      name: req.user?.name ?? "Accounts",
+      role: req.user?.role ?? "accountant",
+      subAdminType: req.user?.subAdminType,
+    },
+    req.body.paymentMode
+  );
 
   res.json({ message: "Payment confirmed — forwarded to Store Manager", request });
+}
+
+export async function getUserActivityHistoryHandler(req: AuthRequest, res: Response) {
+  const { userId, q } = req.query as { userId?: string; q?: string };
+  if (!userId) {
+    throw new ApiError(400, "userId is required");
+  }
+  const history = await getUserActivityHistory(userId, q);
+  res.json(history);
 }
 
 export async function updateMaterialRequestStatusHandler(req: AuthRequest, res: Response) {
@@ -111,9 +128,12 @@ export async function updateMaterialRequestStatusHandler(req: AuthRequest, res: 
 
   const request = await updateMaterialRequestStatus(
     req.params.id as string,
-    req.body.status,
+    req.body.decision,
+    req.body.availability,
     { name: req.user?.name ?? "Store Manager", role: req.user?.role ?? "store_manager" },
-    req.body.storeManagerRemarks
+    req.body.storeManagerRemarks,
+    req.body.revisitDate,
+    req.body.revisitTimeSlot
   );
 
   res.json({ message: "Material request updated", request });

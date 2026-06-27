@@ -16,6 +16,7 @@ import {
   updateMaterialRequestStatusHandler,
   serviceHeadReviewHandler,
   confirmMaterialPaymentHandler,
+  getUserActivityHistoryHandler,
 } from "../controllers/materialRequestController";
 
 const router = Router();
@@ -23,6 +24,7 @@ const router = Router();
 router.use(authRequired);
 
 router.get("/stats", asyncHandler(materialRequestStatsHandler));
+router.get("/user-history", asyncHandler(getUserActivityHistoryHandler));
 router.get("/", asyncHandler(listMaterialRequestsHandler));
 router.get("/:id", asyncHandler(readMaterialRequestHandler));
 router.post("/", validateRequest(materialRequestCreateSchema), asyncHandler(createMaterialRequestHandler));

@@ -14,4 +14,5 @@ router.get("/complaint-overview", auth_1.authRequired, (0, asyncHandler_1.asyncH
 router.get("/top-categories", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getTopCategories));
 router.get("/recent-orders", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getRecentOrders));
 router.get("/recent-complaints", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getRecentComplaints));
+router.get("/pending-actions", auth_1.authRequired, (0, asyncHandler_1.asyncHandler)(dashboardController_1.getPendingActions));
 exports.default = router;

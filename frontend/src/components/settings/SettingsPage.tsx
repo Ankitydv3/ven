@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { KeyRound, Loader2, Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,7 +10,6 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import { useChangePassword } from "@/hooks/use-change-password";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
@@ -20,16 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
-import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
+import { ProfileEditor } from "@/components/profile/ProfileEditor";
+import { glassCardClass, primaryButtonClass } from "@/lib/user-constants";
 import { readUser, updateSessionUser } from "@/lib/storage";
-import { updateUser } from "@/services/users";
-
-const profileSchema = z.object({
-  name: z.string().min(2, "Name is required").max(120),
-  email: z.string().email("Valid email is required"),
-  mobile: z.string().min(10, "Valid phone number is required").max(15),
-});
+import { fetchUserById } from "@/services/users";
+import type { ManagedUser } from "@/lib/types";
 
 const changePasswordSchema = z
   .object({
@@ -41,57 +35,59 @@ const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
-type ProfileValues = z.infer<typeof profileSchema>;
 type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
 
 interface SettingsPageProps {
-  role?: "admin" | "team";
+  role?: "admin" | "team" | "store";
 }
 
 export function SettingsPage({ role = "admin" }: SettingsPageProps) {
   const { ready } = useSession(role);
   const sessionUser = readUser();
+  const [profileUser, setProfileUser] = useState<ManagedUser | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
   const changePasswordMutation = useChangePassword();
-
-  const profileForm = useForm<ProfileValues>({
-    resolver: zodResolver(profileSchema),
-    values: {
-      name: sessionUser?.name ?? "",
-      email: sessionUser?.email ?? "",
-      mobile: sessionUser?.mobile ?? "",
-    },
-  });
 
   const passwordForm = useForm<ChangePasswordValues>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
+  useEffect(() => {
+    if (!sessionUser?.id) {
+      setLoadingProfile(false);
+      return;
+    }
+
+    void fetchUserById(sessionUser.id)
+      .then(setProfileUser)
+      .catch(() => {
+        setProfileUser({
+          _id: sessionUser.id,
+          name: sessionUser.name,
+          email: sessionUser.email,
+          mobile: sessionUser.mobile ?? "",
+          role: sessionUser.role,
+          designation: sessionUser.designation ?? "",
+          department: sessionUser.department ?? "",
+          teamName: sessionUser.teamName ?? sessionUser.team,
+          team: sessionUser.team,
+          status: "active",
+          createdBy: "System",
+          employeeId: sessionUser.employeeId,
+          username: undefined,
+          subAdminType: sessionUser.subAdminType as ManagedUser["subAdminType"],
+          avatarUrl: sessionUser.avatarUrl,
+        });
+      })
+      .finally(() => setLoadingProfile(false));
+  }, [sessionUser]);
+
   const handleOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) passwordForm.reset();
   };
-
-  const handleProfileSubmit = profileForm.handleSubmit(async (values) => {
-    if (!sessionUser?.id) return;
-
-    setSavingProfile(true);
-    try {
-      const { user } = await updateUser(sessionUser.id, values);
-      updateSessionUser({
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-      });
-      toast.success("Profile updated successfully");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update profile");
-    } finally {
-      setSavingProfile(false);
-    }
-  });
 
   const handlePasswordSubmit = passwordForm.handleSubmit(async (values) => {
     try {
@@ -106,71 +102,44 @@ export function SettingsPage({ role = "admin" }: SettingsPageProps) {
   if (!ready) return null;
 
   return (
-    <DashboardShell role={role} title="Settings" subtitle="Manage your account preferences and security">
-      <div className={`${glassCardClass} max-w-2xl space-y-6 p-6`}>
-        <div>
-          <h2 className="text-lg font-semibold text-white">Profile</h2>
-          <p className="text-sm text-[#94A3B8]">Update your name, email, and phone number.</p>
+    <DashboardShell
+      role={role}
+      title="Settings"
+      subtitle="Manage your profile picture, account details, and security"
+    >
+      {loadingProfile || !profileUser ? (
+        <div className="flex items-center justify-center py-24 text-slate-400">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Loading profile...
         </div>
+      ) : (
+        <div className="mx-auto max-w-4xl space-y-6">
+          <ProfileEditor
+            user={profileUser}
+            mode="self"
+            onAvatarChange={(avatarUrl) => {
+              setProfileUser((current) => (current ? { ...current, avatarUrl } : current));
+              updateSessionUser({ avatarUrl });
+            }}
+            onSaved={setProfileUser}
+          />
 
-        <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="profile-name">Full Name</Label>
-            <Input id="profile-name" className={inputClass} {...profileForm.register("name")} />
-            {profileForm.formState.errors.name && (
-              <p className="text-sm text-red-400">{profileForm.formState.errors.name.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="profile-email">Email</Label>
-            <Input id="profile-email" type="email" className={inputClass} {...profileForm.register("email")} />
-            {profileForm.formState.errors.email && (
-              <p className="text-sm text-red-400">{profileForm.formState.errors.email.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="profile-mobile">Phone Number</Label>
-            <Input
-              id="profile-mobile"
-              className={inputClass}
-              {...phoneInputProps}
-              {...profileForm.register("mobile", { setValueAs: sanitizePhoneDigits })}
-            />
-            {profileForm.formState.errors.mobile && (
-              <p className="text-sm text-red-400">{profileForm.formState.errors.mobile.message}</p>
-            )}
-          </div>
-
-          <Button type="submit" className={primaryButtonClass} disabled={savingProfile}>
-            {savingProfile ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Profile
-              </>
-            )}
-          </Button>
-        </form>
-
-        <div className="rounded-xl border border-white/10 bg-app/50 p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium text-white">Change Password</h3>
-              <p className="text-sm text-[#94A3B8]">Update your password without contacting an administrator.</p>
+          <section className={`${glassCardClass} p-6`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-white">Security</h3>
+                <p className="text-sm text-slate-400">
+                  Update your password without contacting an administrator.
+                </p>
+              </div>
+              <Button type="button" className={primaryButtonClass} onClick={() => setDialogOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Change Password
+              </Button>
             </div>
-            <Button type="button" className={primaryButtonClass} onClick={() => setDialogOpen(true)}>
-              <KeyRound className="mr-2 h-4 w-4" />
-              Change Password
-            </Button>
-          </div>
+          </section>
         </div>
-      </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
         <DialogContent className={`${glassCardClass} text-white sm:max-w-md`}>

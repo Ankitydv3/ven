@@ -60,6 +60,7 @@ export async function login(req: Request, res: Response) {
       designation: user.designation ?? undefined,
       department: user.department ?? undefined,
       subAdminType: user.subAdminType ?? undefined,
+      avatarUrl: user.avatarUrl ?? undefined,
     },
   });
 }

@@ -1,8 +1,10 @@
 import Task from "../models/Task";
 import Order from "../models/Order";
-import { createTask, syncComplaintTaskStatus, updateTaskById, assertComplaintEligibleForTaskAssignment } from "../services/taskService";
+import { createTask, createComplaintAssignmentTask, syncComplaintTaskStatus } from "../services/taskService";
 import { hasFeedbackForComplaint, submitComplaintFeedback } from "../services/feedbackService";
 import { getActiveMaterialRequestsByComplaintIds } from "../services/materialRequestService";
+import MaterialRequest from "../models/MaterialRequest";
+import Payment from "../models/Payment";
 import { resolveWorkflowStage, workflowStageFilter } from "../services/workflowService";
 import type { Request, Response } from "express";
 import Complaint from "../models/Complaint";
@@ -13,8 +15,27 @@ import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/
 import * as userService from "../services/userService";
 import { resolveTeamByName } from "../services/teamService";
 import { lookupOrdersByPhone, lookupOrdersByOrderId } from "../services/orderService";
+import { dateKeyFromValue } from "../utils/dateKey";
+import {
+  activeComplaintStatusFilter,
+  closeActiveComplaintAssignments,
+  getActiveTasksByComplaintIds,
+  isTerminalComplaintStatus,
+  recordComplaintAssignment,
+  resetComplaintForNewAssignment,
+  activeTaskQuery,
+} from "../services/complaintAssignmentService";
 
-const OPEN_COMPLAINT_STATUSES = ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] as const;
+const OPEN_COMPLAINT_STATUSES = [
+  "Pending Review",
+  "Pending Assignment",
+  "Assigned",
+  "In Progress",
+  "Site Visit",
+  "Material Required",
+  "Material Granted",
+  "Revisit"
+] as const;
 
 function normalizePhoneDigits(phone: string) {
   return phone.replace(/\D/g, "").slice(-10);
@@ -158,7 +179,7 @@ export async function lookupOrdersForComplaint(req: Request, res: Response) {
   const phone = String(req.query.phone ?? "").trim();
   const orderId = String(req.query.orderId ?? "").trim();
 
-  let orders = [];
+  let orders: any[] = [];
   if (orderId) {
     orders = await lookupOrdersByOrderId(orderId);
   } else if (phone) {
@@ -212,19 +233,36 @@ export async function createComplaint(req: Request, res: Response) {
   const pictureUrl = files?.picture?.[0] ? `/uploads/complaints/${files.picture[0].filename}` : "";
   const quotationUrl = files?.quotation?.[0] ? `/uploads/complaints/${files.quotation[0].filename}` : "";
 
-  const availability = [availableDate && `Date: ${availableDate}`, availableTime && `Time: ${availableTime}`]
+  const availabilityNotes = payload.availability?.trim() || "";
+  const timeSlot = payload.timeSlot?.trim() || "";
+  const locationCoordinates = payload.locationCoordinates?.trim() || "";
+  const assignedTeam = payload.assignedTeam?.trim() || "";
+
+  const availabilityStr = [
+    availableDate && `Date: ${availableDate}`,
+    timeSlot && `Slot: ${timeSlot}`,
+    availableTime && `Time: ${availableTime}`,
+    availabilityNotes && `Notes: ${availabilityNotes}`
+  ]
     .filter(Boolean)
     .join(", ");
 
   const descriptionParts = [
     complaintType === "Other" ? complaintDescription : null,
     address,
-    availability,
+    locationCoordinates && `Coords: ${locationCoordinates}`,
+    availabilityStr,
     `Order: ${orderId}`,
   ].filter(Boolean);
   const description = descriptionParts.join(" | ") || "No description provided";
   const title = complaintType;
 const source = payload.source === "WEBSITE" ? "WEBSITE" : "MANUAL";
+
+let status: string = source === "WEBSITE" ? "Pending Review" : "Pending Assignment";
+if (assignedTeam) {
+  status = "Assigned";
+}
+
 const complaint = await Complaint.create({
   clientName,
   contactPerson: payload.contactPerson?.trim() || "",
@@ -239,29 +277,43 @@ const complaint = await Complaint.create({
   quotationUrl,
   availableDate,
   availableTime,
+  availability: availabilityNotes,
+  timeSlot,
+  locationCoordinates,
+  assignedTeam: assignedTeam || undefined,
+  assignedBy: assignedTeam ? (payload.createdBy || "Admin") : "",
+  createdBy: source === "WEBSITE" ? clientName : (payload.createdBy || "Admin"),
+  assignedDate: assignedTeam ? new Date() : undefined,
   complaintId,
 
   source,
 
-  status:
-    source === "WEBSITE"
-      ? "Pending Review"
-      : "Pending Assignment",
+  status,
 
   history: [
     buildHistoryEntry(
       "Complaint Submitted",
       { name: clientName, role: "customer" },
       {
-        status:
-          source === "WEBSITE"
-            ? "Pending Review"
-            : "Pending Assignment",
-        details: title,
+        status,
+        details: assignedTeam ? `Submitted and assigned to ${assignedTeam}` : title,
       }
     ),
   ],
 });
+
+if (assignedTeam) {
+  await createTask({
+    complaintId: complaint.complaintId,
+    title: complaint.title,
+    description: complaint.description ?? "",
+    priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+    assignedTeamName: assignedTeam,
+    dueDate: availableDate ? new Date(availableDate) : new Date(),
+    remarks: `Auto-created from complaint ${complaint.complaintId}`,
+    createdBy: payload.createdBy || "Admin",
+  });
+}
 
   res.status(201).json({
     message: "Complaint Submitted Successfully",
@@ -317,6 +369,8 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     endDate,
   } = req.query as Record<string, string>;
   const filter: Record<string, unknown> = {};
+  const isActiveAssignedScope = scope === "active_assigned" || scope === "my_tasks";
+  const activeStatusFilter = activeComplaintStatusFilter();
 
   if (displayStatus && displayStatus !== "All") {
     const appliedWorkflowFilter = await applyWorkflowDisplayStatusFilter(filter, displayStatus);
@@ -329,6 +383,8 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   } else {
     if (scope === "pending_review") {
       filter.status = "Pending Review";
+    } else if (isActiveAssignedScope) {
+      Object.assign(filter, activeStatusFilter);
     } else if (scope === "reviewed") {
       filter.status = { $ne: "Pending Review" };
     }
@@ -360,7 +416,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     if (Object.keys(taskScope).length > 0) {
       taskComplaintIds = await Task.find({
         ...taskScope,
-        complaintId: { $exists: true, $ne: "" },
+        ...activeTaskQuery(),
       }).distinct("complaintId");
     }
 
@@ -392,7 +448,9 @@ export async function listComplaints(req: AuthRequest, res: Response) {
           })()
         : status && status !== "All"
           ? { status }
-          : { status: { $in: ["Assigned", "In Progress", "Completed"] } };
+          : isActiveAssignedScope
+            ? activeStatusFilter
+            : activeStatusFilter;
 
     const andClauses: Record<string, unknown>[] = [statusFilter, teamAccess];
 
@@ -436,15 +494,10 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   ]);
 
   const complaintIds = items.map((item) => item.complaintId);
-  const [linkedTasks, materialByComplaint] = await Promise.all([
-    complaintIds.length
-      ? Task.find({ complaintId: { $in: complaintIds } })
-          .select("complaintId taskId status dueDate dueDateKey")
-          .lean()
-      : Promise.resolve([]),
+  const [taskByComplaintId, materialByComplaint] = await Promise.all([
+    getActiveTasksByComplaintIds(complaintIds),
     getActiveMaterialRequestsByComplaintIds(complaintIds),
   ]);
-  const taskByComplaintId = new Map(linkedTasks.map((task) => [task.complaintId, task]));
 
   const enrichedItems = items.map((item) => {
     const task = taskByComplaintId.get(item.complaintId);
@@ -453,6 +506,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
       complaintStatus: item.status,
       taskStatus: task?.status ?? null,
       materialRequestStatus: materialRequest?.status ?? null,
+      siteVisitStatus: item.siteVisitStatus ?? null,
     });
     return {
       ...item.toObject(),
@@ -480,6 +534,14 @@ function canAccessComplaint(
   return Boolean(team && complaint.assignedTeam === team);
 }
 
+async function findComplaintByIdOrCid(id: string) {
+  if (id.match(/^[0-9a-fA-F]{24}$/)) {
+    const byId = await Complaint.findById(id);
+    if (byId) return byId;
+  }
+  return await Complaint.findOne({ complaintId: id });
+}
+
 export async function assignComplaint(req: AuthRequest, res: Response) {
   const { id } = req.params;
   const { assignedUserId, team: legacyTeam, deadline } = req.body as {
@@ -492,13 +554,9 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Assignee is required");
   }
 
-  const complaint = await Complaint.findById(id);
+  const complaint = await findComplaintByIdOrCid(id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
-  }
-
-  if (complaint.status === "Completed") {
-    throw new ApiError(400, "Completed complaints cannot be reassigned");
   }
 
   if (complaint.status === "Pending Review") {
@@ -509,13 +567,19 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Declined complaints cannot be assigned");
   }
 
-  if (complaint.status === "In Progress") {
-    throw new ApiError(400, "Cannot reassign a complaint that is in progress");
-  }
+  const wasTerminal = isTerminalComplaintStatus(complaint.status);
+  const isReassign = Boolean(complaint.assignedUserId || complaint.assignedTeam);
 
   const assignee = assignedUserId
     ? await userService.resolveAssigneeById(assignedUserId)
     : { assignedUserId: undefined, assignedUserName: "", team: legacyTeam! };
+
+  if (wasTerminal || isReassign) {
+    closeActiveComplaintAssignments(
+      complaint,
+      wasTerminal && complaint.status === "Completed" ? "completed" : "reassigned"
+    );
+  }
 
   complaint.assignedTeam = assignee.team;
   complaint.assignedUserId = assignee.assignedUserId;
@@ -525,60 +589,51 @@ export async function assignComplaint(req: AuthRequest, res: Response) {
   if (deadline) {
     complaint.deadline = new Date(deadline);
   }
-  complaint.status = "Assigned";
+
+  if (wasTerminal || !isReassign || complaint.status !== "In Progress") {
+    resetComplaintForNewAssignment(complaint);
+  } else {
+    complaint.status = "Assigned";
+  }
+
+  const task = await createComplaintAssignmentTask({
+    complaintId: complaint.complaintId,
+    title: complaint.title,
+    description: complaint.description ?? "",
+    priority:
+      complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+    assignedUserId: assignee.assignedUserId ? String(assignee.assignedUserId) : undefined,
+    assignedTeamName: assignee.team,
+    dueDate: deadline ? new Date(deadline) : new Date(),
+    remarks: `Auto-created from complaint ${complaint.complaintId}`,
+    createdBy: req.user?.name ?? "Admin",
+  });
+
+  recordComplaintAssignment(complaint, {
+    assignedTeam: assignee.team,
+    assignedUserId: assignee.assignedUserId,
+    assignedUserName: assignee.assignedUserName,
+    assignedBy: req.user?.name ?? "Admin",
+    taskId: task.taskId,
+  });
+
   complaint.history.push(
     buildHistoryEntry(
-      "Complaint Assigned",
+      isReassign || wasTerminal ? "Complaint Reassigned" : "Complaint Assigned",
       req.user ?? { name: "Admin", role: "admin", team: assignee.team },
       {
-        status: "Assigned",
+        status: complaint.status,
         details: assignee.assignedUserName
-          ? `Assigned to ${assignee.assignedUserName} (${assignee.team})`
-          : `Assigned to ${assignee.team}`,
+          ? `${isReassign || wasTerminal ? "Reassigned" : "Assigned"} to ${assignee.assignedUserName} (${assignee.team})`
+          : `${isReassign || wasTerminal ? "Reassigned" : "Assigned"} to ${assignee.team}`,
       }
     )
   );
 
   await complaint.save();
 
-  const existingTask = await Task.findOne({
-    complaintId: complaint.complaintId,
-  });
-
-  if (existingTask) {
-    await assertComplaintEligibleForTaskAssignment(complaint.complaintId);
-  }
-
-  if (!existingTask) {
-    await createTask({
-      complaintId: complaint.complaintId,
-      title: complaint.title,
-      description: complaint.description ?? "",
-      priority:
-        complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
-      assignedUserId: String(assignee.assignedUserId),
-      dueDate: deadline ? new Date(deadline) : new Date(),
-      remarks: `Auto-created from complaint ${complaint.complaintId}`,
-      createdBy: req.user?.name ?? "Admin",
-    });
-  } else {
-    await updateTaskById(
-      String(existingTask._id),
-      {
-        assignedUserId: String(assignee.assignedUserId),
-        dueDate: deadline ? new Date(deadline) : existingTask.dueDate,
-        status: "Pending",
-      },
-      {
-        id: req.user?.id ?? "",
-        name: req.user?.name ?? "Admin",
-        role: req.user?.role ?? "admin",
-      }
-    );
-  }
-
   res.json({
-    message: "Complaint assigned and task scheduled",
+    message: isReassign || wasTerminal ? "Complaint reassigned and task scheduled" : "Complaint assigned and task scheduled",
     complaint,
   });
 }
@@ -596,7 +651,7 @@ export async function assignComplaintTeam(req: AuthRequest, res: Response) {
     throw new ApiError(400, "Selected team does not exist. Create the team first.");
   }
 
-  const complaint = await Complaint.findById(id);
+  const complaint = await findComplaintByIdOrCid(id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -610,8 +665,15 @@ export async function assignComplaintTeam(req: AuthRequest, res: Response) {
   }
 
   const isReassign = Boolean(complaint.assignedTeam);
-  const wasCompleted = complaint.status === "Completed";
+  const wasTerminal = isTerminalComplaintStatus(complaint.status);
   const previousTeam = complaint.assignedTeam;
+
+  if (wasTerminal || isReassign) {
+    closeActiveComplaintAssignments(
+      complaint,
+      wasTerminal && complaint.status === "Completed" ? "completed" : "reassigned"
+    );
+  }
 
   complaint.assignedTeam = teamDoc.teamName;
   complaint.assignedUserId = undefined;
@@ -619,17 +681,38 @@ export async function assignComplaintTeam(req: AuthRequest, res: Response) {
   complaint.assignedBy = req.user?.name ?? "Admin";
   complaint.assignedDate = new Date();
 
-  if (!wasCompleted && complaint.status !== "In Progress") {
+  if (wasTerminal || complaint.status !== "In Progress") {
+    resetComplaintForNewAssignment(complaint);
+  } else {
     complaint.status = "Assigned";
   }
 
+  const task = await createComplaintAssignmentTask({
+    complaintId: complaint.complaintId,
+    title: complaint.title,
+    description: complaint.description ?? "",
+    priority:
+      complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+    assignedTeamName: teamDoc.teamName,
+    dueDate: new Date(),
+    remarks: `Auto-created from complaint ${complaint.complaintId}`,
+    createdBy: req.user?.name ?? "Admin",
+  });
+
+  recordComplaintAssignment(complaint, {
+    assignedTeam: teamDoc.teamName,
+    assignedUserName: "",
+    assignedBy: req.user?.name ?? "Admin",
+    taskId: task.taskId,
+  });
+
   complaint.history.push(
     buildHistoryEntry(
-      isReassign ? "Team Reassigned" : "Complaint Assigned",
+      isReassign || wasTerminal ? "Team Reassigned" : "Complaint Assigned",
       req.user ?? { name: "Admin", role: "admin", team: teamDoc.teamName },
       {
         status: complaint.status,
-        details: isReassign
+        details: isReassign || wasTerminal
           ? `Reassigned from ${previousTeam ?? "unassigned"} to ${teamDoc.teamName}`
           : `Assigned to ${teamDoc.teamName}`,
       }
@@ -638,25 +721,14 @@ export async function assignComplaintTeam(req: AuthRequest, res: Response) {
 
   await complaint.save();
 
-  const existingTask = await Task.findOne({ complaintId: complaint.complaintId });
-  if (existingTask) {
-    existingTask.assignedTeamName = teamDoc.teamName;
-    existingTask.assignedTeamId = teamDoc._id;
-    if (wasCompleted || isReassign) {
-      existingTask.assignedUserId = undefined;
-      existingTask.assignedUserName = "";
-    }
-    await existingTask.save();
-  }
-
   res.json({
-    message: isReassign ? "Team reassigned successfully" : "Team assigned successfully",
+    message: isReassign || wasTerminal ? "Team reassigned successfully" : "Team assigned successfully",
     complaint,
   });
 }
 
 export async function startComplaint(req: AuthRequest, res: Response) {
-  const complaint = await Complaint.findById(req.params.id);
+  const complaint = await findComplaintByIdOrCid(req.params.id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -678,7 +750,7 @@ export async function startComplaint(req: AuthRequest, res: Response) {
 }
 
 export async function updateComplaint(req: AuthRequest, res: Response) {
-  const complaint = await Complaint.findById(req.params.id);
+  const complaint = await findComplaintByIdOrCid(req.params.id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -701,7 +773,7 @@ export async function updateComplaint(req: AuthRequest, res: Response) {
 }
 
 export async function completeComplaint(req: AuthRequest, res: Response) {
-  const complaint = await Complaint.findById(req.params.id);
+  const complaint = await findComplaintByIdOrCid(req.params.id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -721,6 +793,7 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
   complaint.completedDate = new Date();
   complaint.resolutionDetails = resolutionDetails ?? "";
   complaint.remarks = completionRemarks ?? complaint.remarks;
+  closeActiveComplaintAssignments(complaint, "completed");
   complaint.history.push(buildHistoryEntry("Task Completed", actor, { status: "Completed", remarks: completionRemarks ?? "", details: resolutionDetails ?? "" }));
   await complaint.save();
   await syncComplaintTaskStatus(complaint.complaintId, "Completed");
@@ -729,14 +802,23 @@ export async function completeComplaint(req: AuthRequest, res: Response) {
 }
 
 export async function trackComplaint(req: Request, res: Response) {
-  const complaint = await Complaint.findOne({ complaintId: req.params.complaintId });
+  const complaint = await Complaint.findOne({ complaintId: req.params.complaintId }).lean();
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
 
-  const hasFeedback = await hasFeedbackForComplaint(complaint.complaintId);
+  const [hasFeedback, task] = await Promise.all([
+    hasFeedbackForComplaint(complaint.complaintId),
+    Task.findOne(activeTaskQuery(complaint.complaintId)).sort({ createdAt: -1 }).lean()
+  ]);
 
-  res.json({ complaint, hasFeedback });
+  res.json({
+    complaint: {
+      ...complaint,
+      taskHistory: task?.history ?? []
+    },
+    hasFeedback
+  });
 }
 
 export async function submitFeedback(req: Request, res: Response) {
@@ -754,7 +836,7 @@ export async function submitFeedback(req: Request, res: Response) {
 }
 
 export async function confirmComplaint(req: AuthRequest, res: Response) {
-  const complaint = await Complaint.findById(req.params.id);
+  const complaint = await findComplaintByIdOrCid(req.params.id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -776,7 +858,7 @@ export async function confirmComplaint(req: AuthRequest, res: Response) {
 }
 
 export async function declineComplaint(req: AuthRequest, res: Response) {
-  const complaint = await Complaint.findById(req.params.id);
+  const complaint = await findComplaintByIdOrCid(req.params.id as string);
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -797,4 +879,218 @@ export async function declineComplaint(req: AuthRequest, res: Response) {
   await complaint.save();
 
   res.json({ message: "Complaint declined", complaint });
+}
+
+export async function scheduleRevisit(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { date, timeSlot, team, remarks } = req.body as {
+    date: string;
+    timeSlot: string;
+    team: string;
+    remarks?: string;
+  };
+
+  const complaint = await findComplaintByIdOrCid(id as string);
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+
+  const actor = req.user || { name: "Admin", role: "admin" };
+
+  complaint.status = "Assigned";
+  complaint.siteVisitStatus = "Revisit";
+  complaint.availableDate = date;
+  complaint.timeSlot = timeSlot;
+  complaint.assignedTeam = team;
+  if (remarks) complaint.remarks = remarks;
+
+  complaint.history.push(
+    buildHistoryEntry("Revisit Scheduled", actor, {
+      status: "Assigned",
+      remarks: remarks || "",
+      details: `Revisit scheduled for ${date} at ${timeSlot} with team ${team}`,
+    })
+  );
+
+  await complaint.save();
+
+  const task = await Task.findOne({ complaintId: complaint.complaintId });
+  if (task) {
+    task.status = "Pending";
+    task.dueDate = new Date(date);
+    task.dueDateKey = dateKeyFromValue(task.dueDate);
+    task.assignedTeamName = team;
+    if (remarks) task.remarks = remarks;
+    task.history.push({
+      action: "Revisit Scheduled",
+      by: actor.name,
+      role: actor.role,
+      status: "Pending",
+      remarks: remarks || "",
+      createdAt: new Date(),
+    });
+    await task.save();
+  } else {
+    await createTask({
+      complaintId: complaint.complaintId,
+      title: complaint.title,
+      description: complaint.description,
+      priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+      assignedTeamName: team,
+      dueDate: new Date(date),
+      remarks: remarks || `Revisit for ${complaint.complaintId}`,
+      createdBy: actor.name,
+    });
+  }
+
+  res.json({ message: "Revisit scheduled successfully", complaint });
+}
+
+function buildClientHistoryFilter(q: string) {
+  const phoneDigits = normalizePhoneDigits(q);
+  const orFilters: Record<string, unknown>[] = [
+    { complaintId: { $regex: q, $options: "i" } },
+    { orderId: { $regex: q, $options: "i" } },
+    { clientName: { $regex: q, $options: "i" } },
+  ];
+  if (phoneDigits.length >= 10) {
+    orFilters.push({ mobileNumber: { $regex: phoneDigits } });
+  }
+  return { $or: orFilters };
+}
+
+export async function getClientHistory(req: AuthRequest, res: Response) {
+  const q = String(req.query.q ?? "").trim();
+  const page = Math.max(1, Number(req.query.page ?? "1") || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? "12") || 12));
+
+  if (!q) {
+    throw new ApiError(400, "Search by phone number, complaint ID, or order ID");
+  }
+
+  const filter = buildClientHistoryFilter(q);
+  const skip = (page - 1) * limit;
+
+  const [total, complaints, primary, distinctIds] = await Promise.all([
+    Complaint.countDocuments(filter),
+    Complaint.find(filter)
+      .select(
+        "_id complaintId clientName mobileNumber email orderId createdAt title description priority location assignedTeam assignedUserName status siteVisitStatus"
+      )
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Complaint.findOne(filter).sort({ createdAt: -1 }).lean(),
+    Complaint.distinct("complaintId", filter),
+  ]);
+
+  if (!total || !primary) {
+    throw new ApiError(404, "No client record found for this search");
+  }
+
+  const complaintIds = complaints.map((c) => c.complaintId);
+  const [linkedTasks, materialByComplaint, taskCount, materialCount, paymentCount] =
+    await Promise.all([
+      complaintIds.length
+        ? Task.find({ complaintId: { $in: complaintIds } })
+            .select("complaintId taskId status dueDate dueDateKey")
+            .lean()
+        : Promise.resolve([]),
+      getActiveMaterialRequestsByComplaintIds(complaintIds),
+      Task.countDocuments({ complaintId: { $in: distinctIds } }),
+      MaterialRequest.countDocuments({ complaintId: { $in: distinctIds } }),
+      Payment.countDocuments({ complaintId: { $in: distinctIds } }),
+    ]);
+
+  const taskByComplaintId = new Map(linkedTasks.map((task) => [task.complaintId, task]));
+
+  const summaries = complaints.map((item) => {
+    const task = taskByComplaintId.get(item.complaintId);
+    const materialRequest = materialByComplaint.get(item.complaintId);
+    const workflowStage = resolveWorkflowStage({
+      complaintStatus: item.status,
+      taskStatus: task?.status ?? null,
+      materialRequestStatus: materialRequest?.status ?? null,
+      siteVisitStatus: item.siteVisitStatus ?? null,
+    });
+    return {
+      _id: String(item._id),
+      complaintId: item.complaintId,
+      clientName: item.clientName,
+      createdAt: item.createdAt,
+      complaintType: item.title && item.title !== item.complaintId ? item.title : "General",
+      status: item.status,
+      workflowStage,
+      assignedTeam: item.assignedTeam ?? "",
+      assignedUserName: item.assignedUserName ?? "",
+      priority: item.priority,
+      location: item.location,
+    };
+  });
+
+  res.json({
+    client: {
+      name: primary.clientName,
+      phone: primary.mobileNumber,
+      email: primary.email ?? "",
+      orderId: primary.orderId ?? "",
+    },
+    summary: {
+      totalComplaints: total,
+      totalTasks: taskCount,
+      totalMaterialRequests: materialCount,
+      totalPayments: paymentCount,
+    },
+    complaints: summaries,
+    total,
+    page,
+    limit,
+  });
+}
+
+export async function getClientHistoryComplaintDetail(req: AuthRequest, res: Response) {
+  const complaintId = String(req.params.complaintId ?? "").trim();
+  if (!complaintId) {
+    throw new ApiError(400, "Complaint ID is required");
+  }
+
+  const complaint = await Complaint.findOne({ complaintId }).lean();
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+
+  const [tasks, materialRequests, payments, order, hasFeedback] = await Promise.all([
+    Task.find({ complaintId }).sort({ createdAt: -1 }).lean(),
+    MaterialRequest.find({ complaintId }).sort({ createdAt: -1 }).lean(),
+    Payment.find({ complaintId }).sort({ createdAt: -1 }).lean(),
+    complaint.orderId ? Order.findOne({ orderId: complaint.orderId }).lean() : null,
+    hasFeedbackForComplaint(complaintId),
+  ]);
+
+  const primaryTask =
+    tasks.find((task) => task.isActive !== false) ?? tasks[0];
+  const materialRequest = materialRequests[0];
+  const workflowStage = resolveWorkflowStage({
+    complaintStatus: complaint.status,
+    taskStatus: primaryTask?.status ?? null,
+    materialRequestStatus: materialRequest?.status ?? null,
+    siteVisitStatus: complaint.siteVisitStatus ?? null,
+  });
+
+  res.json({
+    complaint: {
+      ...complaint,
+      workflowStage,
+      taskHistory: primaryTask?.history ?? [],
+      taskScheduleStatus: primaryTask?.status ?? null,
+      taskScheduleDueDate: primaryTask?.dueDateKey ?? primaryTask?.dueDate ?? null,
+      taskId: primaryTask?.taskId ?? null,
+    },
+    tasks,
+    materialRequests,
+    payments,
+    order,
+    hasFeedback,
+  });
 }
