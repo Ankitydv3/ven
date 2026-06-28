@@ -5,8 +5,8 @@ export function Table({ children, className }: { children: React.ReactNode; clas
   return <div className={cn("overflow-hidden rounded-3xl border border-white/12 bg-white/70 dark:bg-app/80", className)}>{children}</div>;
 }
 
-export function TableElement({ children }: { children: React.ReactNode }) {
-  return <table className="min-w-full divide-y divide-slate-200/70 dark:divide-slate-800">{children}</table>;
+export function TableElement({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <table className={cn("min-w-full divide-y divide-slate-200/70 dark:divide-slate-800", className)}>{children}</table>;
 }
 
 export function THead({ children, className }: { children: React.ReactNode; className?: string }) {

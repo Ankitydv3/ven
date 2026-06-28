@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export type MaterialRequestStatus =
   | "PENDING"
@@ -153,7 +154,11 @@ export async function updateMaterialRequestStatus(
   return data;
 }
 
-export const materialStatusBadgeShape = "rounded-none";
+export const materialStatusBadgeShape =
+  "inline-flex w-full max-w-full items-center justify-center rounded-none border text-[9px] font-semibold leading-tight text-center px-1.5 py-1 whitespace-normal break-words sm:text-[10px] sm:px-2 sm:py-1.5";
+
+export const materialPaymentBadgeShape =
+  "inline-flex items-center justify-center rounded-none border text-[9px] font-semibold px-2 py-0.5 sm:text-[10px] sm:px-2.5 sm:py-1";
 
 export const materialStatusBadgeClass: Record<string, string> = {
   PENDING: "bg-amber-500/20 text-amber-400 border-amber-500/30",
@@ -177,9 +182,43 @@ export const materialStatusBadgeClass: Record<string, string> = {
 };
 
 export function getMaterialStatusBadgeClass(status: string) {
-  return `${materialStatusBadgeShape} border text-[10px] font-semibold ${
+  return `${materialStatusBadgeShape} ${
     materialStatusBadgeClass[status] ?? "bg-slate-500/20 text-slate-400 border-slate-500/30"
   }`;
+}
+
+export function getMaterialPaymentBadgeClass(paid: boolean) {
+  return cn(
+    materialPaymentBadgeShape,
+    paid
+      ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+      : "border-amber-500/40 bg-amber-500/20 text-amber-300"
+  );
+}
+
+export type MaterialRequestRemarkLine = {
+  label: string;
+  text: string;
+};
+
+/** Team notes + service head + store manager remarks for display. */
+export function getMaterialRequestRemarkLines(req: MaterialRequest): MaterialRequestRemarkLine[] {
+  const lines: MaterialRequestRemarkLine[] = [];
+  const team = req.remarks?.trim();
+  const serviceHead = req.serviceHeadRemarks?.trim();
+  const store = req.storeManagerRemarks?.trim();
+
+  if (team) lines.push({ label: "Team", text: team });
+  if (serviceHead && serviceHead !== team) lines.push({ label: "Service Head", text: serviceHead });
+  if (store && store !== team && store !== serviceHead) lines.push({ label: "Store", text: store });
+
+  return lines;
+}
+
+export function getMaterialRequestRemarksSummary(req: MaterialRequest): string {
+  const lines = getMaterialRequestRemarkLines(req);
+  if (lines.length === 0) return "";
+  return lines.map((line) => `${line.label}: ${line.text}`).join(" · ");
 }
 
 export const materialStoreActionLabel: Record<string, string> = {

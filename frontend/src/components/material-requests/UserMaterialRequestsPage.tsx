@@ -13,7 +13,6 @@ import {
   useServiceHeadReviewMaterial,
 } from "@/hooks/useMaterialRequests";
 import * as XLSX from "xlsx";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +27,9 @@ import {
 } from "@/components/ui/dialog";
 import { MaterialRequestHistoryModal } from "@/components/shared/material-request-history-modal";
 import {
-  materialStatusBadgeClass,
+  getMaterialPaymentBadgeClass,
+  getMaterialRequestRemarkLines,
+  getMaterialStatusBadgeClass,
   materialStatusLabel,
   isServiceHeadUser,
   isAccountantUser,
@@ -38,6 +39,40 @@ import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
 import { readUser } from "@/lib/storage";
+
+function MaterialRequestRemarks({
+  req,
+  compact = false,
+}: {
+  req: MaterialRequest;
+  compact?: boolean;
+}) {
+  const lines = getMaterialRequestRemarkLines(req);
+
+  if (lines.length === 0) {
+    return <span className="text-[11px] italic text-slate-500">No remarks</span>;
+  }
+
+  if (compact) {
+    return (
+      <p className="line-clamp-2 text-[11px] leading-snug text-slate-200" title={lines.map((l) => `${l.label}: ${l.text}`).join("\n")}>
+        {lines[0].text}
+        {lines.length > 1 ? ` (+${lines.length - 1})` : ""}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {lines.map((line) => (
+        <p key={line.label} className="text-[11px] leading-snug text-slate-200">
+          <span className="font-semibold text-slate-500">{line.label}: </span>
+          {line.text}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 function MaterialRequestActions({
   req,
@@ -429,6 +464,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
       "Requested By",
       "Request Date",
       "Status",
+      "Team Remarks",
       "Service Head Remarks",
       "Store Manager Remarks",
     ];
@@ -442,8 +478,9 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
       req.requestedBy,
       new Date(req.requestDate).toLocaleDateString("en-GB"),
       materialStatusLabel[req.status] || req.status,
-      req.serviceHeadRemarks || "—",
-      req.storeManagerRemarks || "—",
+      req.remarks?.trim() || "—",
+      req.serviceHeadRemarks?.trim() || "—",
+      req.storeManagerRemarks?.trim() || "—",
     ]);
 
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -587,7 +624,13 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           </div>
         </div>
 
-        <div className={cn(panelClass, "overflow-x-auto")}>
+        <div
+          className={cn(
+            isAdminView
+              ? "overflow-hidden rounded-none border border-white/15 bg-[#0a1525] shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)]"
+              : panelClass
+          )}
+        >
           {isLoading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-white/40" />
@@ -601,97 +644,162 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
             </div>
           ) : requests.length === 0 ? (
             <p className="py-16 text-center text-slate-400">No material requests yet</p>
-          ) : (
-            <TableElement>
-              <THead>
-                <TR>
-                  {isAdminView ? (
-                    <>
-                      <TH>Team</TH>
-                      <TH>Customer</TH>
-                      <TH>Customer ID</TH>
-                      <TH>Paid / Unpaid</TH>
-                      <TH>Material Name</TH>
-                      <TH>Quantity</TH>
-                      <TH>Requested By</TH>
-                      <TH>Request Date</TH>
-                      <TH>Status</TH>
-                      <TH>Remarks</TH>
-                      <TH>History</TH>
-                      <TH>Actions</TH>
-                    </>
-                  ) : (
-                    <>
-                      <TH>Image</TH>
-                      <TH>Request ID</TH>
-                      <TH>Customer</TH>
-                      <TH>Customer ID</TH>
-                      <TH>Paid / Unpaid</TH>
-                      <TH>Material Name</TH>
-                      <TH>Quantity</TH>
-                      <TH>Request Date</TH>
-                      <TH>Status</TH>
-                      <TH>Store Manager Remarks</TH>
-                      <TH>History</TH>
-                    </>
-                  )}
-                </TR>
-              </THead>
-              <tbody>
+          ) : isAdminView ? (
+            <>
+              {/* Mobile / tablet — card layout, no horizontal scroll */}
+              <div className="space-y-3 p-3 lg:hidden">
                 {requests.map((req) => (
-                  <TR
+                  <div
                     key={req._id}
-                    className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                    className="cursor-pointer border border-white/10 bg-[#0f1d32]/90 p-4 transition-all hover:border-blue-500/30 hover:bg-[#13243d]"
                     onClick={() => setHistoryTarget(req)}
                   >
-                    {isAdminView ? (
-                      <>
-                        <TD className="font-medium">{req.department || "—"}</TD>
-                        <TD className="text-slate-200">{req.customerName || "—"}</TD>
-                        <TD className="font-mono text-xs text-blue-300">{req.customerId || req.orderId || req.complaintId || "—"}</TD>
-                        <TD>
-                          <Badge
-                            className={cn(
-                              "border text-[10px]",
-                              req.orderPaid
-                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
-                                : "border-amber-500/30 bg-amber-500/15 text-amber-400"
-                            )}
-                          >
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-white/5 pb-3">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-none border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-300">
+                            {req.department || "—"}
+                          </span>
+                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
                             {req.orderPaid ? "Paid" : "Unpaid"}
-                          </Badge>
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold text-white">{req.customerName || "—"}</p>
+                        <p className="font-mono text-[10px] text-blue-300/90">
+                          {req.requestId} · {req.customerId || req.orderId || req.complaintId || "—"}
+                        </p>
+                      </div>
+                      <span className={cn(getMaterialStatusBadgeClass(req.status), "max-w-[9rem] shrink-0")}>
+                        {materialStatusLabel[req.status]}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Material</p>
+                        <p className="font-medium text-slate-100">{req.materialName}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Quantity</p>
+                        <p className="text-slate-200">
+                          {req.quantity} {req.unit}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Requested By</p>
+                        <p className="text-slate-200">{req.requestedBy}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Date</p>
+                        <p className="text-slate-200">{new Date(req.requestDate).toLocaleDateString("en-GB")}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 border-t border-white/5 pt-3">
+                      <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Remarks</p>
+                      <MaterialRequestRemarks req={req} />
+                    </div>
+                    <div
+                      className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 rounded-none border-white/10 text-xs text-slate-300"
+                        onClick={() => setHistoryTarget(req)}
+                      >
+                        <History className="h-3.5 w-3.5" />
+                        History
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-none p-0 text-slate-400 hover:text-white"
+                        onClick={() => setHistoryTarget(req)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <MaterialRequestActions
+                        req={req}
+                        onDone={() => void refetch()}
+                        autoOpen={actionTargetId === req._id}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop — full-width compact table, no horizontal scroll */}
+              <div className="hidden lg:block">
+                <TableElement className="w-full table-fixed">
+                  <THead className="bg-[#121f36]">
+                    <TR className="border-b-2 border-blue-500/20 hover:bg-transparent">
+                      <TH className="w-[6%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Team</TH>
+                      <TH className="w-[14%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Customer</TH>
+                      <TH className="w-[6%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Paid</TH>
+                      <TH className="w-[10%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Material</TH>
+                      <TH className="w-[7%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Qty</TH>
+                      <TH className="w-[8%] px-3 py-2.5 text-[10px] font-bold text-slate-300">By</TH>
+                      <TH className="w-[8%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Date</TH>
+                      <TH className="w-[12%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Status</TH>
+                      <TH className="w-[17%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Remarks</TH>
+                      <TH className="w-[12%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Actions</TH>
+                    </TR>
+                  </THead>
+                  <tbody>
+                    {requests.map((req, index) => (
+                      <TR
+                        key={req._id}
+                        className={cn(
+                          "border-b border-white/[0.06] cursor-pointer transition-colors hover:bg-blue-500/[0.06]",
+                          index % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent"
+                        )}
+                        onClick={() => setHistoryTarget(req)}
+                      >
+                        <TD className="px-3 py-2.5 text-xs font-semibold text-blue-200">{req.department || "—"}</TD>
+                        <TD className="px-3 py-2.5">
+                          <p className="truncate text-xs font-medium text-white">{req.customerName || "—"}</p>
+                          <p className="truncate font-mono text-[10px] text-blue-300/80">{req.requestId}</p>
+                          <p className="truncate font-mono text-[10px] text-slate-500">
+                            {req.customerId || req.orderId || req.complaintId || "—"}
+                          </p>
                         </TD>
-                        <TD>{req.materialName}</TD>
-                        <TD>
+                        <TD className="px-3 py-2.5 align-middle">
+                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
+                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          </span>
+                        </TD>
+                        <TD className="px-3 py-2.5 text-xs font-medium text-slate-100 break-words">{req.materialName}</TD>
+                        <TD className="px-3 py-2.5 text-xs text-slate-200 break-words">
                           {req.quantity} {req.unit}
                         </TD>
-                        <TD>{req.requestedBy}</TD>
-                        <TD>{new Date(req.requestDate).toLocaleDateString("en-GB")}</TD>
-                        <TD>
-                          <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
+                        <TD className="px-3 py-2.5 text-xs text-slate-200 break-words">{req.requestedBy}</TD>
+                        <TD className="px-3 py-2.5 text-[11px] text-slate-400">
+                          {new Date(req.requestDate).toLocaleDateString("en-GB")}
+                        </TD>
+                        <TD className="px-3 py-2.5 align-middle">
+                          <span className={getMaterialStatusBadgeClass(req.status)}>
                             {materialStatusLabel[req.status]}
-                          </Badge>
+                          </span>
                         </TD>
-                        <TD className="text-slate-400">
-                          {req.serviceHeadRemarks || req.storeManagerRemarks || "—"}
+                        <TD className="px-3 py-2.5 align-top">
+                          <MaterialRequestRemarks req={req} compact />
                         </TD>
-                        <TD onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 gap-1 rounded-lg border-white/10 text-xs text-slate-300"
-                            onClick={() => setHistoryTarget(req)}
-                          >
-                            <History className="h-3.5 w-3.5" />
-                            History
-                          </Button>
-                        </TD>
-                        <TD>
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <TD className="px-3 py-2.5 align-middle">
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                              title="History"
+                              className="h-7 w-7 rounded-none p-0 text-slate-400 hover:text-white"
+                              onClick={() => setHistoryTarget(req)}
+                            >
+                              <History className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="View"
+                              className="h-7 w-7 rounded-none p-0 text-slate-400 hover:text-white"
                               onClick={() => setHistoryTarget(req)}
                             >
                               <Eye className="h-4 w-4" />
@@ -703,85 +811,115 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             />
                           </div>
                         </TD>
-                      </>
-                    ) : (
-                      <>
-                        <TD>
+                      </TR>
+                    ))}
+                  </tbody>
+                </TableElement>
+              </div>
+            </>
+          ) : (
+            <div className="overflow-x-auto lg:overflow-x-visible">
+              <TableElement className="w-full table-fixed">
+                <THead>
+                  <TR>
+                    <TH className="px-2 py-2 text-[10px]">Image</TH>
+                    <TH className="px-2 py-2 text-[10px]">Request ID</TH>
+                    <TH className="px-2 py-2 text-[10px]">Customer</TH>
+                    <TH className="hidden px-2 py-2 text-[10px] sm:table-cell">Customer ID</TH>
+                    <TH className="px-2 py-2 text-[10px]">Paid</TH>
+                    <TH className="px-2 py-2 text-[10px]">Material</TH>
+                    <TH className="px-2 py-2 text-[10px]">Qty</TH>
+                    <TH className="hidden px-2 py-2 text-[10px] md:table-cell">Date</TH>
+                    <TH className="px-2 py-2 text-[10px]">Status</TH>
+                    <TH className="hidden px-2 py-2 text-[10px] lg:table-cell">Remarks</TH>
+                    <TH className="px-2 py-2 text-[10px]">Actions</TH>
+                  </TR>
+                </THead>
+                <tbody>
+                  {requests.map((req) => (
+                    <TR
+                      key={req._id}
+                      className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                      onClick={() => setHistoryTarget(req)}
+                    >
+                        <TD className="px-2 py-2">
                           {req.imageUrl ? (
                             <img
                               src={req.imageUrl}
                               alt={req.materialName}
-                              className="h-12 w-12 rounded-lg border border-white/10 object-cover"
+                              className="h-10 w-10 rounded-none border border-white/10 object-cover sm:h-12 sm:w-12"
                             />
                           ) : (
                             <span className="text-xs text-slate-500">—</span>
                           )}
                         </TD>
-                        <TD className="font-mono text-sm">
+                        <TD className="px-2 py-2 font-mono text-xs">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setHistoryTarget(req);
                             }}
-                            className="hover:underline text-blue-400"
+                            className="text-blue-400 hover:underline"
                           >
                             {req.requestId}
                           </button>
                         </TD>
-                        <TD className="text-slate-200">{req.customerName || "—"}</TD>
-                        <TD className="font-mono text-xs text-blue-300">{req.customerId || req.orderId || req.complaintId || "—"}</TD>
-                        <TD>
-                          <Badge
-                            className={cn(
-                              "border text-[10px]",
-                              req.orderPaid
-                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
-                                : "border-amber-500/30 bg-amber-500/15 text-amber-400"
-                            )}
-                          >
-                            {req.orderPaid ? "Paid" : "Unpaid"}
-                          </Badge>
+                        <TD className="px-2 py-2 text-xs text-slate-200">
+                          <p className="truncate">{req.customerName || "—"}</p>
+                          <p className="font-mono text-[10px] text-blue-300 sm:hidden">
+                            {req.customerId || req.orderId || req.complaintId || "—"}
+                          </p>
                         </TD>
-                        <TD>{req.materialName}</TD>
-                        <TD>
+                        <TD className="hidden px-2 py-2 font-mono text-[10px] text-blue-300 sm:table-cell">
+                          {req.customerId || req.orderId || req.complaintId || "—"}
+                        </TD>
+                        <TD className="px-2 py-2">
+                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
+                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          </span>
+                        </TD>
+                        <TD className="px-2 py-2 text-xs text-slate-100 break-words">{req.materialName}</TD>
+                        <TD className="px-2 py-2 text-xs text-slate-200">
                           {req.quantity} {req.unit}
                         </TD>
-                        <TD>{new Date(req.requestDate).toLocaleDateString("en-GB")}</TD>
-                        <TD>
-                          <Badge className={cn("border", materialStatusBadgeClass[req.status])}>
+                        <TD className="hidden px-2 py-2 text-[11px] text-slate-300 md:table-cell">
+                          {new Date(req.requestDate).toLocaleDateString("en-GB")}
+                        </TD>
+                        <TD className="px-2 py-2 align-middle">
+                          <span className={getMaterialStatusBadgeClass(req.status)}>
                             {materialStatusLabel[req.status]}
-                          </Badge>
+                          </span>
                         </TD>
-                        <TD className="text-slate-400">
-                          <span className="truncate max-w-[150px]">{req.storeManagerRemarks || "—"}</span>
+                        <TD className="hidden px-2 py-2 text-xs lg:table-cell">
+                          <MaterialRequestRemarks req={req} compact />
                         </TD>
-                        <TD onClick={(e) => e.stopPropagation()}>
+                        <TD className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 rounded-lg border-white/10 text-xs text-slate-300"
+                              variant="ghost"
+                              title="History"
+                              className="h-7 w-7 rounded-none p-0 text-slate-400 hover:text-white"
                               onClick={() => setHistoryTarget(req)}
                             >
                               <History className="h-3.5 w-3.5" />
-                              History
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                              title="View"
+                              className="h-7 w-7 rounded-none p-0 text-slate-400 hover:text-white shrink-0"
                               onClick={() => setHistoryTarget(req)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         </TD>
-                      </>
-                    )}
-                  </TR>
-                ))}
-              </tbody>
-            </TableElement>
+                    </TR>
+                  ))}
+                </tbody>
+              </TableElement>
+            </div>
           )}
         </div>
       </div>
