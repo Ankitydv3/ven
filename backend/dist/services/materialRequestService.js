@@ -910,6 +910,9 @@ function resolvePendingScope(user) {
     if (user.role === "sub_admin" && user.subAdminType === "plant_head") {
         return { role: "service_head", statuses: [...SERVICE_HEAD_PENDING_STATUSES], filter: {} };
     }
+    if (user.role === "sub_admin") {
+        return { role: "admin", statuses: [], filter: { requestId: "__none__" } };
+    }
     if (user.role === "super_admin" || user.role === "admin") {
         return { role: "admin", statuses: [...ADMIN_PENDING_STATUSES], filter: {} };
     }

@@ -29,7 +29,10 @@ function isTerminalComplaintStatus(status) {
     return exports.TERMINAL_COMPLAINT_STATUSES.includes(status);
 }
 async function supersedeComplaintTasks(complaintId) {
-    await Task_1.default.updateMany({ complaintId }, { $set: { isActive: false } });
+    await Task_1.default.updateMany({
+        complaintId,
+        ...activeTaskQuery(),
+    }, { $set: { isActive: false } });
 }
 function activeTaskQuery(complaintId) {
     const base = {

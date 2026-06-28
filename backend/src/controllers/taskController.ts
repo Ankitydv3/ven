@@ -16,7 +16,7 @@ import {
 import Task from "../models/Task";
 import { canUpdateScheduleProgress } from "../utils/permissions";
 import { dashboardTaskScopeFilter } from "../utils/dashboardScope";
-import { isAdminRole, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
+import { taskVisibilityFilter } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
 import { submitTaskFeedbackByMongoId } from "../services/feedbackService";
 
@@ -30,6 +30,7 @@ function parseListQuery(query: Record<string, string | undefined>) {
     startDate: query.startDate,
     endDate: query.endDate,
     upcoming: query.upcoming === "true",
+    activeWork: query.activeWork === "true",
     page: Number(query.page ?? "1") || 1,
     limit: Number(query.limit ?? "10") || 10,
     sortBy: query.sortBy ?? "dueDate",
@@ -91,12 +92,9 @@ export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
   if (!existing) {
     throw new ApiError(404, "Task not found");
   }
-  await assertTaskAccess(req.user, existing);
+  await assertTaskAccess(req.user, existing, { forMutation: true });
 
-  const isTeamUser = canUpdateScheduleProgress(req.user?.role);
-  const isAdmin = isAdminRole(req.user?.role);
-
-  if (!isTeamUser && !isAdmin) {
+  if (!canUpdateScheduleProgress(req.user?.role)) {
     throw new ApiError(403, "You do not have permission to update task status");
   }
 

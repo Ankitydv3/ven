@@ -67,7 +67,6 @@ const teamScope_1 = require("../utils/teamScope");
 const userService = __importStar(require("../services/userService"));
 const teamService_1 = require("../services/teamService");
 const orderService_1 = require("../services/orderService");
-const dateKey_1 = require("../utils/dateKey");
 const complaintAssignmentService_1 = require("../services/complaintAssignmentService");
 const OPEN_COMPLAINT_STATUSES = [
     "Pending Review",
@@ -311,7 +310,7 @@ async function createComplaint(req, res) {
         ],
     });
     if (assignedTeam) {
-        await (0, taskService_1.createTask)({
+        await (0, taskService_1.createComplaintAssignmentTask)({
             complaintId: complaint.complaintId,
             title: complaint.title,
             description: complaint.description ?? "",
@@ -397,25 +396,6 @@ async function listComplaints(req, res) {
     }
     if (req.user && (0, teamScope_1.isTeamRole)(req.user.role)) {
         const teamFilter = (0, teamScope_1.complaintTeamFilter)(req.user);
-        const taskScope = (0, teamScope_1.taskVisibilityFilter)(req.user);
-        let taskComplaintIds = [];
-        if (Object.keys(taskScope).length > 0) {
-            taskComplaintIds = await Task_1.default.find({
-                ...taskScope,
-                ...(0, complaintAssignmentService_1.activeTaskQuery)(),
-            }).distinct("complaintId");
-        }
-        const accessOr = [];
-        if (Array.isArray(teamFilter.$or)) {
-            accessOr.push(...teamFilter.$or);
-        }
-        else if (Object.keys(teamFilter).length > 0) {
-            accessOr.push(teamFilter);
-        }
-        if (taskComplaintIds.length > 0) {
-            accessOr.push({ complaintId: { $in: taskComplaintIds } });
-        }
-        const teamAccess = accessOr.length > 0 ? { $or: accessOr } : { assignedTeam: "__none__" };
         const statusFilter = displayStatus && displayStatus !== "All"
             ? await (async () => {
                 const clause = {};
@@ -433,7 +413,10 @@ async function listComplaints(req, res) {
                 : isActiveAssignedScope
                     ? activeStatusFilter
                     : activeStatusFilter;
-        const andClauses = [statusFilter, teamAccess];
+        const andClauses = [
+            statusFilter,
+            Object.keys(teamFilter).length > 0 ? teamFilter : { assignedTeam: "__none__" },
+        ];
         if (q) {
             andClauses.push({
                 $or: [
@@ -494,7 +477,7 @@ async function listComplaints(req, res) {
     res.json({ items: enrichedItems, total, page: Number(page), limit: Number(limit) });
 }
 function canAccessComplaint(user, complaint) {
-    if (complaint.assignedUserId && String(complaint.assignedUserId) === user.id) {
+    if (user.role && (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin")) {
         return true;
     }
     const team = user.team ?? user.teamName;
@@ -772,11 +755,20 @@ async function scheduleRevisit(req, res) {
         throw new ApiError_1.ApiError(404, "Complaint not found");
     }
     const actor = req.user || { name: "Admin", role: "admin" };
+    const previousTeam = complaint.assignedTeam;
+    const teamChanged = Boolean(previousTeam && previousTeam !== team);
+    if (complaint.assignedTeam || complaint.assignedUserId) {
+        (0, complaintAssignmentService_1.closeActiveComplaintAssignments)(complaint, "reassigned");
+    }
     complaint.status = "Assigned";
     complaint.siteVisitStatus = "Revisit";
     complaint.availableDate = date;
     complaint.timeSlot = timeSlot;
     complaint.assignedTeam = team;
+    if (teamChanged) {
+        complaint.assignedUserId = undefined;
+        complaint.assignedUserName = "";
+    }
     if (remarks)
         complaint.remarks = remarks;
     complaint.history.push(buildHistoryEntry("Revisit Scheduled", actor, {
@@ -784,37 +776,25 @@ async function scheduleRevisit(req, res) {
         remarks: remarks || "",
         details: `Revisit scheduled for ${date} at ${timeSlot} with team ${team}`,
     }));
+    const task = await (0, taskService_1.createComplaintAssignmentTask)({
+        complaintId: complaint.complaintId,
+        title: complaint.title,
+        description: complaint.description,
+        priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+        assignedUserId: complaint.assignedUserId ? String(complaint.assignedUserId) : undefined,
+        assignedTeamName: team,
+        dueDate: new Date(date),
+        remarks: remarks || `Revisit for ${complaint.complaintId}`,
+        createdBy: actor.name,
+    });
+    (0, complaintAssignmentService_1.recordComplaintAssignment)(complaint, {
+        assignedTeam: team,
+        assignedUserId: complaint.assignedUserId ?? undefined,
+        assignedUserName: complaint.assignedUserName ?? "",
+        assignedBy: actor.name,
+        taskId: task.taskId,
+    });
     await complaint.save();
-    const task = await Task_1.default.findOne({ complaintId: complaint.complaintId });
-    if (task) {
-        task.status = "Pending";
-        task.dueDate = new Date(date);
-        task.dueDateKey = (0, dateKey_1.dateKeyFromValue)(task.dueDate);
-        task.assignedTeamName = team;
-        if (remarks)
-            task.remarks = remarks;
-        task.history.push({
-            action: "Revisit Scheduled",
-            by: actor.name,
-            role: actor.role,
-            status: "Pending",
-            remarks: remarks || "",
-            createdAt: new Date(),
-        });
-        await task.save();
-    }
-    else {
-        await (0, taskService_1.createTask)({
-            complaintId: complaint.complaintId,
-            title: complaint.title,
-            description: complaint.description,
-            priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
-            assignedTeamName: team,
-            dueDate: new Date(date),
-            remarks: remarks || `Revisit for ${complaint.complaintId}`,
-            createdBy: actor.name,
-        });
-    }
     res.json({ message: "Revisit scheduled successfully", complaint });
 }
 function buildClientHistoryFilter(q) {

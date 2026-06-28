@@ -1208,6 +1208,10 @@ function resolvePendingScope(user: { role: string; subAdminType?: string; id?: s
     return { role: "service_head" as const, statuses: [...SERVICE_HEAD_PENDING_STATUSES], filter: {} };
   }
 
+  if (user.role === "sub_admin") {
+    return { role: "admin" as const, statuses: [], filter: { requestId: "__none__" } };
+  }
+
   if (user.role === "super_admin" || user.role === "admin") {
     return { role: "admin" as const, statuses: [...ADMIN_PENDING_STATUSES], filter: {} };
   }

@@ -62,8 +62,9 @@ export function resolveReportsScope(user?: JwtUser, queryTeam?: string) {
     return { team: team ?? queryTeam };
   }
 
-  if (isTeamMember(user.role)) {
-    return { assignedUserId: user.id };
+  if (isTeamMember(user.role) || isTeamLead(user.role)) {
+    const team = user.teamName ?? user.team;
+    return { team: team ?? queryTeam };
   }
 
   return { team: queryTeam };

@@ -22,24 +22,10 @@ function userObjectId(userId) {
         return userId;
     return new mongoose_1.Types.ObjectId(userId);
 }
-/** Complaint / order filter for team users */
+/** Complaint / order filter for team users — strict team isolation. */
 function complaintTeamFilter(user) {
     if (user?.role === "team" || user?.role === "team_lead") {
         const team = resolveTeamUserTeam(user);
-        if (user.id) {
-            const assigneeId = userObjectId(user.id);
-            const legacyTeamFilter = team
-                ? {
-                    $and: [
-                        { $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }] },
-                        { assignedTeam: team },
-                    ],
-                }
-                : { assignedUserId: "__unassigned_user__" };
-            return {
-                $or: [{ assignedUserId: assigneeId }, legacyTeamFilter],
-            };
-        }
         if (team) {
             return { assignedTeam: team };
         }
@@ -89,16 +75,13 @@ function isAccountant(user) {
         return true;
     return user.role === "sub_admin" && user.subAdminType === "accountant";
 }
-/** Task visibility filter — team members see own tasks; team leads see team tasks. */
+/** Task visibility filter — team users only see tasks assigned to their team. */
 function taskVisibilityFilter(user) {
     if (!user || isAdminRole(user.role))
         return {};
-    if (user.role === "team_lead") {
+    if (user.role === "team_lead" || user.role === "team") {
         const team = resolveTeamUserTeam(user);
         return team ? { assignedTeamName: team } : { assignedTeamName: "__none__" };
-    }
-    if (user.role === "team") {
-        return user.id ? { assignedUserId: userObjectId(user.id) } : { assignedUserId: "__none__" };
     }
     return {};
 }

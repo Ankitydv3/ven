@@ -23,7 +23,10 @@ export function isTerminalComplaintStatus(status?: string | null) {
 
 export async function supersedeComplaintTasks(complaintId: string) {
   await Task.updateMany(
-    { complaintId },
+    {
+      complaintId,
+      ...activeTaskQuery(),
+    },
     { $set: { isActive: false } }
   );
 }

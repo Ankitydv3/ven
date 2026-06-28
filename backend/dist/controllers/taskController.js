@@ -26,6 +26,7 @@ function parseListQuery(query) {
         startDate: query.startDate,
         endDate: query.endDate,
         upcoming: query.upcoming === "true",
+        activeWork: query.activeWork === "true",
         page: Number(query.page ?? "1") || 1,
         limit: Number(query.limit ?? "10") || 10,
         sortBy: query.sortBy ?? "dueDate",
@@ -79,10 +80,8 @@ async function patchTaskStatusHandler(req, res) {
     if (!existing) {
         throw new ApiError_1.ApiError(404, "Task not found");
     }
-    await (0, taskService_1.assertTaskAccess)(req.user, existing);
-    const isTeamUser = (0, permissions_1.canUpdateScheduleProgress)(req.user?.role);
-    const isAdmin = (0, teamScope_1.isAdminRole)(req.user?.role);
-    if (!isTeamUser && !isAdmin) {
+    await (0, taskService_1.assertTaskAccess)(req.user, existing, { forMutation: true });
+    if (!(0, permissions_1.canUpdateScheduleProgress)(req.user?.role)) {
         throw new ApiError_1.ApiError(403, "You do not have permission to update task status");
     }
     const task = await (0, taskService_1.patchTaskStatusById)(req.params.id, req.body.status, {

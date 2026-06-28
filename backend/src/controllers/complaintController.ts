@@ -1,6 +1,6 @@
 import Task from "../models/Task";
 import Order from "../models/Order";
-import { createTask, createComplaintAssignmentTask, syncComplaintTaskStatus } from "../services/taskService";
+import { createComplaintAssignmentTask, syncComplaintTaskStatus } from "../services/taskService";
 import { hasFeedbackForComplaint, submitComplaintFeedback } from "../services/feedbackService";
 import { getActiveMaterialRequestsByComplaintIds } from "../services/materialRequestService";
 import MaterialRequest from "../models/MaterialRequest";
@@ -11,7 +11,7 @@ import Complaint from "../models/Complaint";
 import { generateComplaintId } from "../utils/complaintId";
 import { ApiError } from "../utils/ApiError";
 import type { AuthRequest } from "../middleware/auth";
-import { complaintTeamFilter, isTeamRole, taskVisibilityFilter } from "../utils/teamScope";
+import { complaintTeamFilter, isTeamRole } from "../utils/teamScope";
 import * as userService from "../services/userService";
 import { resolveTeamByName } from "../services/teamService";
 import { lookupOrdersByPhone, lookupOrdersByOrderId } from "../services/orderService";
@@ -303,7 +303,7 @@ const complaint = await Complaint.create({
 });
 
 if (assignedTeam) {
-  await createTask({
+  await createComplaintAssignmentTask({
     complaintId: complaint.complaintId,
     title: complaint.title,
     description: complaint.description ?? "",
@@ -410,28 +410,6 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 
   if (req.user && isTeamRole(req.user.role)) {
     const teamFilter = complaintTeamFilter(req.user);
-    const taskScope = taskVisibilityFilter(req.user);
-    let taskComplaintIds: string[] = [];
-
-    if (Object.keys(taskScope).length > 0) {
-      taskComplaintIds = await Task.find({
-        ...taskScope,
-        ...activeTaskQuery(),
-      }).distinct("complaintId");
-    }
-
-    const accessOr: Record<string, unknown>[] = [];
-    if (Array.isArray(teamFilter.$or)) {
-      accessOr.push(...(teamFilter.$or as Record<string, unknown>[]));
-    } else if (Object.keys(teamFilter).length > 0) {
-      accessOr.push(teamFilter);
-    }
-    if (taskComplaintIds.length > 0) {
-      accessOr.push({ complaintId: { $in: taskComplaintIds } });
-    }
-
-    const teamAccess =
-      accessOr.length > 0 ? { $or: accessOr } : { assignedTeam: "__none__" };
 
     const statusFilter =
       displayStatus && displayStatus !== "All"
@@ -452,7 +430,10 @@ export async function listComplaints(req: AuthRequest, res: Response) {
             ? activeStatusFilter
             : activeStatusFilter;
 
-    const andClauses: Record<string, unknown>[] = [statusFilter, teamAccess];
+    const andClauses: Record<string, unknown>[] = [
+      statusFilter,
+      Object.keys(teamFilter).length > 0 ? teamFilter : { assignedTeam: "__none__" },
+    ];
 
     if (q) {
       andClauses.push({
@@ -523,10 +504,10 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 }
 
 function canAccessComplaint(
-  user: { id: string; team?: string; teamName?: string },
+  user: { id: string; team?: string; teamName?: string; role?: string },
   complaint: { assignedUserId?: { toString(): string } | string | null; assignedTeam?: string | null }
 ) {
-  if (complaint.assignedUserId && String(complaint.assignedUserId) === user.id) {
+  if (user.role && (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin")) {
     return true;
   }
 
@@ -896,12 +877,22 @@ export async function scheduleRevisit(req: AuthRequest, res: Response) {
   }
 
   const actor = req.user || { name: "Admin", role: "admin" };
+  const previousTeam = complaint.assignedTeam;
+  const teamChanged = Boolean(previousTeam && previousTeam !== team);
+
+  if (complaint.assignedTeam || complaint.assignedUserId) {
+    closeActiveComplaintAssignments(complaint, "reassigned");
+  }
 
   complaint.status = "Assigned";
   complaint.siteVisitStatus = "Revisit";
   complaint.availableDate = date;
   complaint.timeSlot = timeSlot;
   complaint.assignedTeam = team;
+  if (teamChanged) {
+    complaint.assignedUserId = undefined;
+    complaint.assignedUserName = "";
+  }
   if (remarks) complaint.remarks = remarks;
 
   complaint.history.push(
@@ -912,36 +903,27 @@ export async function scheduleRevisit(req: AuthRequest, res: Response) {
     })
   );
 
-  await complaint.save();
+  const task = await createComplaintAssignmentTask({
+    complaintId: complaint.complaintId,
+    title: complaint.title,
+    description: complaint.description,
+    priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
+    assignedUserId: complaint.assignedUserId ? String(complaint.assignedUserId) : undefined,
+    assignedTeamName: team,
+    dueDate: new Date(date),
+    remarks: remarks || `Revisit for ${complaint.complaintId}`,
+    createdBy: actor.name,
+  });
 
-  const task = await Task.findOne({ complaintId: complaint.complaintId });
-  if (task) {
-    task.status = "Pending";
-    task.dueDate = new Date(date);
-    task.dueDateKey = dateKeyFromValue(task.dueDate);
-    task.assignedTeamName = team;
-    if (remarks) task.remarks = remarks;
-    task.history.push({
-      action: "Revisit Scheduled",
-      by: actor.name,
-      role: actor.role,
-      status: "Pending",
-      remarks: remarks || "",
-      createdAt: new Date(),
-    });
-    await task.save();
-  } else {
-    await createTask({
-      complaintId: complaint.complaintId,
-      title: complaint.title,
-      description: complaint.description,
-      priority: complaint.priority === "High" ? "High" : complaint.priority === "Low" ? "Low" : "Medium",
-      assignedTeamName: team,
-      dueDate: new Date(date),
-      remarks: remarks || `Revisit for ${complaint.complaintId}`,
-      createdBy: actor.name,
-    });
-  }
+  recordComplaintAssignment(complaint, {
+    assignedTeam: team,
+    assignedUserId: complaint.assignedUserId ?? undefined,
+    assignedUserName: complaint.assignedUserName ?? "",
+    assignedBy: actor.name,
+    taskId: task.taskId,
+  });
+
+  await complaint.save();
 
   res.json({ message: "Revisit scheduled successfully", complaint });
 }

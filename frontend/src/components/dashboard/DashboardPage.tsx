@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   getComplaintDetailsPath,
+  getMyTasksPath,
   navigateToComplaint,
   navigateToMaterialRequest,
   navigateToTask,
@@ -576,7 +577,7 @@ import type { Task } from "@/lib/task.types";
   function CategoriesBar({ data, onBarClick }: { data: DashboardPageData["categories"]; onBarClick?: (name: string) => void }) {
     const barColors = ["#85B7EB","#A855F7","#3B82F6","#F97316","#22C55E"];
 
-    const enriched = data.map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
+    const enriched = (data ?? []).map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
 
     return (
       <GlassCard className="p-5 lg:p-6">
@@ -642,7 +643,7 @@ import type { Task } from "@/lib/task.types";
     onItemClick?: (name: string, view: "unresolved" | "resolved") => void;
   }) {
     const [view, setView] = useState<"unresolved" | "resolved">("unresolved");
-    const data = view === "unresolved" ? unresolved : resolved;
+    const data = view === "unresolved" ? (unresolved ?? []) : (resolved ?? []);
     const total = data.reduce((s, i) => s + i.value, 0);
 
     return (
@@ -860,10 +861,12 @@ import type { Task } from "@/lib/task.types";
     const router = useRouter();
     const user = readUser();
     const isFullAdmin = user?.role === "admin" || user?.role === "super_admin";
+    const isSubAdmin = user?.role === "sub_admin";
     const isStoreManager = user?.role === "store_manager" || role === "store";
-    const isUnifiedDashboard = isFullAdmin || user?.role === "sub_admin" || isStoreManager;
-    const showMaterialTasks = isUnifiedDashboard || data.pendingActions.length > 0;
-    const showRecentComplaints = isFullAdmin;
+    const isUnifiedDashboard = isFullAdmin || isSubAdmin || isStoreManager;
+    const showSiteVisits = !isSubAdmin;
+    const showMaterialTasks = isUnifiedDashboard || (data.pendingActions?.length ?? 0) > 0;
+    const showRecentComplaints = isFullAdmin || role === "team";
 
     const handleOpenMaterialRequest = (item: DashboardPendingAction) => {
       navigateToMaterialRequest(router, role, { _id: item._id, requestId: item.requestId }, { action: "review" });
@@ -891,13 +894,14 @@ import type { Task } from "@/lib/task.types";
     };
 
     return (
-      <div className="grid gap-6 xl:grid-cols-2">
-        {/* Site Visits */}
+      <div className={cn("grid gap-6", showSiteVisits ? "xl:grid-cols-2" : "grid-cols-1")}>
+        {/* Site Visits — hidden for sub-admin (only their approval queue below) */}
+        {showSiteVisits && (
         <GlassCard className="p-5 lg:p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
-                Today's Schedule
+                Today&apos;s Schedule
               </p>
               <h3 className="text-lg font-bold text-white">Site Visits</h3>
             </div>
@@ -905,7 +909,7 @@ import type { Task } from "@/lib/task.types";
               className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
               style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
             >
-              {data.todaysSiteVisits.length} Tasks
+              {data.todaysSiteVisits?.length ?? 0} Tasks
             </span>
           </div>
           <div className="overflow-x-auto custom-scrollbar">
@@ -921,14 +925,14 @@ import type { Task } from "@/lib/task.types";
                   </tr>
                 </THead>
                 <tbody className="divide-y divide-white/[0.02]">
-                  {data.todaysSiteVisits.length === 0 ? (
+                  {(data.todaysSiteVisits?.length ?? 0) === 0 ? (
                     <TR>
                       <TD colSpan={5} className="py-12 text-center text-slate-500 text-sm italic">
                         No site visits scheduled today.
                       </TD>
                     </TR>
                   ) : (
-                    data.todaysSiteVisits.map((visit: Task) => (
+                    (data.todaysSiteVisits ?? []).map((visit: Task) => (
                       <TR
                         key={visit._id}
                         className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
@@ -936,7 +940,13 @@ import type { Task } from "@/lib/task.types";
                       >
                         <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">
                           <Link
-                            href={visit.complaintId ? getComplaintDetailsPath(role, visit.complaintId) : `${role === "admin" ? "/admin" : "/team"}/schedule?q=${visit.taskId}`}
+                            href={
+                              role === "team"
+                                ? getMyTasksPath(role, visit)
+                                : visit.complaintId
+                                  ? getComplaintDetailsPath(role, visit.complaintId)
+                                  : `${role === "admin" ? "/admin" : "/team"}/schedule?q=${visit.taskId}`
+                            }
                             onClick={(e) => e.stopPropagation()}
                             className="hover:underline hover:text-blue-300 transition-colors"
                           >
@@ -979,6 +989,7 @@ import type { Task } from "@/lib/task.types";
             </Table>
           </div>
         </GlassCard>
+        )}
 
         {/* Tasks to do / Recent complaints */}
         <GlassCard className="p-5 lg:p-6 shadow-xl">
@@ -989,13 +1000,19 @@ import type { Task } from "@/lib/task.types";
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
                     Action Required
                   </p>
-                  <h3 className="text-lg font-bold text-white">Tasks to Do</h3>
+                  <h3 className="text-lg font-bold text-white">
+                    {isSubAdmin && user?.subAdminType === "accountant"
+                      ? "Payment & Material Tasks"
+                      : isSubAdmin
+                        ? "Material & Service Tasks"
+                        : "Tasks to Do"}
+                  </h3>
                 </div>
                 <span
                   className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                   style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
                 >
-                  {data.pendingActions.length} Pending
+                  {data.pendingActions?.length ?? 0} Pending
                 </span>
               </div>
               <div className="overflow-x-auto custom-scrollbar">
@@ -1011,14 +1028,14 @@ import type { Task } from "@/lib/task.types";
                       </tr>
                     </THead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {data.pendingActions.length === 0 ? (
+                      {(data.pendingActions?.length ?? 0) === 0 ? (
                         <TR>
                           <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm italic">
                             No material requests waiting for your action.
                           </TD>
                         </TR>
                       ) : (
-                        data.pendingActions.map((item) => (
+                        (data.pendingActions ?? []).map((item) => (
                           <TR
                             key={item._id}
                             className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
@@ -1082,7 +1099,7 @@ import type { Task } from "@/lib/task.types";
                   className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                   style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
                 >
-                  {data.recentComplaints.length} Entries
+                  {data.recentComplaints?.length ?? 0} Entries
                 </span>
               </div>
               <div className="overflow-x-auto custom-scrollbar">
@@ -1099,14 +1116,14 @@ import type { Task } from "@/lib/task.types";
                       </tr>
                     </THead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {data.recentComplaints.length === 0 ? (
+                      {(data.recentComplaints?.length ?? 0) === 0 ? (
                         <TR>
                           <TD colSpan={6} className="py-12 text-center text-slate-500 text-sm italic">
                             No recent complaints found.
                           </TD>
                         </TR>
                       ) : (
-                        data.recentComplaints.map((c) => (
+                        (data.recentComplaints ?? []).map((c) => (
                           <TR
                             key={c._id ?? c.complaintId}
                             className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
@@ -1158,7 +1175,7 @@ import type { Task } from "@/lib/task.types";
                                   </Button>
                                   {role === "team" && c.status === "Assigned" && (
                                     <button
-                                      onClick={() => handleStartComplaint(c._id!)}
+                                      onClick={() => handleStartComplaint(c.complaintId)}
                                       className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
                                     >
                                       <Play className="h-3 w-3" />
@@ -1188,10 +1205,15 @@ import type { Task } from "@/lib/task.types";
     const { ready } = useSession(role);
     const user = readUser();
     const isFullAdmin = user?.role === "admin" || user?.role === "super_admin";
+    const isSubAdmin = user?.role === "sub_admin";
     const isStoreManager = user?.role === "store_manager" || role === "store";
-    const activitySubtitle = isFullAdmin
+    const activitySubtitle = isSubAdmin
+      ? user?.subAdminType === "accountant"
+        ? "Payment verifications and material requests waiting for your action"
+        : "Material requests and service approvals waiting for your action"
+      : isFullAdmin
       ? "Today's site visits, pending material requests, and latest complaints"
-      : user?.role === "sub_admin" || isStoreManager
+      : isStoreManager
         ? "Material requests waiting for your action"
         : "Today's site visits and the latest complaints";
 
@@ -1201,11 +1223,12 @@ import type { Task } from "@/lib/task.types";
         <SummaryTables data={data} role={role} />
       </motion.div>
     );
-    const { data, isLoading, refetch, isFetching } = useQuery({
-      queryKey: ["dashboard"],
-      queryFn: fetchDashboardPage,
+    const { data, isLoading, refetch, isFetching, isError, error } = useQuery({
+      queryKey: ["dashboard", role, user?.role, user?.subAdminType],
+      queryFn: () => fetchDashboardPage(role, user?.role),
       staleTime: 15_000,
       refetchInterval: 30_000,
+      enabled: ready,
     });
 
     const [detailModal, setDetailModal] = useState<{
@@ -1342,7 +1365,19 @@ import type { Task } from "@/lib/task.types";
         {/* ── Page header ── */}
        
 
-        {isLoading || !data ? (
+        {isLoading ? (
+          <LoadingState />
+        ) : isError ? (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center">
+            <p className="font-semibold text-red-300">Failed to load dashboard</p>
+            <p className="mt-2 text-sm text-slate-400">
+              {error instanceof Error ? error.message : "Please try again."}
+            </p>
+            <Button className="mt-4" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : !data ? (
           <LoadingState />
         ) : (
           <motion.div
@@ -1446,8 +1481,7 @@ import type { Task } from "@/lib/task.types";
               />
             </motion.div>
 
-            {isFullAdmin && activitySection(data)}
-
+            {isFullAdmin && !isSubAdmin && data && activitySection(data)}
           </motion.div>
         )}
       </DashboardShell>

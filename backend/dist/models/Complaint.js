@@ -18,7 +18,7 @@ const assignmentSchema = new mongoose_1.Schema({
     assignedBy: { type: String, default: "" },
     assignedAt: { type: Date, default: Date.now },
     endedAt: { type: Date },
-    endReason: { type: String, enum: ["completed", "reassigned", "cancelled"], default: "" },
+    endReason: { type: String, enum: ["completed", "reassigned", "cancelled"] },
     taskId: { type: String, default: "" },
     status: { type: String, enum: ["active", "completed", "superseded"], default: "active" },
 }, { _id: false });
@@ -67,4 +67,16 @@ const complaintSchema = new mongoose_1.Schema({
     history: { type: [historySchema], default: [] },
     assignments: { type: [assignmentSchema], default: [] },
 }, { timestamps: true });
+complaintSchema.pre("save", function () {
+    for (const assignment of this.assignments) {
+        const endReason = assignment.get("endReason");
+        if (assignment.status === "active") {
+            assignment.set("endReason", undefined);
+            assignment.set("endedAt", undefined);
+        }
+        else if (endReason === "") {
+            assignment.set("endReason", undefined);
+        }
+    }
+});
 exports.default = (0, mongoose_1.model)("Complaint", complaintSchema);

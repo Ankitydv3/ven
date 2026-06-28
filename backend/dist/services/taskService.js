@@ -82,6 +82,46 @@ function mergeScopeFilter(filter, scopeFilter) {
     }
     Object.assign(filter, scopeFilter);
 }
+/** Hide orphaned tasks left behind after a complaint moves to another team. */
+async function applyCurrentComplaintTeamScope(filter, scopeFilter) {
+    const teamName = scopeFilter?.assignedTeamName;
+    if (typeof teamName !== "string" || !teamName || teamName === "__none__") {
+        return;
+    }
+    const teamComplaintIds = await Complaint_1.default.find({ assignedTeam: teamName }).distinct("complaintId");
+    mergeScopeFilter(filter, {
+        $or: [
+            { complaintId: { $in: teamComplaintIds } },
+            { complaintId: null },
+            { complaintId: "" },
+            { complaintId: { $exists: false } },
+        ],
+    });
+}
+function applyActiveTaskListFilter(filter) {
+    mergeScopeFilter(filter, (0, complaintAssignmentService_1.activeTaskQuery)());
+}
+function dedupeActiveTasksByComplaint(items) {
+    const withoutComplaint = [];
+    const byComplaint = new Map();
+    for (const task of items) {
+        if (!task.complaintId) {
+            withoutComplaint.push(task);
+            continue;
+        }
+        const existing = byComplaint.get(task.complaintId);
+        if (!existing) {
+            byComplaint.set(task.complaintId, task);
+            continue;
+        }
+        const taskCreated = new Date(task.createdAt ?? 0).getTime();
+        const existingCreated = new Date(existing.createdAt ?? 0).getTime();
+        if (taskCreated >= existingCreated) {
+            byComplaint.set(task.complaintId, task);
+        }
+    }
+    return [...withoutComplaint, ...Array.from(byComplaint.values())];
+}
 async function resolveAssignee(assignedUserId) {
     const user = await User_1.default.findById(assignedUserId).lean();
     if (!user) {
@@ -226,6 +266,7 @@ async function getTasks(options) {
     }
     if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
         mergeScopeFilter(filter, options.scopeFilter);
+        await applyCurrentComplaintTeamScope(filter, options.scopeFilter);
     }
     else if (options.team && options.team !== "All") {
         filter.assignedTeamName = options.team;
@@ -239,10 +280,21 @@ async function getTasks(options) {
     if (options.upcoming) {
         const todayKey = (0, dateKey_1.todayDateKey)();
         filter.status = { $nin: ["Completed", "Cancelled"] };
-        filter.$or = [
-            { dueDateKey: { $gte: todayKey } },
-            { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
-        ];
+        mergeScopeFilter(filter, {
+            $or: [
+                { dueDateKey: { $gte: todayKey } },
+                { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
+            ],
+        });
+    }
+    else if (options.activeWork) {
+        const todayKey = (0, dateKey_1.todayDateKey)();
+        mergeScopeFilter(filter, {
+            $or: [
+                { dueDateKey: todayKey },
+                { status: { $in: ["In Progress", "Overdue"] } },
+            ],
+        });
     }
     else if (options.dueDate) {
         filter.dueDateKey = options.dueDate;
@@ -256,12 +308,17 @@ async function getTasks(options) {
             filter.dueDateKey.$lte = options.endDate;
         }
     }
+    applyActiveTaskListFilter(filter);
+    if (!options.status && !options.upcoming && !options.activeWork) {
+        mergeScopeFilter(filter, { status: { $nin: ["Completed", "Cancelled"] } });
+    }
     const skip = (options.page - 1) * options.limit;
     const sort = { [options.sortBy]: options.sortOrder };
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
         Task_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean(),
         Task_1.default.countDocuments(filter),
     ]);
+    const items = dedupeActiveTasksByComplaint(rawItems);
     const complaintIds = items
         .map((t) => t.complaintId)
         .filter((id) => Boolean(id));
@@ -316,10 +373,12 @@ async function getCalendarTaskCounts(options) {
     };
     if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
         Object.assign(filter, options.scopeFilter);
+        await applyCurrentComplaintTeamScope(filter, options.scopeFilter);
     }
     else if (options.team && options.team !== "All") {
         filter.assignedTeamName = options.team;
     }
+    applyActiveTaskListFilter(filter);
     const agg = await Task_1.default.aggregate([
         { $match: filter },
         {
@@ -357,10 +416,12 @@ async function getTaskStats(scopeFilter, team) {
     const baseFilter = { status: { $ne: "Cancelled" } };
     if (scopeFilter && Object.keys(scopeFilter).length > 0) {
         Object.assign(baseFilter, scopeFilter);
+        await applyCurrentComplaintTeamScope(baseFilter, scopeFilter);
     }
     else if (team && team !== "All") {
         baseFilter.assignedTeamName = team;
     }
+    applyActiveTaskListFilter(baseFilter);
     const todayKey = (0, dateKey_1.todayDateKey)();
     const todayStart = startOfDay(new Date());
     const [total, pending, inProgress, completed, overdue, upcoming, dueToday, completedOnTime, completedToday, needRevisit, needMaterial,] = await Promise.all([
@@ -428,7 +489,7 @@ async function getTaskStats(scopeFilter, team) {
         },
     };
 }
-async function assertTaskAccess(user, task) {
+async function assertTaskAccess(user, task, options) {
     if (!user) {
         throw new ApiError_1.ApiError(401, "Unauthorized");
     }
@@ -437,6 +498,7 @@ async function assertTaskAccess(user, task) {
     }
     const team = user.team ?? user.teamName;
     const assigneeId = task.assignedUserId ? String(task.assignedUserId) : "";
+    const forMutation = options?.forMutation ?? false;
     if (user.role === "team_lead") {
         if (team && task.assignedTeamName === team) {
             return;
@@ -444,6 +506,9 @@ async function assertTaskAccess(user, task) {
         throw new ApiError_1.ApiError(403, "You do not have access to this task");
     }
     if (user.role === "team") {
+        if (!forMutation && team && task.assignedTeamName === team) {
+            return;
+        }
         if (assigneeId && assigneeId === user.id) {
             return;
         }

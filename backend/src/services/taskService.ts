@@ -74,6 +74,7 @@ export interface TaskListOptions {
   startDate?: string;
   endDate?: string;
   upcoming?: boolean;
+  activeWork?: boolean;
   scopeFilter?: Record<string, unknown>;
   page: number;
   limit: number;
@@ -117,6 +118,59 @@ function mergeScopeFilter(filter: Record<string, unknown>, scopeFilter?: Record<
   }
 
   Object.assign(filter, scopeFilter);
+}
+
+/** Hide orphaned tasks left behind after a complaint moves to another team. */
+async function applyCurrentComplaintTeamScope(
+  filter: Record<string, unknown>,
+  scopeFilter?: Record<string, unknown>
+) {
+  const teamName = scopeFilter?.assignedTeamName;
+  if (typeof teamName !== "string" || !teamName || teamName === "__none__") {
+    return;
+  }
+
+  const teamComplaintIds = await Complaint.find({ assignedTeam: teamName }).distinct("complaintId");
+  mergeScopeFilter(filter, {
+    $or: [
+      { complaintId: { $in: teamComplaintIds } },
+      { complaintId: null },
+      { complaintId: "" },
+      { complaintId: { $exists: false } },
+    ],
+  });
+}
+
+function applyActiveTaskListFilter(filter: Record<string, unknown>) {
+  mergeScopeFilter(filter, activeTaskQuery());
+}
+
+function dedupeActiveTasksByComplaint<T extends { complaintId?: string | null; createdAt?: Date | string }>(
+  items: T[]
+): T[] {
+  const withoutComplaint: T[] = [];
+  const byComplaint = new Map<string, T>();
+
+  for (const task of items) {
+    if (!task.complaintId) {
+      withoutComplaint.push(task);
+      continue;
+    }
+
+    const existing = byComplaint.get(task.complaintId);
+    if (!existing) {
+      byComplaint.set(task.complaintId, task);
+      continue;
+    }
+
+    const taskCreated = new Date(task.createdAt ?? 0).getTime();
+    const existingCreated = new Date(existing.createdAt ?? 0).getTime();
+    if (taskCreated >= existingCreated) {
+      byComplaint.set(task.complaintId, task);
+    }
+  }
+
+  return [...withoutComplaint, ...Array.from(byComplaint.values())];
 }
 
 async function resolveAssignee(assignedUserId: string) {
@@ -308,6 +362,7 @@ export async function getTasks(options: TaskListOptions) {
 
   if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
     mergeScopeFilter(filter, options.scopeFilter);
+    await applyCurrentComplaintTeamScope(filter, options.scopeFilter);
   } else if (options.team && options.team !== "All") {
     filter.assignedTeamName = options.team;
   }
@@ -323,10 +378,20 @@ export async function getTasks(options: TaskListOptions) {
   if (options.upcoming) {
     const todayKey = todayDateKey();
     filter.status = { $nin: ["Completed", "Cancelled"] };
-    filter.$or = [
-      { dueDateKey: { $gte: todayKey } },
-      { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
-    ];
+    mergeScopeFilter(filter, {
+      $or: [
+        { dueDateKey: { $gte: todayKey } },
+        { status: { $in: ["Overdue", "Need Re-visit", "Need Material", "In Progress"] } },
+      ],
+    });
+  } else if (options.activeWork) {
+    const todayKey = todayDateKey();
+    mergeScopeFilter(filter, {
+      $or: [
+        { dueDateKey: todayKey },
+        { status: { $in: ["In Progress", "Overdue"] } },
+      ],
+    });
   } else if (options.dueDate) {
     filter.dueDateKey = options.dueDate;
   } else if (options.startDate || options.endDate) {
@@ -339,13 +404,20 @@ export async function getTasks(options: TaskListOptions) {
     }
   }
 
+  applyActiveTaskListFilter(filter);
+  if (!options.status && !options.upcoming && !options.activeWork) {
+    mergeScopeFilter(filter, { status: { $nin: ["Completed", "Cancelled"] } });
+  }
+
   const skip = (options.page - 1) * options.limit;
   const sort: Record<string, 1 | -1> = { [options.sortBy]: options.sortOrder };
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     Task.find(filter).sort(sort).skip(skip).limit(options.limit).lean(),
     Task.countDocuments(filter),
   ]);
+
+  const items = dedupeActiveTasksByComplaint(rawItems);
 
   const complaintIds = items
     .map((t) => t.complaintId)
@@ -413,9 +485,12 @@ export async function getCalendarTaskCounts(options: CalendarOptions) {
 
   if (options.scopeFilter && Object.keys(options.scopeFilter).length > 0) {
     Object.assign(filter, options.scopeFilter);
+    await applyCurrentComplaintTeamScope(filter, options.scopeFilter);
   } else if (options.team && options.team !== "All") {
     filter.assignedTeamName = options.team;
   }
+
+  applyActiveTaskListFilter(filter);
 
   const agg = await Task.aggregate([
     { $match: filter },
@@ -462,9 +537,12 @@ export async function getTaskStats(
 
   if (scopeFilter && Object.keys(scopeFilter).length > 0) {
     Object.assign(baseFilter, scopeFilter);
+    await applyCurrentComplaintTeamScope(baseFilter, scopeFilter);
   } else if (team && team !== "All") {
     baseFilter.assignedTeamName = team;
   }
+
+  applyActiveTaskListFilter(baseFilter);
 
   const todayKey = todayDateKey();
   const todayStart = startOfDay(new Date());
@@ -554,7 +632,8 @@ export async function assertTaskAccess(
   task: {
     assignedUserId?: { toString(): string } | string | null;
     assignedTeamName?: string | null;
-  }
+  },
+  options?: { forMutation?: boolean }
 ) {
   if (!user) {
     throw new ApiError(401, "Unauthorized");
@@ -566,6 +645,7 @@ export async function assertTaskAccess(
 
   const team = user.team ?? user.teamName;
   const assigneeId = task.assignedUserId ? String(task.assignedUserId) : "";
+  const forMutation = options?.forMutation ?? false;
 
   if (user.role === "team_lead") {
     if (team && task.assignedTeamName === team) {
@@ -575,6 +655,10 @@ export async function assertTaskAccess(
   }
 
   if (user.role === "team") {
+    if (!forMutation && team && task.assignedTeamName === team) {
+      return;
+    }
+
     if (assigneeId && assigneeId === user.id) {
       return;
     }

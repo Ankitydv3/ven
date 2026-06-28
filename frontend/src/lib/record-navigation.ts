@@ -19,11 +19,28 @@ export function navigateToComplaint(
   if (id) router.push(getComplaintDetailsPath(role, id));
 }
 
+export function getMyTasksPath(
+  role: AppRole,
+  task: { complaintId?: string; _id?: string; taskId?: string }
+) {
+  const base = role === "admin" ? "/admin" : "/team";
+  if (task.complaintId) {
+    return `${base}/my-tasks?complaintId=${encodeURIComponent(task.complaintId)}`;
+  }
+  const id = task.taskId ?? task._id;
+  return id ? `${base}/my-tasks?q=${encodeURIComponent(id)}` : `${base}/my-tasks`;
+}
+
 export function navigateToTask(
   router: AppRouterInstance,
   role: AppRole,
   task: { complaintId?: string; _id?: string; taskId?: string }
 ) {
+  if (role === "team") {
+    router.push(getMyTasksPath(role, task));
+    return;
+  }
+
   if (task.complaintId) {
     navigateToComplaint(router, role, { complaintId: task.complaintId });
     return;
@@ -98,9 +115,14 @@ export function getNotificationHref(
 
   if (item.kind === "task" && item.taskId) {
     if (item.complaintId) {
+      if (role === "team") {
+        return getMyTasksPath(role, { complaintId: item.complaintId, taskId: item.taskId });
+      }
       return getComplaintDetailsPath(role, item.complaintId);
     }
-    return `${base}/schedule?q=${encodeURIComponent(item.taskId)}`;
+    return role === "team"
+      ? getMyTasksPath(role, { taskId: item.taskId })
+      : `${base}/schedule?q=${encodeURIComponent(item.taskId)}`;
   }
 
   if (item.kind === "complaint") {

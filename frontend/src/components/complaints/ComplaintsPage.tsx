@@ -691,20 +691,22 @@
                 ))}
               </select>
 
-              <select
-                value={teamFilter}
-                onChange={(e) => {
-                  setTeamFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="h-9 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                {teamOptions.map((team) => (
-                  <option key={team} value={team} className="bg-app text-white">
-                    {team}
-                  </option>
-                ))}
-              </select>
+              {canManage && (
+                <select
+                  value={teamFilter}
+                  onChange={(e) => {
+                    setTeamFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-xl border border-white/10 bg-app px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  {teamOptions.map((team) => (
+                    <option key={team} value={team} className="bg-app text-white">
+                      {team}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <DropdownMenu open={dateMenuOpen} onOpenChange={setDateMenuOpen}>
                 <DropdownMenuTrigger asChild>
