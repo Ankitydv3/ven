@@ -1,13 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { FilePlus, LogIn, ScanSearch } from "lucide-react";
+import { FilePlus, Loader2, LogIn, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortalImagePanel } from "@/components/portal/portal-image-panel";
 import { LoginFields } from "@/components/portal/login-fields";
-import { TrackPanel } from "@/components/portal/track-panel";
-import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
+
+const TrackPanel = dynamic(
+  () => import("@/components/portal/track-panel").then((mod) => mod.TrackPanel),
+  {
+    loading: () => (
+      <div className="flex justify-center py-10">
+        <Loader2 className="h-5 w-5 animate-spin text-white/40" />
+      </div>
+    ),
+  }
+);
+
+const ComplaintRegistrationForm = dynamic(
+  () =>
+    import("@/components/forms/complaint-registration-form").then(
+      (mod) => mod.ComplaintRegistrationForm
+    ),
+  {
+    loading: () => (
+      <div className="flex justify-center py-10">
+        <Loader2 className="h-5 w-5 animate-spin text-white/40" />
+      </div>
+    ),
+  }
+);
 
 export type PortalTab = "login" | "track" | "complaint";
 

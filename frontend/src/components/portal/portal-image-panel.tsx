@@ -7,7 +7,7 @@ export function PortalImagePanel() {
         src="/web-site-4-1.png"
         alt="Portal visual"
         fill
-        sizes="100vw"
+        sizes="(max-width: 1024px) 0vw, 50vw"
         priority
         className="object-cover object-center"
       />

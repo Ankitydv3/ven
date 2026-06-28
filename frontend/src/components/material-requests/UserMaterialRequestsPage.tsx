@@ -12,7 +12,6 @@ import {
   useMaterialRequests,
   useServiceHeadReviewMaterial,
 } from "@/hooks/useMaterialRequests";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -449,11 +448,13 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!requests || requests.length === 0) {
       toast.error("No requests to export");
       return;
     }
+
+    const XLSX = await import("xlsx");
 
     const headers = [
       "Request ID",
@@ -514,7 +515,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={handleExport}
+              onClick={() => void handleExport()}
               className="rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
             >
               <Download className="mr-1.5 h-4 w-4" />

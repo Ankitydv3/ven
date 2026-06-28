@@ -63,6 +63,7 @@ export function usePendingAlertsCount(role: "admin" | "team" | "store" = "admin"
   return useQuery({
     queryKey: ["alerts", "count", role, sessionUser?.id],
     queryFn: () => fetchAlerts(),
+    enabled: Boolean(sessionUser?.id),
     staleTime: 60 * 1000,
     select: (data) => {
       if (isStore) return data.counts.materialAlerts ?? 0;

@@ -40,9 +40,14 @@
       import { cn } from "@/lib/utils";
       import { navGroups, type NavItem } from "@/lib/constants";
       import { motion, AnimatePresence } from "framer-motion";
-      import { DashboardSearch } from "@/components/layout/dashboard-search";
+      import dynamic from "next/dynamic";
       import { usePendingAlertsCount } from "@/hooks/useAlerts";
       import { UserAvatar } from "@/components/profile/UserAvatar";
+
+      const DashboardSearch = dynamic(
+        () => import("@/components/layout/dashboard-search").then((mod) => mod.DashboardSearch),
+        { ssr: false }
+      );
 
       // Icon mapping for nav items
       const iconMap: Record<string, any> = {

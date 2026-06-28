@@ -2,6 +2,13 @@ import type { UserRole } from "./types";
 
 const TOKEN_KEY = "complaint-system-token";
 const USER_KEY = "complaint-system-user";
+export const SESSION_CHANGE_EVENT = "complaint-session-change";
+
+function notifySessionChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_CHANGE_EVENT));
+  }
+}
 
 export interface SessionUser {
   id: string;
@@ -22,12 +29,14 @@ export interface SessionUser {
 export function saveSession(token: string, user: SessionUser) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  notifySessionChange();
 }
 
 export function updateSessionUser(patch: Partial<SessionUser>) {
   const current = readUser();
   if (!current) return;
   localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...patch }));
+  notifySessionChange();
 }
 
 export function readToken() {
@@ -46,4 +55,5 @@ export function readUser() {
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  notifySessionChange();
 }

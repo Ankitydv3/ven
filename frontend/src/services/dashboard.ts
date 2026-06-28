@@ -1,17 +1,26 @@
 import { api } from "@/lib/api";
 import type { Task } from "@/lib/task.types";
-import type { DashboardResponse } from "@/lib/types";
 import type {
   DashboardCategoryPoint,
   DashboardKpiSummary,
   DashboardOverviewPoint,
   DashboardPageData,
   DashboardReasonPoint,
+  DashboardResponse,
   DashboardTaskSummary,
   DashboardTrendPoint,
   RecentComplaintItem,
   DashboardPendingAction,
 } from "@/lib/types";
+
+type DashboardMainPayload = DashboardResponse &
+  DashboardKpiSummary & {
+    monthlyTrend?: DashboardTrendPoint[];
+    unresolvedReasons?: DashboardReasonPoint[];
+    complaintOverview?: DashboardOverviewPoint;
+    categories?: DashboardCategoryPoint[];
+    recentComplaints?: RecentComplaintItem[];
+  };
 
 export async function fetchDashboard() {
   const { data } = await api.get<DashboardResponse>("/dashboard");
@@ -43,17 +52,15 @@ export async function fetchDashboardPage(
         .then((response) => response.data.items ?? [])
     : Promise.resolve([] as Task[]);
 
-  const [summary, monthlyTrend, unresolvedReasons, resolvedReasons, complaintOverview, categories, todaysSiteVisits, recentComplaints, pendingActions, dashboardMain] = await Promise.all([
-    api.get<DashboardKpiSummary>("/dashboard/summary").then((response) => response.data),
-    api.get<{ monthlyTrend: DashboardTrendPoint[] }>("/dashboard/monthly-trend").then((response) => response.data.monthlyTrend ?? []),
-    api.get<{ unresolvedReasons: DashboardReasonPoint[] }>("/dashboard/unresolved-reasons").then((response) => response.data.unresolvedReasons ?? []),
-    api.get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons").then((response) => response.data.resolvedReasons ?? []),
-    api.get<DashboardOverviewPoint>("/dashboard/complaint-overview").then((response) => response.data),
-    api.get<{ categories: DashboardCategoryPoint[] }>("/dashboard/top-categories").then((response) => response.data.categories ?? []),
+  const [dashboardMain, resolvedReasons, pendingActions, todaysSiteVisits] = await Promise.all([
+    api.get<DashboardMainPayload>("/dashboard").then((response) => response.data),
+    api
+      .get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons")
+      .then((response) => response.data.resolvedReasons ?? []),
+    api
+      .get<{ items: DashboardPendingAction[] }>("/dashboard/pending-actions")
+      .then((response) => response.data.items ?? []),
     siteVisitRequest,
-    api.get<{ recentComplaints: RecentComplaintItem[] }>("/complaints/recent").then((response) => response.data.recentComplaints ?? []),
-    api.get<{ role: string; items: DashboardPendingAction[] }>("/dashboard/pending-actions").then((response) => response.data.items ?? []),
-    api.get<DashboardResponse>("/dashboard").then((response) => response.data),
   ]);
 
   const taskStats: DashboardTaskSummary = {
@@ -68,20 +75,28 @@ export async function fetchDashboardPage(
   };
 
   return {
-    summary: summary ?? {
-      totalOrders: 0,
-      complaintsReceived: 0,
-      complaintsResolved: 0,
-      complaintsUnresolved: 0,
-      paidServicesDone: 0,
+    summary: {
+      totalOrders: dashboardMain.totalOrders ?? 0,
+      complaintsReceived: dashboardMain.complaintsReceived ?? 0,
+      complaintsResolved: dashboardMain.complaintsResolved ?? 0,
+      complaintsUnresolved: dashboardMain.complaintsUnresolved ?? 0,
+      paidServicesDone: dashboardMain.paidServicesDone ?? 0,
     },
-    monthlyTrend: monthlyTrend ?? [],
-    unresolvedReasons: unresolvedReasons ?? [],
+    monthlyTrend: dashboardMain.monthlyTrend ?? [],
+    unresolvedReasons: dashboardMain.unresolvedReasons ?? [],
     resolvedReasons: resolvedReasons ?? [],
-    complaintOverview: complaintOverview ?? { total: 0, resolved: 0, lockingIssue: 0, leakageIssue: 0, difficultyMoving: 0, alignmentIssue: 0, other: 0 },
-    categories: categories ?? [],
+    complaintOverview: dashboardMain.complaintOverview ?? {
+      total: 0,
+      resolved: 0,
+      lockingIssue: 0,
+      leakageIssue: 0,
+      difficultyMoving: 0,
+      alignmentIssue: 0,
+      other: 0,
+    },
+    categories: dashboardMain.categories ?? [],
     todaysSiteVisits: todaysSiteVisits ?? [],
-    recentComplaints: recentComplaints ?? [],
+    recentComplaints: dashboardMain.recentComplaints ?? [],
     pendingActions: pendingActions ?? [],
     teamStats: dashboardMain.teamStats ?? [],
     taskStats,

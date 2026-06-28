@@ -5,8 +5,20 @@ const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api
 
 const nextConfig: NextConfig = {
   turbopack: {
-    // Monorepo has a lockfile at the parent level; pin Turbopack to this app.
     root: path.resolve(__dirname),
+  },
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "date-fns",
+      "framer-motion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-select",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-alert-dialog",
+    ],
   },
   async rewrites() {
     return [
