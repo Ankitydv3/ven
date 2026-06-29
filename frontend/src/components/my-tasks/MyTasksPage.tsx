@@ -44,6 +44,7 @@ import {
   statusBadgeVariant,
 } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
+import { wrapTextClass } from "@/lib/responsive-text";
 import { getApiErrorMessage } from "@/lib/api";
 import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
@@ -119,9 +120,9 @@ function ComplaintListCard({
         </Badge>
         <span className="text-xs font-mono text-slate-400">{complaint.complaintId}</span>
       </div>
-      <p className="font-semibold text-white line-clamp-1">{title}</p>
-      <p className="mt-1 text-xs text-slate-400 line-clamp-1">{complaint.clientName}</p>
-      <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{complaint.location ?? "—"}</p>
+      <p className={cn("font-semibold text-white", wrapTextClass)}>{title}</p>
+      <p className={cn("mt-1 text-xs text-slate-400", wrapTextClass)}>{complaint.clientName}</p>
+      <p className={cn("mt-0.5 text-xs text-slate-500", wrapTextClass)}>{complaint.location ?? "—"}</p>
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="text-[11px] text-slate-400">
           {complaint.taskScheduleDueDate
@@ -175,9 +176,9 @@ function TaskListCard({
         </Badge>
         <span className="text-xs font-mono text-slate-400">{task.taskId}</span>
       </div>
-      <p className="font-semibold text-white line-clamp-1">{task.title}</p>
-      <p className="mt-1 text-xs text-slate-400 line-clamp-1">{customerName}</p>
-      <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{address}</p>
+      <p className={cn("font-semibold text-white", wrapTextClass)}>{task.title}</p>
+      <p className={cn("mt-1 text-xs text-slate-400", wrapTextClass)}>{customerName}</p>
+      <p className={cn("mt-0.5 text-xs text-slate-500", wrapTextClass)}>{address}</p>
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="text-[11px] text-slate-400">{formatDueDate(task.dueDate)}</span>
         <Badge variant={statusBadgeVariant[task.status] ?? "default"} className="text-[10px]">

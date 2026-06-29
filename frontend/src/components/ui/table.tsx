@@ -2,7 +2,7 @@ import type { TdHTMLAttributes, ThHTMLAttributes, HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 export function Table({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("overflow-hidden rounded-3xl border border-white/12 bg-white/70 dark:bg-app/80", className)}>{children}</div>;
+  return <div className={cn("overflow-x-auto rounded-3xl border border-white/12 bg-white/70 dark:bg-app/80", className)}>{children}</div>;
 }
 
 export function TableElement({ children, className }: { children: React.ReactNode; className?: string }) {

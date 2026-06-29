@@ -11,6 +11,7 @@ import {
   priorityBadgeClass,
 } from "@/components/history/client-history-styles";
 import { cn } from "@/lib/utils";
+import { wrapTextClass } from "@/lib/responsive-text";
 
 export function ClientHistoryComplaintCard({
   complaint,
@@ -56,14 +57,14 @@ export function ClientHistoryComplaintCard({
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Customer
           </p>
-          <p className="truncate text-sm font-medium text-foreground">{complaint.clientName}</p>
+          <p className={cn("text-sm font-medium text-foreground", wrapTextClass)}>{complaint.clientName}</p>
         </div>
 
         <div>
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Complaint Type
           </p>
-          <p className="line-clamp-2 text-sm text-foreground/90">{complaint.complaintType}</p>
+          <p className={cn("text-sm text-foreground/90", wrapTextClass)}>{complaint.complaintType}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -86,7 +87,7 @@ export function ClientHistoryComplaintCard({
 
         <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="line-clamp-2">{complaint.location || "—"}</span>
+          <span className={wrapTextClass}>{complaint.location || "—"}</span>
         </div>
       </div>
 

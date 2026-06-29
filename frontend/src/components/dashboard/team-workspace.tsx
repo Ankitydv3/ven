@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDueDate } from "@/lib/task-constants";
+import { wrapTextClass } from "@/lib/responsive-text";
+import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
 import { getComplaintWorkflowStage } from "@/lib/workflow";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
 import { feedbackTargetFromComplaint } from "@/lib/feedback-target";
@@ -149,8 +151,8 @@ function ComplaintCard({
                   {item.priority}
                 </span>
               </div>
-              <h3 className="mt-2 font-bold text-slate-800 dark:text-white truncate">{item.complaintId}</h3>
-              <p className="text-xs text-slate-400 dark:text-white/40 truncate">{item.clientName}</p>
+              <h3 className={`mt-2 font-bold text-slate-800 dark:text-white ${wrapTextClass}`}>{item.complaintId}</h3>
+              <p className={`text-xs text-slate-400 dark:text-white/40 ${wrapTextClass}`}>{item.clientName}</p>
             </div>
             <div className="flex gap-1.5 flex-shrink-0">
               <button
@@ -172,13 +174,17 @@ function ComplaintCard({
         </div>
 
         {/* Body */}
-        <div className="p-4 space-y-3">
-          <p className="text-sm text-slate-600 dark:text-white/60 line-clamp-2">{item.description}</p>
+        <div className="p-4 space-y-3 min-w-0">
+          <ComplaintSummaryText
+            description={item.description}
+            location={item.location}
+            className="text-sm text-slate-600 dark:text-white/60"
+          />
 
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
-              <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-blue-400" />
-              <span className="truncate">{item.location}</span>
+            <div className="flex items-start gap-2 text-xs text-slate-400 dark:text-white/40">
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-blue-400 mt-0.5" />
+              <span className={wrapTextClass}>{item.location || "—"}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
               <CalendarClock className="h-3.5 w-3.5 flex-shrink-0 text-blue-400" />

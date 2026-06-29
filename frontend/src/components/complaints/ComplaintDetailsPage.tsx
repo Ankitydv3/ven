@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { wrapTextClass } from "@/lib/responsive-text";
 import { workflowStageBadgeClass, type WorkflowStage, getComplaintWorkflowStage } from "@/lib/workflow";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -550,7 +551,7 @@ function DetailItem({ icon: Icon, label, value, className, mono }: {
         <Icon className="h-3 w-3" />
         {label}
       </p>
-      <p className={cn("text-sm font-medium text-slate-200", mono && "font-mono")}>
+      <p className={cn("text-sm font-medium text-slate-200", wrapTextClass, mono && "font-mono")}>
         {value || "—"}
       </p>
     </div>

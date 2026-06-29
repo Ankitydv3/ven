@@ -34,6 +34,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
+import { wrapTextClass } from "@/lib/responsive-text";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -761,7 +763,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       </TD> */}
 
                       {/* Address */}
-                      <TD className="text-slate-700 dark:text-white/70 text-sm">
+                      <TD className={cn("text-sm text-slate-700 dark:text-white/70 max-w-[220px] whitespace-normal", wrapTextClass)}>
                         {order.address}, {order.city}, {order.state} {order.pincode}
                       </TD>
 
@@ -1080,7 +1082,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="col-span-2">
                       <span className="block text-xs text-slate-400 dark:text-slate-500">Address</span>
-                      <span className="font-medium text-slate-800 dark:text-white">
+                      <span className={cn("font-medium text-slate-800 dark:text-white", wrapTextClass)}>
                         {viewTarget.address}
                       </span>
                     </div>

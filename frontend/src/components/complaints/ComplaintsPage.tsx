@@ -67,6 +67,8 @@
     type WorkflowStage,
   } from "@/lib/workflow";
   import { cn } from "@/lib/utils";
+  import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
+  import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
 
   const DISPLAY_STATUSES = workflowDisplayStatuses;
 
@@ -220,7 +222,7 @@
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-[#0b1424] border-white/10 text-white p-0">
+        <DialogContent className={cn(modalViewportClass, "max-h-[85vh] overflow-hidden flex flex-col bg-[#0b1424] border-white/10 text-white p-0 sm:max-w-4xl")}>
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-xl font-bold text-white">{title}</DialogTitle>
           </DialogHeader>
@@ -239,19 +241,19 @@
                 <p className="text-slate-400 font-medium">No complaints found matching this category.</p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {items.map((item) => (
                   <div
                     key={item._id}
-                    className="p-4 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05] transition-all group"
+                    className={summaryListCardClass}
                   >
-                    <div className="flex justify-between items-start mb-2.5">
-                      <div className="min-w-0">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <p className="font-mono text-[11px] text-blue-400/80 mb-0.5">{item.complaintId}</p>
-                        <h4 className="text-sm font-bold text-white truncate">{item.clientName}</h4>
+                        <h4 className={cn("text-sm font-bold text-white", wrapTextClass)}>{item.clientName}</h4>
                       </div>
                       <Badge
-                        className="shrink-0"
+                        className="w-fit shrink-0 self-start"
                         variant={
                           item.status === "Completed" || item.status === "Resolved"
                             ? "success"
@@ -264,14 +266,16 @@
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed h-8">
-                      {item.description || item.title}
-                    </p>
+                    <ComplaintSummaryText
+                      className="mb-4"
+                      description={item.description || item.title}
+                      location={item.location}
+                    />
 
-                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
-                      <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                    <div className="flex flex-col gap-2 border-t border-white/[0.04] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3 w-3" />
+                          <Calendar className="h-3 w-3 shrink-0" />
                           {item.createdAt ? formatComplaintDate(item.createdAt) : "—"}
                         </div>
                       </div>
@@ -862,7 +866,7 @@
                                   </span>
                                 </div>
                               </TD>
-                              <TD className="text-xs text-slate-400 truncate max-w-[120px]">{complaint.location}</TD>
+                              <TD className={cn("text-xs text-slate-400 max-w-[180px] whitespace-normal", wrapTextClass)}>{complaint.location}</TD>
                               <TD>
                                 <Badge
                                   className={cn(
@@ -875,7 +879,7 @@
                                   {isPaid ? "Paid" : "Unpaid"}
                                 </Badge>
                               </TD>
-                              <TD className="max-w-[140px] truncate text-xs text-slate-200">
+                              <TD className={cn("max-w-[180px] text-xs text-slate-200 whitespace-normal", wrapTextClass)}>
                                 {complaint.complaintType === "Other" ? complaint.complaintDescription : (complaint.complaintType || complaint.title)}
                               </TD>
                               <TD>

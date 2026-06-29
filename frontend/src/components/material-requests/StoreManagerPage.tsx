@@ -52,6 +52,7 @@ import {
 } from "@/services/material-requests";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
+import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
 import { getApiErrorMessage } from "@/lib/api";
 
 /* ----------------------------------------------------------------------- */
@@ -535,7 +536,7 @@ function KpiDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[85vh] max-w-4xl flex-col overflow-hidden border-white/10 bg-[#0b1424] p-0 text-white">
+      <DialogContent className={cn(modalViewportClass, "flex max-h-[85vh] flex-col overflow-hidden border-white/10 bg-[#0b1424] p-0 text-white sm:max-w-4xl")}>
         <DialogHeader className="p-6 pb-3">
           <DialogTitle className="text-xl font-bold text-white">{title}</DialogTitle>
           <div className="relative mt-2">
@@ -562,16 +563,16 @@ function KpiDetailsModal({
               description="Nothing matches this category and search yet."
             />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {items.map((item) => (
                 <div
                   key={item._id}
-                  className="group rounded-2xl border border-white/5 bg-white/[0.03] p-4 transition-all hover:border-white/10 hover:bg-white/[0.05]"
+                  className={summaryListCardClass}
                 >
-                  <div className="mb-2.5 flex items-start justify-between">
-                    <div className="min-w-0">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
                       <p className="mb-0.5 font-mono text-[11px] text-blue-400/80">{item.requestId}</p>
-                      <h4 className="truncate text-sm font-bold text-white">{item.materialName}</h4>
+                      <h4 className={cn("text-sm font-bold text-white", wrapTextClass)}>{item.materialName}</h4>
                     </div>
                     <Badge
                       className={cn(
@@ -582,10 +583,10 @@ function KpiDetailsModal({
                       {materialStatusLabel[item.status] || item.status}
                     </Badge>
                   </div>
-                  <p className="mb-4 line-clamp-2 h-8 text-xs leading-relaxed text-slate-400">
+                  <p className={cn("mb-4 text-xs leading-relaxed text-slate-400", wrapTextClass)}>
                     {item.requestedBy} · {item.department || "N/A"} · {item.quantity} {item.unit}
                   </p>
-                  <div className="flex items-center justify-between border-t border-white/[0.04] pt-3">
+                  <div className="flex flex-col gap-2 border-t border-white/[0.04] pt-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                       {new Date(item.requestDate).toLocaleDateString()}
                     </div>

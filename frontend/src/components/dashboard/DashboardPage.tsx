@@ -75,6 +75,8 @@ import { fetchOrders } from "@/services/orders";
 import { materialStatusLabel, getMaterialStatusBadgeClass } from "@/services/material-requests";
 import type { DashboardPageData, DashboardPendingAction } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
+import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
 import { statusBadgeVariant } from "@/lib/task-constants";
 import type { Task } from "@/lib/task.types";
   /* ═══════════════════════════════════════════════════════
@@ -355,7 +357,7 @@ import type { Task } from "@/lib/task.types";
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-[#0b1424] border-white/10 text-white p-0">
+        <DialogContent className={cn(modalViewportClass, "max-h-[85vh] overflow-hidden flex flex-col bg-[#0b1424] border-white/10 text-white p-0 sm:max-w-4xl")}>
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-xl font-bold text-white">{title}</DialogTitle>
           </DialogHeader>
@@ -374,11 +376,11 @@ import type { Task } from "@/lib/task.types";
                 <p className="text-slate-400 font-medium">No records found matching this category.</p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {items.map((item: any) => (
                   <div
                     key={item._id}
-                    className="p-4 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05] transition-all group cursor-pointer"
+                    className={cn(summaryListCardClass, "group cursor-pointer")}
                     onClick={() => {
                       if (type === "complaint") {
                         navigateToComplaint(router, role, item);
@@ -389,17 +391,17 @@ import type { Task } from "@/lib/task.types";
                       }
                     }}
                   >
-                    <div className="flex justify-between items-start mb-2.5">
-                      <div className="min-w-0">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <p className="font-mono text-[11px] text-blue-400/80 mb-0.5">
                           {type === "complaint" ? item.complaintId : type === "task" ? item.taskId : item.orderId}
                         </p>
-                        <h4 className="text-sm font-bold text-white truncate">
+                        <h4 className={cn("text-sm font-bold text-white", wrapTextClass)}>
                           {type === "complaint" ? item.clientName : type === "task" ? item.title : item.customerName}
                         </h4>
                       </div>
                       <Badge
-                        className="shrink-0"
+                        className="w-fit shrink-0 self-start"
                         variant={
                           item.status === "Completed" || item.status === "Resolved"
                             ? "success"
@@ -412,31 +414,29 @@ import type { Task } from "@/lib/task.types";
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-slate-400 mb-4 leading-relaxed break-words">
-                      {type === "complaint"
-                        ? item.description
-                        : type === "task"
+                    {type === "complaint" ? (
+                      <ComplaintSummaryText
+                        className="mb-4"
+                        description={item.description}
+                        location={item.location}
+                      />
+                    ) : (
+                      <p className={cn("text-xs text-slate-400 mb-4 leading-relaxed", wrapTextClass)}>
+                        {type === "task"
                           ? item.description || "No description provided."
-                          : `${item.materialType} · ${item.city}`}
-                    </p>
+                          : `${item.materialType} · ${item.city}${item.address ? ` · ${item.address}` : ""}`}
+                      </p>
+                    )}
 
-                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Calendar className="h-3 w-3" />
+                    <div className="flex flex-col gap-2 border-t border-white/[0.04] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-1 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3 shrink-0" />
                           {new Date(item.createdAt).toLocaleDateString()}
                         </div>
-                        {item.location && (
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Package className="h-3 w-3 shrink-0" />
-                            <span className="break-words line-clamp-1 group-hover:line-clamp-none transition-all">
-                              {item.location}
-                            </span>
-                          </div>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         {role === "team" && type === "task" && item.status === "Pending" && (
                           <button
                             onClick={async () => {
@@ -927,7 +927,7 @@ import type { Task } from "@/lib/task.types";
                           </Link>
                         </TD>
                         <TD className="py-4 font-medium text-slate-200">{visit.complaint?.clientName ?? visit.title}</TD>
-                        <TD className="py-4 max-w-[150px] truncate text-slate-400 text-xs">
+                        <TD className={cn("py-4 max-w-[200px] text-slate-400 text-xs whitespace-normal", wrapTextClass)}>
                           {visit.complaint?.location ?? "—"}
                         </TD>
                         <TD className="py-4">
