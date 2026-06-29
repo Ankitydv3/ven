@@ -12,30 +12,63 @@ exports.updateOrderById = updateOrderById;
 exports.deleteOrderById = deleteOrderById;
 exports.bulkCreateOrders = bulkCreateOrders;
 const Order_1 = __importDefault(require("../models/Order"));
-const Counter_1 = __importDefault(require("../models/Counter"));
 const ApiError_1 = require("../utils/ApiError");
+const counterUtils_1 = require("../utils/counterUtils");
 const paymentSyncService_1 = require("./paymentSyncService");
+async function getMaxOrderSequence(year) {
+    const orders = await Order_1.default.find({ orderId: { $regex: `^ORD-${year}-` } })
+        .select("orderId")
+        .lean();
+    let max = 0;
+    const pattern = new RegExp(`^ORD-${year}-(\\d+)$`);
+    for (const order of orders) {
+        max = Math.max(max, (0, counterUtils_1.parseSequenceSuffix)(order.orderId, pattern));
+    }
+    return max;
+}
 async function generateOrderId() {
     const year = new Date().getFullYear();
-    const counter = await Counter_1.default.findOneAndUpdate({ key: `order-${year}` }, { $inc: { value: 1 }, $setOnInsert: { key: `order-${year}` } }, { new: true, upsert: true });
-    return `ORD-${year}-${String(counter.value).padStart(3, "0")}`;
+    const key = `order-${year}`;
+    await (0, counterUtils_1.ensureCounterAtLeast)(key, await getMaxOrderSequence(year));
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const sequence = await (0, counterUtils_1.nextCounterValue)(key);
+        const orderId = `ORD-${year}-${String(sequence).padStart(3, "0")}`;
+        const exists = await Order_1.default.exists({ orderId });
+        if (!exists) {
+            return orderId;
+        }
+        await (0, counterUtils_1.ensureCounterAtLeast)(key, sequence);
+    }
+    throw new ApiError_1.ApiError(500, "Unable to generate a unique order ID. Please try again.");
 }
 async function createOrder(payload) {
-    const orderId = await generateOrderId();
-    // Build order object ensuring defaults are applied
     const orderData = {
         ...payload,
-        orderId,
         serviceType: payload.serviceType || "General",
         status: payload.status || "Pending",
         amount: payload.amount ?? 0,
         paid: payload.paid ?? false,
         assignedTeam: payload.assignedTeam || "",
-        category: payload.category || "General"
+        category: payload.category || "General",
     };
-    const order = await Order_1.default.create(orderData);
-    await (0, paymentSyncService_1.syncOrderPayment)(order);
-    return order;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const orderId = await generateOrderId();
+        try {
+            const order = await Order_1.default.create({
+                ...orderData,
+                orderId,
+            });
+            await (0, paymentSyncService_1.syncOrderPayment)(order);
+            return order;
+        }
+        catch (error) {
+            if ((0, counterUtils_1.isDuplicateKeyError)(error) && attempt < 4) {
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new ApiError_1.ApiError(500, "Unable to create order. Please try again.");
 }
 function normalizePhoneDigits(phone) {
     return phone.replace(/\D/g, "").slice(-10);

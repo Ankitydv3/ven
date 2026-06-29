@@ -1,6 +1,11 @@
 import Order from "../models/Order";
-import Counter from "../models/Counter";
 import { ApiError } from "../utils/ApiError";
+import {
+  ensureCounterAtLeast,
+  isDuplicateKeyError,
+  nextCounterValue,
+  parseSequenceSuffix,
+} from "../utils/counterUtils";
 import { syncOrderPayment } from "./paymentSyncService";
 
 export interface OrderPayload {
@@ -36,35 +41,68 @@ export interface OrderListOptions {
   sortOrder: 1 | -1;
 }
 
+async function getMaxOrderSequence(year: number) {
+  const orders = await Order.find({ orderId: { $regex: `^ORD-${year}-` } })
+    .select("orderId")
+    .lean();
+
+  let max = 0;
+  const pattern = new RegExp(`^ORD-${year}-(\\d+)$`);
+  for (const order of orders) {
+    max = Math.max(max, parseSequenceSuffix(order.orderId, pattern));
+  }
+  return max;
+}
+
 async function generateOrderId() {
   const year = new Date().getFullYear();
-  const counter = await Counter.findOneAndUpdate(
-    { key: `order-${year}` },
-    { $inc: { value: 1 }, $setOnInsert: { key: `order-${year}` } },
-    { new: true, upsert: true }
-  );
+  const key = `order-${year}`;
 
-  return `ORD-${year}-${String(counter.value).padStart(3, "0")}`;
+  await ensureCounterAtLeast(key, await getMaxOrderSequence(year));
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const sequence = await nextCounterValue(key);
+    const orderId = `ORD-${year}-${String(sequence).padStart(3, "0")}`;
+    const exists = await Order.exists({ orderId });
+    if (!exists) {
+      return orderId;
+    }
+    await ensureCounterAtLeast(key, sequence);
+  }
+
+  throw new ApiError(500, "Unable to generate a unique order ID. Please try again.");
 }
 
 export async function createOrder(payload: OrderPayload) {
-  const orderId = await generateOrderId();
-  
-  // Build order object ensuring defaults are applied
   const orderData = {
     ...payload,
-    orderId,
     serviceType: payload.serviceType || "General",
     status: payload.status || "Pending",
     amount: payload.amount ?? 0,
     paid: payload.paid ?? false,
     assignedTeam: payload.assignedTeam || "",
-    category: payload.category || "General"
+    category: payload.category || "General",
   };
 
-  const order = await Order.create(orderData);
-  await syncOrderPayment(order);
-  return order;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const orderId = await generateOrderId();
+
+    try {
+      const order = await Order.create({
+        ...orderData,
+        orderId,
+      });
+      await syncOrderPayment(order);
+      return order;
+    } catch (error) {
+      if (isDuplicateKeyError(error) && attempt < 4) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new ApiError(500, "Unable to create order. Please try again.");
 }
 
 function normalizePhoneDigits(phone: string) {

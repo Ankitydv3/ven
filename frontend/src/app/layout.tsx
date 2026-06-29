@@ -1,5 +1,4 @@
-import dynamic from "next/dynamic";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -20,6 +19,28 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Complaint Flow OS",
   description: "Full-stack complaint management system for customers, admins, and teams.",
+  applicationName: "Complaint Flow OS",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "CFlow",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#185FA5",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
