@@ -93,7 +93,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Section({ children, className }: { children: React.ReactNode; className?: string }) {
+function Section({
+  children,
+  className,
+  style,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <div
       className={cn("rounded-2xl border p-4 sm:p-6", className)}
@@ -101,6 +109,7 @@ function Section({ children, className }: { children: React.ReactNode; className
         borderColor: T.glassBorder,
         background: `linear-gradient(135deg, ${T.glass2} 0%, ${T.glass1} 100%)`,
         backdropFilter: "blur(12px)",
+        ...style,
       }}
     >
       {children}
