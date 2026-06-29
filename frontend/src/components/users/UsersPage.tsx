@@ -299,15 +299,15 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
       <AlertDialog open={Boolean(resetConfirmUser)} onOpenChange={(open) => !open && setResetConfirmUser(null)}>
         <AlertDialogContent className="border-white/10 bg-app text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset password?</AlertDialogTitle>
+            <AlertDialogTitle className="text-center">Reset password?</AlertDialogTitle>
             <AlertDialogDescription className="text-[#94A3B8]">
               You are about to reset the password for {resetConfirmUser?.name}. This action will be recorded in the audit log.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/10 bg-transparent text-white hover:bg-white/5">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-white/10 p-2 rounded-lg  bg-red text-white hover:bg-white/5">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className={primaryButtonClass}
+              className={primaryButtonClass + " h-10 bg-blue rounded-lg p-2"}
               onClick={() => {
                 setResetUser(resetConfirmUser);
                 setResetConfirmUser(null);

@@ -631,24 +631,20 @@ import type { Task } from "@/lib/task.types";
   }
 
   /* ═══════════════════════════════════════════════════════
-    COMPLAINTS BY REASON — pill toggle + stat cards + donut
+    COMPLAINTS BY REASON — unresolved only
   ═══════════════════════════════════════════════════════ */
   function ComplaintsByReason({
     unresolved,
-    resolved,
     onItemClick,
   }: {
     unresolved: DashboardPageData["unresolvedReasons"];
-    resolved: DashboardPageData["resolvedReasons"];
-    onItemClick?: (name: string, view: "unresolved" | "resolved") => void;
+    onItemClick?: (name: string) => void;
   }) {
-    const [view, setView] = useState<"unresolved" | "resolved">("unresolved");
-    const data = view === "unresolved" ? (unresolved ?? []) : (resolved ?? []);
+    const data = unresolved ?? [];
     const total = data.reduce((s, i) => s + i.value, 0);
 
     return (
       <GlassCard className="p-5 lg:p-6">
-        {/* header */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
@@ -659,134 +655,111 @@ import type { Task } from "@/lib/task.types";
             </h3>
           </div>
 
-          <div className="flex rounded-lg bg-white/5 p-1 ring-1 ring-white/10">
-            {(["unresolved", "resolved"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all",
-                  view === v ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
+          <span className="rounded-md bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+            Unresolved
+          </span>
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-          >
-            {total > 0 ? (
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-                {/* stat cards */}
-                <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-                  {data.map((item) => {
-                    const color = REASON_COLORS[item.name] ?? "#64748B";
-                    const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
-                    const pct = ((item.value / total) * 100).toFixed(1);
+        {total > 0 ? (
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+              {data.map((item) => {
+                const color = REASON_COLORS[item.name] ?? "#64748B";
+                const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
+                const pct = ((item.value / total) * 100).toFixed(1);
 
-                    return (
-                      <div
-                        key={item.name}
-                        className="rounded-xl p-4 cursor-pointer hover:scale-[1.02] transition-transform"
-                        onClick={() => onItemClick?.(item.name, view)}
-                        style={{
-                          background: `${color}10`,
-                          border: `1px solid ${color}25`,
-                        }}
-                      >
-                        <div
-                          className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
-                          style={{
-                            background: `${color}20`,
-                            color,
-                            boxShadow: `0 0 18px ${color}30`,
-                          }}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <p className="text-xs text-slate-400 mb-1 truncate">{item.name}</p>
-                        <p className="text-2xl font-bold text-white leading-none">{item.value}</p>
-                        <p className="mt-1 text-[11px] font-medium" style={{ color }}>
-                          {pct}% of {view}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* mini donut */}
-                <div className="flex shrink-0 flex-col items-center gap-5 xl:w-[260px]">
-                  <div className="relative h-[160px] w-[160px]">
-                    <ResponsiveContainer width={160} height={160}>
-                      <PieChart>
-                        <Pie
-                          data={data}
-                          dataKey="value"
-                          innerRadius={50}
-                          outerRadius={74}
-                          paddingAngle={2}
-                          stroke="none"
-                          onClick={(slice) => {
-                            if (slice && slice.name) {
-                              onItemClick?.(slice.name, view);
-                            }
-                          }}
-                          className="cursor-pointer"
-                        >
-                          {data.map((item) => (
-                            <Cell
-                              key={item.name}
-                              fill={REASON_COLORS[item.name] ?? "#64748B"}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-3xl font-bold text-white">{total}</p>
-                      <p className="text-[10px] text-slate-500">Total</p>
+                return (
+                  <div
+                    key={item.name}
+                    className="rounded-xl p-4 cursor-pointer hover:scale-[1.02] transition-transform"
+                    onClick={() => onItemClick?.(item.name)}
+                    style={{
+                      background: `${color}10`,
+                      border: `1px solid ${color}25`,
+                    }}
+                  >
+                    <div
+                      className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
+                      style={{
+                        background: `${color}20`,
+                        color,
+                        boxShadow: `0 0 18px ${color}30`,
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
                     </div>
+                    <p className="text-xs text-slate-400 mb-1 truncate">{item.name}</p>
+                    <p className="text-2xl font-bold text-white leading-none">{item.value}</p>
+                    <p className="mt-1 text-[11px] font-medium" style={{ color }}>
+                      {pct}% of unresolved
+                    </p>
                   </div>
+                );
+              })}
+            </div>
 
-                  <div className="w-full space-y-2">
-                    {data.map((item) => {
-                      const color = REASON_COLORS[item.name] ?? "#64748B";
-                      const pct = ((item.value / total) * 100).toFixed(1);
-                      return (
-                        <div
+            <div className="flex shrink-0 flex-col items-center gap-5 xl:w-[260px]">
+              <div className="relative h-[160px] w-[160px]">
+                <ResponsiveContainer width={160} height={160}>
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      dataKey="value"
+                      innerRadius={50}
+                      outerRadius={74}
+                      paddingAngle={2}
+                      stroke="none"
+                      onClick={(slice) => {
+                        if (slice && slice.name) {
+                          onItemClick?.(slice.name);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {data.map((item) => (
+                        <Cell
                           key={item.name}
-                          className="flex items-center justify-between text-xs cursor-pointer group"
-                          onClick={() => onItemClick?.(item.name, view)}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                            <span className="text-slate-400 truncate group-hover:text-slate-200 transition-colors">{item.name}</span>
-                          </div>
-                          <span className="text-slate-300 font-medium ml-2 shrink-0">
-                            {item.value} ({pct}%)
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          fill={REASON_COLORS[item.name] ?? "#64748B"}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-3xl font-bold text-white">{total}</p>
+                  <p className="text-[10px] text-slate-500">Total</p>
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">
-                No unresolved complaints to display right now.
-              </p>
-            )}
-          </motion.div>
-        </AnimatePresence>
+
+              <div className="w-full space-y-2">
+                {data.map((item) => {
+                  const color = REASON_COLORS[item.name] ?? "#64748B";
+                  const pct = ((item.value / total) * 100).toFixed(1);
+                  return (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between text-xs cursor-pointer group"
+                      onClick={() => onItemClick?.(item.name)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="text-slate-400 truncate group-hover:text-slate-200 transition-colors">{item.name}</span>
+                      </div>
+                      <span className="text-slate-300 font-medium ml-2 shrink-0">
+                        {item.value} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            No unresolved complaints to display right now.
+          </p>
+        )}
       </GlassCard>
     );
   }
@@ -1469,14 +1442,11 @@ import type { Task } from "@/lib/task.types";
               />
             </motion.div>
 
-            {/* ── Reason breakdown toggle ── */}
             <motion.div variants={fadeUp}>
               <ComplaintsByReason
                 unresolved={data.unresolvedReasons}
-                resolved={data.resolvedReasons}
-                onItemClick={(name, view) => {
-                  const displayStatus = view === "resolved" ? "Completed" : name;
-                  openDetails(`${name} Complaints (${view})`, "complaint", { displayStatus });
+                onItemClick={(name) => {
+                  openDetails(`${name} Complaints (unresolved)`, "complaint", { displayStatus: name });
                 }}
               />
             </motion.div>

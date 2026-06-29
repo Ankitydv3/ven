@@ -1,5 +1,5 @@
-const CACHE_NAME = "cflow-v1";
-const PRECACHE_URLS = ["/", "/offline", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE_NAME = "cflow-v2";
+const PRECACHE_URLS = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -16,8 +16,24 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function shouldBypassCache(url) {
+  return (
+    url.pathname.startsWith("/_next/") ||
+    url.pathname.startsWith("/__nextjs") ||
+    url.search.includes("turbopack") ||
+    url.search.includes("hot-update")
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+
+  if (shouldBypassCache(url)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   if (event.request.mode === "navigate") {
     event.respondWith(

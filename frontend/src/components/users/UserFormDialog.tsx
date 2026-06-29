@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ManagedUser, UserRole } from "@/lib/types";
-import { CREATE_USER_ROLES, getCreatableRoles, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
+import { CREATE_USER_ROLES, getCreatableRoles, getRoleLabel, glassCardClass, inputClass, primaryButtonClass } from "@/lib/user-constants";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { useTeams } from "@/hooks/use-teams";
 
@@ -85,8 +85,11 @@ export function UserFormDialog({
   const availableRoles = useMemo(() => {
     const creatable = getCreatableRoles(actorRole);
     if (mode === "edit" && initialUser) {
-      const current = CREATE_USER_ROLES.find((role) => role.value === initialUser.role);
-      if (current && !creatable.some((role) => role.value === current.value)) {
+      const current = CREATE_USER_ROLES.find((role) => role.value === initialUser.role) ?? {
+        value: initialUser.role,
+        label: getRoleLabel(initialUser.role),
+      };
+      if (!creatable.some((role) => role.value === current.value)) {
         return [current, ...creatable];
       }
     }

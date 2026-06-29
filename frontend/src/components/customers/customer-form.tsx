@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
+import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
 import {
   Select,
   SelectContent,
@@ -245,9 +246,12 @@ export function CustomerForm({
           <RequiredLabel htmlFor="pincode">Pincode</RequiredLabel>
           <Input
             id="pincode"
-            {...form.register("pincode")}
+            {...pincodeInputProps}
+            {...form.register("pincode", {
+              setValueAs: (v) => sanitizePincodeDigits(String(v ?? "")),
+            })}
+            onKeyDown={blockNonDigitPincodeKeys}
             placeholder="6-digit pincode"
-            inputMode="numeric"
             aria-invalid={!!fieldErrors.pincode}
             aria-describedby={fieldErrors.pincode ? "pincode-error" : undefined}
             className={fieldClass("pincode")}

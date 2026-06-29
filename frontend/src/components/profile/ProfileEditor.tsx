@@ -87,8 +87,11 @@ export function ProfileEditor({
 
   const availableRoles = useMemo(() => {
     const creatable = getCreatableRoles(actorRole);
-    const current = CREATE_USER_ROLES.find((role) => role.value === user.role);
-    if (current && !creatable.some((role) => role.value === current.value)) {
+    const current = CREATE_USER_ROLES.find((role) => role.value === user.role) ?? {
+      value: user.role,
+      label: getRoleLabel(user.role),
+    };
+    if (!creatable.some((role) => role.value === current.value)) {
       return [current, ...creatable];
     }
     return creatable;

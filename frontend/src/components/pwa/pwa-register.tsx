@@ -4,11 +4,13 @@ import { useEffect } from "react";
 
 export function PwaRegister() {
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 
     const register = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        await registration.update();
       } catch {
         // Service worker registration is optional for core app behavior.
       }

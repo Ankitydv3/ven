@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { complaintIssueTypes, type ComplaintIssueType } from "@/lib/constants";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
+import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
 
 export default function NewOrderPage() {
   const { ready } = useSession("admin");
@@ -60,7 +61,12 @@ export default function NewOrderPage() {
     if (!formData.address.trim()) newErrors.address = "Address is required";
     if (!formData.city.trim()) newErrors.city = "City is required";
     if (!formData.state.trim()) newErrors.state = "State is required";
-    if (!formData.pincode.trim()) newErrors.pincode = "Pincode is required";
+    const pincodeRegex = /^[0-9]{6}$/;
+    if (!formData.pincode.trim()) {
+      newErrors.pincode = "Pincode is required";
+    } else if (!pincodeRegex.test(formData.pincode)) {
+      newErrors.pincode = "Pincode must be exactly 6 digits";
+    }
     if (!formData.deliveryDate) {
       newErrors.deliveryDate = "Delivery date is required";
     } else {
@@ -251,9 +257,11 @@ export default function NewOrderPage() {
                   <Label htmlFor="pincode" className="text-slate-700 dark:text-white/80">Pincode</Label>
                   <Input
                     id="pincode"
+                    {...pincodeInputProps}
                     value={formData.pincode}
-                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                    placeholder="Enter pincode"
+                    onChange={(e) => setFormData({ ...formData, pincode: sanitizePincodeDigits(e.target.value) })}
+                    onKeyDown={blockNonDigitPincodeKeys}
+                    placeholder="6-digit pincode"
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
                   />
                   {errors.pincode && <p className="text-xs text-red-500">{errors.pincode}</p>}

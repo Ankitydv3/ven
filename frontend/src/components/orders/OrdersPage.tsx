@@ -33,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
+import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
 import {
   Dialog,
   DialogContent,
@@ -344,7 +345,12 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     if (!editForm.address.trim()) newErrors.address = "Address is required";
     if (!editForm.city.trim()) newErrors.city = "City is required";
     if (!editForm.state.trim()) newErrors.state = "State is required";
-    if (!editForm.pincode.trim()) newErrors.pincode = "Pincode is required";
+    const pincodeRegex = /^[0-9]{6}$|^—$/;
+    if (!editForm.pincode.trim()) {
+      newErrors.pincode = "Pincode is required";
+    } else if (!pincodeRegex.test(editForm.pincode)) {
+      newErrors.pincode = "Pincode must be exactly 6 digits";
+    }
     if (!editForm.deliveryDate) newErrors.deliveryDate = "Delivery date is required";
 
     setEditErrors(newErrors);
@@ -1269,8 +1275,10 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                   <Label htmlFor="editPincode">Pincode</Label>
                   <Input
                     id="editPincode"
+                    {...pincodeInputProps}
                     value={editForm.pincode}
-                    onChange={(e) => setEditForm({ ...editForm, pincode: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, pincode: sanitizePincodeDigits(e.target.value) })}
+                    onKeyDown={blockNonDigitPincodeKeys}
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white focus-visible:ring-[#378ADD]/30"
                   />
                   {editErrors.pincode && (

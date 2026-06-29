@@ -53,7 +53,7 @@ export default function RootLayout({
       lang="en"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", manrope.variable, spaceGrotesk.variable, "font-sans")}
+      className={cn("dark h-full antialiased", manrope.variable, spaceGrotesk.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <Providers>{children}</Providers>

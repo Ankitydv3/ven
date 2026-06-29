@@ -141,12 +141,6 @@ const selectCls = cn(
   "disabled:opacity-40 disabled:cursor-not-allowed"
 );
 
-// ─── Default variants (non-portal) ───────────────────────────────────────────
-const defaultInputCls = cn(
-  "h-11 w-full rounded-xl border px-3.5 text-[14px]",
-  "bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10"
-);
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function ComplaintRegistrationForm({
   onSuccess,
@@ -261,56 +255,92 @@ export function ComplaintRegistrationForm({
     }
   }, []);
 
-  const onSubmit = form.handleSubmit((values) => {
-    if (!selectedOrderId) { toast.error("Please verify your phone number and select an order"); return; }
-    startTransition(async () => {
-      try {
-        const formData = new FormData();
-        formData.append("clientName", values.name);
-        formData.append("orderId", values.orderId);
-        formData.append("mobileNumber", values.mobileNumber);
-        formData.append("address", values.address);
-        formData.append("complaintType", values.complaintType);
-        formData.append("title", values.complaintType);
-        if (values.complaintType === "Other" && values.complaintDescription?.trim())
-          formData.append("complaintDescription", values.complaintDescription.trim());
-        if (values.email?.trim()) formData.append("email", values.email.trim());
-        if (values.availableDate) formData.append("availableDate", values.availableDate);
-        if (values.availableTime) formData.append("availableTime", values.availableTime);
-        if (values.availability) formData.append("availability", values.availability);
-        if (values.timeSlot) formData.append("timeSlot", values.timeSlot);
-        if (values.assignedTeam) formData.append("assignedTeam", values.assignedTeam);
-        if (values.locationCoordinates) formData.append("locationCoordinates", values.locationCoordinates);
-        if (picture) formData.append("picture", picture);
-        if (quotation) formData.append("quotation", quotation);
-        formData.append("source", source);
-        if (sessionUser?.name) formData.append("createdBy", sessionUser.name);
-        const response = await createComplaint(formData);
-        setSubmittedComplaint(response.complaint);
-        onSuccess?.(response.complaint);
-        toast.success("Complaint submitted successfully");
-        form.reset(defaultValues); setPicture(null); setQuotation(null); resetLookup();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to submit complaint");
+  const scrollToFirstError = useCallback(() => {
+    const errors = form.formState.errors;
+    const firstErrorKey = Object.keys(errors)[0];
+    if (firstErrorKey) {
+      const errorElement = document.querySelector(`[name="${firstErrorKey}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        (errorElement as HTMLElement).focus();
       }
-    });
-  });
+    }
+  }, [form.formState.errors]);
+
+  const onSubmit = form.handleSubmit(
+    (values) => {
+      if (!selectedOrderId) {
+        toast.error("Please verify your phone number and select an order");
+        scrollToFirstError();
+        return;
+      }
+      startTransition(async () => {
+        try {
+          const formData = new FormData();
+          formData.append("clientName", values.name);
+          formData.append("orderId", values.orderId);
+          formData.append("mobileNumber", values.mobileNumber);
+          formData.append("address", values.address);
+          formData.append("complaintType", values.complaintType);
+          formData.append("title", values.complaintType);
+          if (values.complaintType === "Other" && values.complaintDescription?.trim())
+            formData.append("complaintDescription", values.complaintDescription.trim());
+          if (values.email?.trim()) formData.append("email", values.email.trim());
+          if (values.availableDate) formData.append("availableDate", values.availableDate);
+          if (values.availableTime) formData.append("availableTime", values.availableTime);
+          if (values.availability) formData.append("availability", values.availability);
+          if (values.timeSlot) formData.append("timeSlot", values.timeSlot);
+          if (values.assignedTeam) formData.append("assignedTeam", values.assignedTeam);
+          if (values.locationCoordinates) formData.append("locationCoordinates", values.locationCoordinates);
+          if (picture) formData.append("picture", picture);
+          if (quotation) formData.append("quotation", quotation);
+          formData.append("source", source);
+          if (sessionUser?.name) formData.append("createdBy", sessionUser.name);
+          
+          const response = await createComplaint(formData);
+          setSubmittedComplaint(response.complaint);
+          onSuccess?.(response.complaint);
+          toast.success("Complaint submitted successfully!");
+          form.reset(defaultValues);
+          setPicture(null);
+          setQuotation(null);
+          resetLookup();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to submit complaint. Please try again.");
+        }
+      });
+    },
+    (errors) => {
+      console.error("Form validation errors:", errors);
+      scrollToFirstError();
+      toast.error("Please fill in all required fields correctly");
+    }
+  );
 
   const isPortal = variant === "portal";
 
   // ── Portal UI ───────────────────────────────────────────────────────────────
   if (isPortal) {
     return (
-      <form onSubmit={onSubmit} className="space-y-6 pb-2 max-w-4xl mx-auto">
+      <form onSubmit={onSubmit} className="space-y-8 pb-8 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold text-white">File a Complaint</h2>
+          <p className="text-sm text-white/50">Complete the form below to submit your complaint</p>
+        </div>
 
         {/* ── Step 1: Order Lookup ── */}
-        <Section>
-          <SectionLabel>Step 1 — Verify your order</SectionLabel>
+        <Section className="border-t-4" style={{ borderTopColor: T.blue400 }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm">1</div>
+            <h3 className="text-lg font-semibold text-white">Verify Your Order</h3>
+          </div>
 
           {/* Toggle */}
-          <div className="mb-4 flex w-full overflow-hidden rounded-xl border" style={{ borderColor: T.glassBorder }}>
+          <div className="mb-6 flex w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-1">
             {[
-              { id: "phone" as const, label: "Mobile number", icon: Phone },
+              { id: "phone" as const, label: "Mobile Number", icon: Phone },
               { id: "orderId" as const, label: "Order ID", icon: Hash },
             ].map(({ id, label, icon: Icon }) => (
               <button
@@ -318,25 +348,20 @@ export function ComplaintRegistrationForm({
                 type="button"
                 onClick={() => { setLookupType(id); resetLookup(); }}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-2 py-3 text-[13px] font-semibold uppercase tracking-[0.1em] transition-all",
+                  "flex flex-1 items-center justify-center gap-2 py-3 text-sm font-semibold transition-all rounded-lg",
                   lookupType === id
-                    ? "text-white"
-                    : "text-white/40 hover:text-white/70"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-white/50 hover:text-white/80 hover:bg-white/5"
                 )}
-                style={lookupType === id ? {
-                  background: `linear-gradient(135deg, ${T.blue500}, ${T.blue400})`,
-                  boxShadow: `0 4px 16px -4px rgba(55,138,221,0.5)`,
-                } : {}}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden xs:inline">{label}</span>
-                <span className="xs:hidden">{id === "phone" ? "Phone" : "Order ID"}</span>
+                <span>{label}</span>
               </button>
             ))}
           </div>
 
           {/* Input + Search */}
-          <div className="relative">
+          <div className="relative mb-4">
             {lookupType === "phone" ? (
               <Input
                 {...phoneInputProps}
@@ -360,8 +385,8 @@ export function ComplaintRegistrationForm({
                 onBlur={() => {
                   if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) void handleLookup();
                 }}
-                placeholder="10-digit mobile number"
-                className={cn(inputCls, "pr-12")}
+                placeholder="Enter 10-digit mobile number"
+                className={cn(inputCls, "pr-12 text-base")}
               />
             ) : (
               <Input
@@ -373,7 +398,7 @@ export function ComplaintRegistrationForm({
                 onBlur={() => { if (orderIdQuery.trim() && !lookupDone) void handleLookup(); }}
                 onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                 placeholder="e.g. ORD-2024-001"
-                className={cn(inputCls, "pr-12")}
+                className={cn(inputCls, "pr-12 text-base")}
               />
             )}
 
@@ -504,12 +529,15 @@ export function ComplaintRegistrationForm({
 
         {/* ── Step 2: Complaint type ── */}
         <Section>
-          <SectionLabel>Step 2 — Category</SectionLabel>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-bold text-sm">2</div>
+            <h3 className="text-lg font-semibold text-white">Category</h3>
+          </div>
           <FieldWrap>
             <FieldLabel required>Complaint category</FieldLabel>
             <div className="relative">
               <select {...form.register("complaintType")} className={selectCls}>
-                <option value="">Select complaint category</option>
+                <option value="" disabled>Select complaint category</option>
                 {complaintIssueTypes.map((issue) => (
                   <option key={issue} value={issue} style={{ backgroundColor: "#0a121e", color: "#fff" }}>
                     {issue}
@@ -524,7 +552,10 @@ export function ComplaintRegistrationForm({
 
         {/* ── Step 3: Customer details ── */}
         <Section>
-          <SectionLabel>Step 3 — Your details</SectionLabel>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/20 text-purple-400 font-bold text-sm">3</div>
+            <h3 className="text-lg font-semibold text-white">Your Details</h3>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldWrap className="sm:col-span-2">
               <FieldLabel required>Full name</FieldLabel>
@@ -563,7 +594,10 @@ export function ComplaintRegistrationForm({
 
         {/* ── Step 4: Description & address ── */}
         <Section>
-          <SectionLabel>Step 4 — Details</SectionLabel>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-sm">4</div>
+            <h3 className="text-lg font-semibold text-white">Details</h3>
+          </div>
           <div className="space-y-4">
             <FieldWrap>
               <FieldLabel required>Complaint description</FieldLabel>
@@ -591,7 +625,10 @@ export function ComplaintRegistrationForm({
 
         {/* ── Step 5: Availability ── */}
         <Section>
-          <SectionLabel>Step 5 — Availability</SectionLabel>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-500/20 text-pink-400 font-bold text-sm">5</div>
+            <h3 className="text-lg font-semibold text-white">Availability</h3>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldWrap>
               <FieldLabel>Preferred date</FieldLabel>
@@ -612,7 +649,7 @@ export function ComplaintRegistrationForm({
               <div className="relative">
                 <Clock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <select {...form.register("timeSlot")} className={cn(selectCls, "pl-10")}>
-                  <option value="">Select a slot</option>
+                  <option value="" disabled>Select a slot</option>
                   {timeSlots.map((slot) => (
                     <option key={slot} value={slot} style={{ backgroundColor: "#0a121e" }}>{slot}</option>
                   ))}
@@ -636,7 +673,10 @@ export function ComplaintRegistrationForm({
 
         {/* ── Step 6: Attachments ── */}
         <Section>
-          <SectionLabel>Step 6 — Attachments</SectionLabel>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-sm">6</div>
+            <h3 className="text-lg font-semibold text-white">Attachments</h3>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Picture upload */}
             <FieldWrap>
@@ -720,10 +760,13 @@ export function ComplaintRegistrationForm({
             disabled={pending || form.formState.isSubmitting || !selectedOrderId}
             className={cn(
               "relative w-full overflow-hidden rounded-xl py-4 text-[15px] font-semibold text-white transition-all duration-200",
-              "disabled:cursor-not-allowed disabled:opacity-50"
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              selectedOrderId && "hover:scale-[1.02] active:scale-[0.98]"
             )}
             style={{
-              background: `linear-gradient(135deg, ${T.blue500} 0%, ${T.blue400} 100%)`,
+              background: selectedOrderId 
+                ? `linear-gradient(135deg, ${T.blue500} 0%, ${T.blue400} 100%)`
+                : `linear-gradient(135deg, #374151 0%, #4B5563 100%)`,
               boxShadow: selectedOrderId ? `0 12px 32px -8px rgba(55,138,221,0.45)` : "none",
             }}
           >
@@ -731,7 +774,7 @@ export function ComplaintRegistrationForm({
               {pending || form.formState.isSubmitting ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</>
               ) : (
-                <><Sparkles className="h-4 w-4" /> Submit complaint</>
+                <><Sparkles className="h-4 w-4" /> Submit Complaint</>
               )}
             </span>
           </button>
@@ -910,7 +953,7 @@ export function ComplaintRegistrationForm({
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Complaint Type *</Label>
         <select {...form.register("complaintType")} className={dSelectCls}>
-          <option value="">Select complaint type</option>
+          <option value="" disabled>Select complaint type</option>
           {complaintIssueTypes.map((issue) => (
             <option key={issue} value={issue} style={{ backgroundColor: "#0a121e", color: "#ffffff" }}>{issue}</option>
           ))}
@@ -976,7 +1019,7 @@ export function ComplaintRegistrationForm({
         <div className="relative">
           <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <select {...form.register("timeSlot")} className={cn(dSelectCls, "pl-10")}>
-            <option value="">Select a time slot</option>
+            <option value="" disabled>Select a time slot</option>
             {timeSlots.map((slot) => (
               <option key={slot} value={slot} style={{ backgroundColor: "#0a121e" }}>{slot}</option>
             ))}
@@ -1011,9 +1054,17 @@ export function ComplaintRegistrationForm({
       {/* Submit */}
       <div className="md:col-span-2 pt-4">
         <Button type="submit" disabled={pending || form.formState.isSubmitting || !selectedOrderId}
-          className="h-12 min-h-[48px] w-full rounded-xl border-none text-[15px] font-semibold text-white bg-[#185FA5] hover:bg-[#0C447C] transition-all">
+          className={cn(
+            "h-12 min-h-[48px] w-full rounded-xl border-none text-[15px] font-semibold text-white transition-all",
+            selectedOrderId 
+              ? "bg-[#185FA5] hover:bg-[#0C447C] hover:scale-[1.02] active:scale-[0.98]"
+              : "bg-gray-400 cursor-not-allowed"
+          )}>
           {pending || form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</> : "Submit Complaint"}
         </Button>
+        {!selectedOrderId && (
+          <p className="mt-2 text-center text-[12px] text-slate-500">Verify your order above to enable submission</p>
+        )}
       </div>
 
       {/* Success */}
