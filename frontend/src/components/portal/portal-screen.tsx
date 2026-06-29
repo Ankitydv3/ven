@@ -100,12 +100,35 @@ export function PortalScreen() {
   const meta = tabMeta[activeTab];
 
   return (
-    <div className="min-h-screen w-full bg-[#020a17] lg:grid lg:grid-cols-[minmax(0,1fr)_min(100%,520px)]">
-      {/* Left: hero image */}
-      <div className="relative hidden min-h-[240px] lg:block lg:min-h-screen">
+    /*
+     * Root: full viewport, no overflow.
+     *
+     * Mobile  → single column, flex-col:
+     *   - Image strip:  h-[35dvh]  (35% of viewport height, fixed)
+     *   - Form panel:   flex-1, overflow-y-auto  (scrolls inside)
+     *
+     * Desktop → two-column grid, each column = 100dvh, no outer scroll.
+     */
+    <div
+      className={cn(
+        "h-dvh w-full overflow-hidden bg-[#020a17]",
+        // mobile: stack vertically
+        "flex flex-col",
+        // desktop: side-by-side grid
+        "lg:grid lg:grid-cols-[minmax(0,1fr)_min(100%,620px)] lg:flex-none"
+      )}
+    >
+      {/* ── LEFT / TOP: hero image ─────────────────────────────────────────── */}
+      {/*
+       * Mobile : h-[35dvh], full width, shrink-0 so it never compresses
+       * Desktop: full column height (set by the grid row = 100dvh)
+       */}
+      <div className="relative h-[35dvh] w-full shrink-0 lg:h-dvh">
         <PortalImagePanel />
+
+        {/* Desktop-only right-edge gradient bleeding into form panel */}
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 hidden lg:block"
           style={{
             background:
               "linear-gradient(to right, rgba(2,29,56,0.15) 0%, rgba(2,29,56,0.45) 100%)",
@@ -113,8 +136,22 @@ export function PortalScreen() {
         />
       </div>
 
-      {/* Right: form panel */}
-      <div className="relative flex min-h-screen w-full flex-col border-white/[0.06] bg-[#021D38]/90 lg:border-l lg:min-h-screen">
+      {/* ── RIGHT / BOTTOM: form panel ────────────────────────────────────── */}
+      {/*
+       * Mobile : flex-1 so it fills the remaining 65dvh; overflow-hidden so
+       *          its inner scroll container is the only scrollable thing.
+       * Desktop: h-dvh, fixed column width.
+       */}
+      <div
+        className={cn(
+          "relative flex flex-col border-white/[0.06] bg-[#021D38]/90",
+          // mobile
+          "h-full flex-1 overflow-hidden",
+          // desktop
+          "lg:h-dvh lg:flex-none lg:border-l"
+        )}
+      >
+        {/* Ambient glows — decorative only */}
         <div
           className="pointer-events-none absolute -top-32 -right-20 h-80 w-80 rounded-full opacity-30 blur-[120px]"
           style={{ background: "radial-gradient(circle, #378ADD, transparent)" }}
@@ -125,8 +162,14 @@ export function PortalScreen() {
         />
         <FloatingBubbles />
 
-        <div className="relative z-10 flex min-h-screen flex-col px-4 py-6 sm:px-6 sm:py-8 lg:max-h-screen lg:min-h-0 lg:py-10">
-          <div className="mb-4 flex flex-wrap gap-2 sm:mb-6">
+        {/*
+         * Inner layout: z-10, flex-col, full height.
+         * Outer padding is shrink-0; the card below holds the scrollable area.
+         */}
+        <div className="relative z-10 flex h-full flex-col px-4 py-5 sm:px-6 sm:py-6 lg:py-10">
+
+          {/* Tab bar — never scrolls */}
+          <div className="mb-4 flex shrink-0 flex-wrap gap-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -136,7 +179,7 @@ export function PortalScreen() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all",
+                    "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all",
                     isActive
                       ? "bg-[#185FA5] text-white shadow-[0_8px_24px_-8px_rgba(24,95,165,0.8)]"
                       : "border border-white/[0.08] bg-white/[0.03] text-white/55 hover:bg-white/[0.06] hover:text-white"
@@ -149,8 +192,14 @@ export function PortalScreen() {
             })}
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#021D38]/80 p-4 backdrop-blur-2xl sm:rounded-3xl sm:p-6">
-            <div className="mb-3 shrink-0 sm:mb-4">
+          {/*
+           * Card: flex-col, flex-1 so it fills remaining height.
+           * The inner scroll wrapper (overflow-y-auto) is the ONLY place that scrolls.
+           */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-[#021D38]/85 shadow-[0_20px_60px_-24px_rgba(0,0,0,0.65)] backdrop-blur-2xl sm:rounded-3xl">
+
+            {/* Card header — shrink-0 so it stays visible */}
+            <div className="shrink-0 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5 lg:px-7 lg:pt-7">
               <p
                 className="mb-1 text-[10px] font-medium uppercase tracking-[0.28em]"
                 style={{ color: "rgba(133,183,235,0.65)" }}
@@ -163,17 +212,26 @@ export function PortalScreen() {
               >
                 {meta.title}
               </h1>
-              <p className="text-xs font-light leading-relaxed text-white/50 sm:text-sm">{meta.description}</p>
+              <p className="text-xs font-light leading-relaxed text-white/50 sm:text-sm">
+                {meta.description}
+              </p>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 pb-2">
+            {/* Divider */}
+            <div className="mx-4 shrink-0 border-t border-white/[0.06] sm:mx-6 lg:mx-7" />
+
+            {/* Scrollable form area */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-7 lg:py-6">
               {activeTab === "login" && <LoginFields />}
               {activeTab === "track" && <TrackPanel />}
-              {activeTab === "complaint" && <ComplaintRegistrationForm variant="portal" source="WEBSITE" />}
+              {activeTab === "complaint" && (
+                <ComplaintRegistrationForm variant="portal" source="WEBSITE" />
+              )}
             </div>
           </div>
 
-          <div className="mt-4 flex shrink-0 items-center gap-2 text-[11px] text-white/25">
+          {/* Status indicator — shrink-0, always visible at bottom */}
+          <div className="mt-3 flex shrink-0 items-center gap-2 text-[11px] text-white/25">
             <span
               className="block h-1.5 w-1.5 animate-pulse rounded-full"
               style={{ background: "#378ADD", boxShadow: "0 0 6px #378ADD" }}
