@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import { useComplaints } from "@/hooks/useComplaints";
-import { isMyTasksQueueComplaint, MY_TASKS_SCOPE } from "@/lib/active-complaints";
+import { isMyTasksQueueComplaint, MY_TASKS_SCOPE, sortMyTasksQueueComplaints } from "@/lib/active-complaints";
 import type { Complaint } from "@/lib/types";
 import { getComplaintWorkflowStage, workflowStageBadgeClass } from "@/lib/workflow";
 import { usePatchTaskStatus } from "@/hooks/usePatchTaskStatus";
@@ -844,7 +844,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const limit = 5;
+  const limit = 10;
 
   const { data, isLoading, refetch } = useComplaints({
     q: appliedSearch || undefined,
@@ -872,7 +872,8 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
           status: selectedTask.status === "In Progress" ? "In Progress" : complaint.status,
         };
       })
-      .filter(isMyTasksQueueComplaint);
+      .filter(isMyTasksQueueComplaint)
+      .sort(sortMyTasksQueueComplaints);
   }, [complaints, selectedComplaintId, selectedTask]);
 
   const stats = useMemo(() => {
