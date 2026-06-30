@@ -12,8 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { complaintIssueTypes, type ComplaintIssueType } from "@/lib/constants";
-import { format } from "date-fns";
+import { getTodayDateInputValue, isDateInputInFuture, parseDateInputValue } from "@/lib/dates";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
 
@@ -32,7 +31,7 @@ export default function NewOrderPage() {
   pincode: "",
   materialType: "Aluminium" as "Aluminium" | "uPVC",
   salesPerson: "",
-  deliveryDate: format(new Date(), "yyyy-MM-dd")
+  deliveryDate: getTodayDateInputValue()
 });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -70,14 +69,8 @@ export default function NewOrderPage() {
     }
     if (!formData.deliveryDate) {
       newErrors.deliveryDate = "Delivery date is required";
-    } else {
-      const selectedDate = new Date(formData.deliveryDate);
-      selectedDate.setHours(0, 0, 0, 0);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate > today) {
-        newErrors.deliveryDate = "Delivery date cannot be in the future";
-      }
+    } else if (isDateInputInFuture(formData.deliveryDate)) {
+      newErrors.deliveryDate = "Delivery date cannot be in the future";
     }
 
     setErrors(newErrors);
@@ -91,7 +84,7 @@ export default function NewOrderPage() {
     try {
       await createOrderMutation.mutateAsync({
         ...formData,
-        deliveryDate: new Date(formData.deliveryDate)
+        deliveryDate: parseDateInputValue(formData.deliveryDate)
       });
       toast.success("Order created successfully");
       router.push("/admin/orders");
@@ -207,9 +200,19 @@ export default function NewOrderPage() {
                   <Input
                     id="deliveryDate"
                     type="date"
-                    max={format(new Date(), "yyyy-MM-dd")}
+                    max={getTodayDateInputValue()}
                     value={formData.deliveryDate}
-                    onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
+                    onChange={(e) => {
+                      const deliveryDate = e.target.value;
+                      setFormData({ ...formData, deliveryDate });
+                      if (errors.deliveryDate) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.deliveryDate;
+                          return next;
+                        });
+                      }
+                    }}
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"
                   />
                   {errors.deliveryDate && <p className="text-xs text-red-500">{errors.deliveryDate}</p>}
