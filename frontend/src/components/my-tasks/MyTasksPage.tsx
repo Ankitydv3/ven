@@ -439,7 +439,6 @@ function TaskDetailPanel({
           <p className="text-sm text-slate-400">{task.taskId}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={cn(priorityBadgeClass[task.priority])}>{task.priority}</Badge>
           <Badge variant={statusBadgeVariant[task.status] ?? "default"}>{task.status}</Badge>
           {paymentAlreadyReceived && (
             <Badge className="rounded-full border-emerald-500/40 bg-emerald-500/15 text-emerald-300">

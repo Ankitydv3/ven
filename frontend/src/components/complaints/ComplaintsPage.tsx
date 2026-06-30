@@ -1,4 +1,4 @@
-  "use client";
+"use client";
 
   import { useEffect, useMemo, useState, useTransition, useCallback } from "react";
   import { useSearchParams, useRouter } from "next/navigation";
@@ -623,10 +623,10 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-3 gap-3"
+            className="grid grid-cols-2 md:grid-cols-4 gap-3"
           >
             {statsLoading
-              ? Array.from({ length: 3 }).map((_, i) => (
+              ? Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-[72px] rounded-xl bg-white/[0.04]" />
                 ))
               : kpiCards.map((kpi, i) => {
@@ -647,7 +647,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                       key={kpi.label}
                       onClick={kpi.onClick}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl border bg-gradient-to-br px-4 py-3 cursor-pointer hover:scale-[1.02] transition-transform",
+                        "flex items-center w-auto rounded-xl border bg-gradient-to-br px-4 py-3 cursor-pointer hover:scale-[1.02] transition-transform",
                         colorMap[kpi.color]
                       )}
                     >

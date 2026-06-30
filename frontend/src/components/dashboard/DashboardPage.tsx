@@ -572,6 +572,22 @@ import type { Task } from "@/lib/task.types";
   }
 
   /* ═══════════════════════════════════════════════════════
+    CUSTOM BAR TOOLTIP
+  ═══════════════════════════════════════════════════════ */
+  function CustomBarTooltip({ active, payload }: any) {
+    if (active && payload && payload.length) {
+      return (
+        <div style={tooltipStyle}>
+          <p style={{ margin: 0, color: "#fff", fontSize: "14px", fontWeight: 600 }}>
+            {payload[0].value}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  /* ═══════════════════════════════════════════════════════
     BAR CHART — categories
   ═══════════════════════════════════════════════════════ */
   function CategoriesBar({ data, onBarClick }: { data: DashboardPageData["categories"]; onBarClick?: (name: string) => void }) {
@@ -609,7 +625,7 @@ import type { Task } from "@/lib/task.types";
               tickLine={false}
               width={110}
             />
-            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+            <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
             <Bar
               dataKey="value"
               name="Complaints"
