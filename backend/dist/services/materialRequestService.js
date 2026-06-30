@@ -386,8 +386,9 @@ async function listMaterialRequests(options) {
     }
     const skip = (options.page - 1) * options.limit;
     const queryTimeoutMs = 20_000;
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
         MaterialRequest_1.default.find(filter)
+            .select("-imageUrl -history")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(options.limit)
@@ -395,6 +396,19 @@ async function listMaterialRequests(options) {
             .maxTimeMS(queryTimeoutMs),
         MaterialRequest_1.default.countDocuments(filter).maxTimeMS(queryTimeoutMs),
     ]);
+    const idsWithImage = rawItems.length > 0
+        ? new Set((await MaterialRequest_1.default.find({
+            _id: { $in: rawItems.map((item) => item._id) },
+            imageUrl: { $exists: true, $nin: [null, ""] },
+        })
+            .select("_id")
+            .lean()
+            .maxTimeMS(queryTimeoutMs)).map((row) => String(row._id)))
+        : new Set();
+    const items = rawItems.map((item) => ({
+        ...item,
+        hasImage: idsWithImage.has(String(item._id)),
+    }));
     const complaintIds = [
         ...new Set(items.map((item) => item.complaintId).filter(Boolean)),
     ];
@@ -972,13 +986,16 @@ async function getUserActivityHistory(userId, q) {
         throw new ApiError_1.ApiError(404, "User not found");
     }
     const materialRequests = await MaterialRequest_1.default.find({ requestedById: userObjectId })
+        .select("-imageUrl")
         .sort({ createdAt: -1 })
         .lean();
     const complaintIds = [
         ...new Set(materialRequests.map((r) => r.complaintId).filter(Boolean)),
     ];
     const tasks = complaintIds.length
-        ? await Task_1.default.find({ complaintId: { $in: complaintIds } }).lean()
+        ? await Task_1.default.find({ complaintId: { $in: complaintIds } })
+            .select("-history")
+            .lean()
         : [];
     const allComplaintIds = [
         ...new Set([
@@ -1025,7 +1042,6 @@ async function getUserActivityHistory(userId, q) {
                 status: h.status,
                 remarks: h.remarks ?? undefined,
                 createdAt: h.createdAt,
-                imageUrl: r.imageUrl,
                 paid: Boolean(r.paymentId),
             });
         }

@@ -39,6 +39,8 @@ const dateKey_1 = require("../utils/dateKey");
 const complaintAssignmentService_1 = require("./complaintAssignmentService");
 const BLOCKED_COMPLAINT_TASK_STATUSES = ["Completed"];
 const QUERY_TIMEOUT_MS = 20_000;
+/** List endpoints must not load task history — entries can embed large photo payloads. */
+const TASK_LIST_PROJECTION = "-history";
 let lastOverdueRunAt = 0;
 const OVERDUE_DEBOUNCE_MS = 60_000;
 async function getPendingOnsiteMaterialPayment(complaintId) {
@@ -366,7 +368,13 @@ async function getTasks(options) {
     const skip = (options.page - 1) * options.limit;
     const sort = { [options.sortBy]: options.sortOrder };
     const [rawItems, total] = await Promise.all([
-        Task_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+        Task_1.default.find(filter)
+            .select(TASK_LIST_PROJECTION)
+            .sort(sort)
+            .skip(skip)
+            .limit(options.limit)
+            .lean()
+            .maxTimeMS(QUERY_TIMEOUT_MS),
         Task_1.default.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
     ]);
     const items = dedupeActiveTasksByComplaint(rawItems);

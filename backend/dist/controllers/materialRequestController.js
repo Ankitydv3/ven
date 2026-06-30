@@ -1,15 +1,20 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMaterialRequestHandler = createMaterialRequestHandler;
 exports.listMaterialRequestsHandler = listMaterialRequestsHandler;
 exports.materialRequestStatsHandler = materialRequestStatsHandler;
 exports.readMaterialRequestHandler = readMaterialRequestHandler;
+exports.readMaterialRequestImageHandler = readMaterialRequestImageHandler;
 exports.serviceHeadReviewHandler = serviceHeadReviewHandler;
 exports.confirmMaterialPaymentHandler = confirmMaterialPaymentHandler;
 exports.getMaterialPaymentDetailsHandler = getMaterialPaymentDetailsHandler;
 exports.completeOnsiteMaterialPaymentHandler = completeOnsiteMaterialPaymentHandler;
 exports.getUserActivityHistoryHandler = getUserActivityHistoryHandler;
 exports.updateMaterialRequestStatusHandler = updateMaterialRequestStatusHandler;
+const MaterialRequest_1 = __importDefault(require("../models/MaterialRequest"));
 const materialRequestService_1 = require("../services/materialRequestService");
 const teamScope_1 = require("../utils/teamScope");
 const ApiError_1 = require("../utils/ApiError");
@@ -59,6 +64,16 @@ async function readMaterialRequestHandler(req, res) {
     const request = await (0, materialRequestService_1.getMaterialRequestById)(req.params.id);
     await (0, materialRequestService_1.assertMaterialRequestAccess)(req.user, request);
     res.json({ request });
+}
+async function readMaterialRequestImageHandler(req, res) {
+    const request = await MaterialRequest_1.default.findById(req.params.id)
+        .select("requestedById imageUrl")
+        .lean();
+    if (!request) {
+        throw new ApiError_1.ApiError(404, "Material request not found");
+    }
+    await (0, materialRequestService_1.assertMaterialRequestAccess)(req.user, request);
+    res.json({ imageUrl: request.imageUrl ?? "" });
 }
 async function serviceHeadReviewHandler(req, res) {
     const request = await (0, materialRequestService_1.serviceHeadReview)(req.params.id, req.body.decision, {
