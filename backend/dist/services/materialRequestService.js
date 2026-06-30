@@ -44,6 +44,10 @@ const STATUS_MESSAGES = {
     GRANTED_BY_STORE: "Store granted material. Service Head must confirm receipt.",
     GRANTED: "Material granted. Team can resume work.",
 };
+/** Status updates must not load embedded photos — each image can be several MB. */
+async function findMaterialRequestForMutation(id) {
+    return MaterialRequest_1.default.findById(id).select("-imageUrl");
+}
 async function createMaterialAlert(type, request, message, options) {
     await MaterialAlert_1.default.create({
         type,
@@ -82,11 +86,9 @@ async function notifyServiceHeadsForStockCheck(request) {
     const message = request.paymentMode === "onsite"
         ? `Onsite payment scheduled for ${request.requestId}. Complete stock check — team will collect payment after approval.`
         : STATUS_MESSAGES.AWAITING_STOCK_CHECK;
-    for (const head of serviceHeads) {
-        await createMaterialAlert("material_service_head_pending", request, message, {
-            userId: head._id,
-        });
-    }
+    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_service_head_pending", request, message, {
+        userId: head._id,
+    })));
 }
 async function notifyServiceHeads(request) {
     const serviceHeads = await User_1.default.find({
@@ -98,11 +100,9 @@ async function notifyServiceHeads(request) {
         deletedAt: null,
     }).select("_id");
     const message = `${request.requestedBy} requested ${request.quantity} ${request.unit} of ${request.materialName}. Awaiting Service Head approval.`;
-    for (const head of serviceHeads) {
-        await createMaterialAlert("material_service_head_pending", request, message, {
-            userId: head._id,
-        });
-    }
+    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_service_head_pending", request, message, {
+        userId: head._id,
+    })));
 }
 async function notifyServiceHeadsForStoreGrant(request) {
     const serviceHeads = await User_1.default.find({
@@ -114,11 +114,9 @@ async function notifyServiceHeadsForStoreGrant(request) {
         deletedAt: null,
     }).select("_id");
     const message = `Store granted ${request.quantity} ${request.unit} of ${request.materialName} (${request.requestId}). Confirm whether material was received.`;
-    for (const head of serviceHeads) {
-        await createMaterialAlert("material_awaiting_final_grant", request, message, {
-            userId: head._id,
-        });
-    }
+    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_awaiting_final_grant", request, message, {
+        userId: head._id,
+    })));
 }
 async function notifyStoreManagersMaterialNotReceived(request) {
     const storeManagers = await User_1.default.find({
@@ -501,7 +499,7 @@ async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisi
     if (!(0, teamScope_1.isServiceHead)(actor)) {
         throw new ApiError_1.ApiError(403, "Only Service Head can approve or deny material requests");
     }
-    const request = await MaterialRequest_1.default.findById(id);
+    const request = await findMaterialRequestForMutation(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -748,7 +746,7 @@ async function confirmMaterialPayment(id, actor, paymentMode = "received", remar
     if (!isVerifier) {
         throw new ApiError_1.ApiError(403, "Only Accounts or Service Head can confirm material payments");
     }
-    const request = await MaterialRequest_1.default.findById(id);
+    const request = await findMaterialRequestForMutation(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -780,7 +778,7 @@ async function confirmMaterialPayment(id, actor, paymentMode = "received", remar
     return result.request;
 }
 async function completeOnsiteMaterialPayment(id, actor, remarks) {
-    const request = await MaterialRequest_1.default.findById(id);
+    const request = await findMaterialRequestForMutation(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -845,7 +843,7 @@ async function completeOnsiteMaterialPayment(id, actor, remarks) {
     return result.request;
 }
 async function updateMaterialRequestStatus(id, decision, availability, actor, storeManagerRemarks, revisitDate, revisitTimeSlot) {
-    const request = await MaterialRequest_1.default.findById(id);
+    const request = await findMaterialRequestForMutation(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
