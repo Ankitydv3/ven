@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import { useComplaints } from "@/hooks/useComplaints";
-import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
+import { isMyTasksQueueComplaint, MY_TASKS_SCOPE } from "@/lib/active-complaints";
 import type { Complaint } from "@/lib/types";
 import { getComplaintWorkflowStage, workflowStageBadgeClass } from "@/lib/workflow";
 import { usePatchTaskStatus } from "@/hooks/usePatchTaskStatus";
@@ -219,11 +219,13 @@ function TaskDetailPanel({
   complaint,
   canUpdate,
   onRefresh,
+  onTaskUpdated,
 }: {
   task: Task;
   complaint?: Complaint | null;
   canUpdate: boolean;
   onRefresh: () => void | Promise<void>;
+  onTaskUpdated: (task: Task) => void;
 }) {
   const patchMutation = usePatchTaskStatus();
   const completeOnsiteMutation = useCompleteOnsiteMaterialPayment();
@@ -319,9 +321,12 @@ function TaskDetailPanel({
 
   const handleStart = async () => {
     try {
-      await patchMutation.mutateAsync({ id: task._id, status: "In Progress" });
+      const result = await patchMutation.mutateAsync({ id: task._id, status: "In Progress" });
+      if (result.task) {
+        onTaskUpdated(result.task);
+      }
       toast.success("Task started");
-      onRefresh();
+      await onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to Update Task"));
     }
@@ -356,7 +361,7 @@ function TaskDetailPanel({
     }
     const completedStatus = nextStatus;
     try {
-      await patchMutation.mutateAsync({
+      const result = await patchMutation.mutateAsync({
         id: task._id,
         status: nextStatus,
         notes: notes.trim() || undefined,
@@ -370,6 +375,9 @@ function TaskDetailPanel({
           : {}),
         ...(nextStatus === "Need Re-visit" ? { revisitDate } : {}),
       });
+      if (result.task) {
+        onTaskUpdated(result.task);
+      }
       const message =
         nextStatus === "Need Re-visit"
           ? `Re-visit scheduled for ${revisitDate}`
@@ -388,9 +396,9 @@ function TaskDetailPanel({
       setRevisitTimeSlot("");
       setForceUpdateForm(false);
       if (completedStatus === "Completed") {
-        openFeedback(feedbackTargetFromTask(task));
+        openFeedback(feedbackTargetFromTask(result.task ?? task));
       }
-      onRefresh();
+      await onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));
     }
@@ -474,7 +482,7 @@ function TaskDetailPanel({
           {showStartButton && (
             <Button
               size="sm"
-              onClick={handleStart}
+              onClick={() => void handleStart()}
               disabled={patchMutation.isPending}
               className="rounded-full bg-blue-600 hover:bg-blue-500"
             >
@@ -739,7 +747,7 @@ function TaskDetailPanel({
                   )}
                 </div>
                 <Button
-                  onClick={handleUpdateStatus}
+                  onClick={() => void handleUpdateStatus()}
                   disabled={patchMutation.isPending || !nextStatus}
                   className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-500"
                 >
@@ -842,7 +850,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const { data, isLoading, refetch } = useComplaints({
     q: appliedSearch || undefined,
     displayStatus: statusFilter !== "All" ? statusFilter : undefined,
-    scope: ACTIVE_COMPLAINT_SCOPE,
+    scope: MY_TASKS_SCOPE,
     page,
     limit,
   });
@@ -850,6 +858,23 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const complaints = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const queueComplaints = useMemo(() => {
+    return complaints
+      .map((complaint) => {
+        if (complaint.complaintId !== selectedComplaintId || !selectedTask) {
+          return complaint;
+        }
+        return {
+          ...complaint,
+          taskScheduleStatus: selectedTask.status,
+          workflowStage:
+            selectedTask.status === "In Progress" ? "In Progress" : complaint.workflowStage,
+          status: selectedTask.status === "In Progress" ? "In Progress" : complaint.status,
+        };
+      })
+      .filter(isMyTasksQueueComplaint);
+  }, [complaints, selectedComplaintId, selectedTask]);
 
   const stats = useMemo(() => {
     const inProgress = complaints.filter(
@@ -866,19 +891,25 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     return { total, inProgress, pending, revisit };
   }, [complaints, total]);
 
-  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
+  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint, options?: { silent?: boolean }) => {
     setSelectedComplaintId(complaint.complaintId);
     setSelectedComplaint(complaint);
-    setLoadingDetail(true);
+    if (!options?.silent) {
+      setLoadingDetail(true);
+    }
     try {
       const lookupId = complaint.taskId ?? complaint.complaintId;
       const detail = await fetchTask(lookupId);
       setSelectedTask(detail);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to load complaint work details"));
-      setSelectedTask(null);
+      if (!options?.silent) {
+        toast.error(getApiErrorMessage(error, "Failed to load complaint work details"));
+        setSelectedTask(null);
+      }
     } finally {
-      setLoadingDetail(false);
+      if (!options?.silent) {
+        setLoadingDetail(false);
+      }
     }
   }, []);
 
@@ -901,14 +932,14 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
   useEffect(() => {
     if (
-      complaints.length > 0 &&
+      queueComplaints.length > 0 &&
       !selectedComplaintId &&
       !searchParams.get("id") &&
       !searchParams.get("complaintId")
     ) {
-      void loadComplaintWorkDetail(complaints[0]);
+      void loadComplaintWorkDetail(queueComplaints[0]);
     }
-  }, [complaints, selectedComplaintId, searchParams, loadComplaintWorkDetail]);
+  }, [queueComplaints, selectedComplaintId, searchParams, loadComplaintWorkDetail]);
 
   const handleSearch = () => {
     setAppliedSearch(search.trim());
@@ -919,16 +950,47 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     void loadComplaintWorkDetail(complaint);
   };
 
+  const handleTaskUpdated = useCallback((task: Task) => {
+    setSelectedTask(task);
+    setSelectedComplaint((prev) => {
+      if (!prev || prev.complaintId !== task.complaintId) return prev;
+      return {
+        ...prev,
+        taskScheduleStatus: task.status,
+        workflowStage: task.status === "In Progress" ? "In Progress" : prev.workflowStage,
+        status: task.status === "In Progress" ? "In Progress" : prev.status,
+      };
+    });
+  }, []);
+
   const handleRefreshDetail = useCallback(async () => {
-    const { data } = await refetch();
-    const items = data?.items ?? complaints;
     if (!selectedComplaintId) return;
+
+    const lookupId =
+      selectedComplaint?.taskId ?? selectedTask?.taskId ?? selectedComplaintId;
+
+    try {
+      const detail = await fetchTask(lookupId);
+      setSelectedTask(detail);
+    } catch {
+      // Keep the last known task state if a background refresh fails.
+    }
+
+    const { data } = await refetch();
+    const items = data?.items ?? [];
     const updated = items.find((c) => c.complaintId === selectedComplaintId);
     if (updated) {
       setSelectedComplaint(updated);
-      await loadComplaintWorkDetail(updated);
+      if (updated.taskId && updated.taskId !== lookupId) {
+        try {
+          const detail = await fetchTask(updated.taskId);
+          setSelectedTask(detail);
+        } catch {
+          // Ignore secondary refresh failures.
+        }
+      }
     }
-  }, [refetch, complaints, selectedComplaintId, loadComplaintWorkDetail]);
+  }, [refetch, selectedComplaintId, selectedComplaint, selectedTask]);
 
   if (!ready) {
     return (
@@ -1033,11 +1095,15 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
               <div className="flex flex-1 items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40" />
               </div>
-            ) : complaints.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-400">No active complaints assigned to you</p>
+            ) : queueComplaints.length === 0 ? (
+              <p className="py-12 text-center text-sm text-slate-400">
+                {selectedTask
+                  ? "No more pending complaints in queue"
+                  : "No active complaints assigned to you"}
+              </p>
             ) : (
               <div className="space-y-3">
-                {complaints.map((complaint) => (
+                {queueComplaints.map((complaint) => (
                   <ComplaintListCard
                     key={complaint._id}
                     complaint={complaint}
@@ -1049,7 +1115,9 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
             )}
             <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-400">
               <span>
-                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} complaints
+                {queueComplaints.length > 0
+                  ? `Showing ${queueComplaints.length} pending complaint${queueComplaints.length === 1 ? "" : "s"}`
+                  : "Queue empty"}
               </span>
               <div className="flex gap-1">
                 <Button
@@ -1085,6 +1153,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
                 complaint={selectedComplaint}
                 canUpdate={canUpdate}
                 onRefresh={handleRefreshDetail}
+                onTaskUpdated={handleTaskUpdated}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">

@@ -1130,7 +1130,11 @@ import type { Task } from "@/lib/task.types";
                               </Badge>
                             </TD>
                             <TD className="py-4 text-slate-400 text-xs">
-                              {new Date(c.updatedAt).toLocaleDateString()}
+                              {c.createdAt
+                                ? new Date(c.createdAt).toLocaleDateString()
+                                : c.updatedAt
+                                  ? new Date(c.updatedAt).toLocaleDateString()
+                                  : "—"}
                             </TD>
                             <TD className="py-4">
                               {c.assignedTeam ? (

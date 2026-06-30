@@ -1,13 +1,14 @@
 "use client";
 
-import { Suspense } from "react";
-import { ComplaintsPage } from "@/components/complaints/ComplaintsPage";
-import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { DashboardRouteLoading } from "@/components/layout/dashboard-route-loading";
+
+const ComplaintsPage = dynamic(
+  () =>
+    import("@/components/complaints/ComplaintsPage").then((mod) => mod.ComplaintsPage),
+  { loading: () => <DashboardRouteLoading /> }
+);
 
 export default function AdminComplaintsPage() {
-  return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-app"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>}>
-      <ComplaintsPage role="admin" />
-    </Suspense>
-  );
+  return <ComplaintsPage role="admin" />;
 }

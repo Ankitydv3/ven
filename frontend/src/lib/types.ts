@@ -200,6 +200,7 @@ export interface RecentComplaintItem {
   title?: string;
   reason?: string;
   assignedTeam?: string;
+  createdAt?: string;
   updatedAt: string;
 }
 

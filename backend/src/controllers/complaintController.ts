@@ -430,7 +430,9 @@ export async function listComplaints(req: AuthRequest, res: Response) {
           ? { status }
           : isActiveAssignedScope
             ? activeStatusFilter
-            : activeStatusFilter;
+            : scope === "reviewed"
+              ? { status: { $ne: "Pending Review" } }
+              : {};
 
     const andClauses: Record<string, unknown>[] = [
       statusFilter,
@@ -489,7 +491,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     [items, total] = await Promise.all([
       Complaint.find(filter)
         .select(listSelect)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(Number(limit))
         .lean()
@@ -602,7 +604,16 @@ export async function listComplaints(req: AuthRequest, res: Response) {
     };
   });
 
-  res.json({ items: enrichedItems, total, page: Number(page), limit: Number(limit) });
+  const MY_TASKS_HIDDEN = new Set(["In Progress", "Completed", "Cancelled"]);
+  const responseItems =
+    scope === "my_tasks"
+      ? enrichedItems.filter(
+          (item) => item.taskScheduleStatus && !MY_TASKS_HIDDEN.has(item.taskScheduleStatus)
+        )
+      : enrichedItems;
+  const responseTotal = scope === "my_tasks" ? responseItems.length : total;
+
+  res.json({ items: responseItems, total: responseTotal, page: Number(page), limit: Number(limit) });
 }
 
 function canAccessComplaint(

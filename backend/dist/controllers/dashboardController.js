@@ -173,9 +173,9 @@ async function buildRecentOrders(scope) {
 }
 async function buildRecentComplaints(scope) {
     return Complaint_1.default.find(scope.complaintFilter)
-        .sort({ updatedAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .limit(5)
-        .select("complaintId clientName title status updatedAt assignedTeam reason")
+        .select("complaintId clientName title status createdAt updatedAt assignedTeam reason")
         .lean()
         .maxTimeMS(QUERY_TIMEOUT_MS);
 }

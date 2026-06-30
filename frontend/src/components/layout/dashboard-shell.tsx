@@ -2,7 +2,7 @@
 
       import Link from "next/link";
       import { usePathname } from "next/navigation";
-      import { useState, useEffect, useLayoutEffect } from "react";
+      import { useState, useEffect, useLayoutEffect, useCallback } from "react";
       import {
         Bell,
         LogOut,
@@ -45,6 +45,11 @@
       import { usePendingAlertsCount } from "@/hooks/useAlerts";
       import { UserAvatar } from "@/components/profile/UserAvatar";
       import { useDashboardLayoutContext } from "@/components/layout/dashboard-layout-context";
+      import { useQueryClient } from "@tanstack/react-query";
+      import {
+        prefetchCommonAdminRoutes,
+        prefetchDashboardRoute,
+      } from "@/lib/prefetch-dashboard-routes";
 
       const DashboardSearch = dynamic(
         () => import("@/components/layout/dashboard-search").then((mod) => mod.DashboardSearch),
@@ -87,12 +92,14 @@
         item,
         pathname,
         onNavigate,
+        onNavIntent,
         nested = false,
         alertCount = 0,
       }: {
         item: NavItem;
         pathname: string;
         onNavigate?: () => void;
+        onNavIntent?: (href: string) => void;
         nested?: boolean;
         alertCount?: number;
       }) {
@@ -104,7 +111,10 @@
         return (
           <Link
             href={item.href}
+            prefetch
             onClick={onNavigate}
+            onMouseEnter={() => onNavIntent?.(item.href!)}
+            onFocus={() => onNavIntent?.(item.href!)}
             className={sidebarNavLinkClass(active, nested)}
           >
             <Icon
@@ -128,11 +138,13 @@
         item,
         pathname,
         onNavigate,
+        onNavIntent,
         alertCount = 0,
       }: {
         item: NavItem;
         pathname: string;
         onNavigate?: () => void;
+        onNavIntent?: (href: string) => void;
         alertCount?: number;
       }) {
         const childActive = item.children?.some((c) => c.href === pathname) ?? false;
@@ -145,6 +157,7 @@
               item={item}
               pathname={pathname}
               onNavigate={onNavigate}
+              onNavIntent={onNavIntent}
               alertCount={alertCount}
             />
           );
@@ -184,6 +197,7 @@
                     item={child}
                     pathname={pathname}
                     onNavigate={onNavigate}
+                    onNavIntent={onNavIntent}
                     nested
                     alertCount={alertCount}
                   />
@@ -345,6 +359,27 @@
           window.location.reload();
         };
 
+        const queryClient = useQueryClient();
+        const handleNavIntent = useCallback(
+          (href: string) => {
+            prefetchDashboardRoute(queryClient, href, role);
+          },
+          [queryClient, role]
+        );
+
+        useEffect(() => {
+          const timer = window.setTimeout(() => {
+            if (role === "admin") {
+              prefetchCommonAdminRoutes(queryClient);
+              return;
+            }
+            if (role === "team") {
+              void prefetchDashboardRoute(queryClient, "/team/complaints", role);
+            }
+          }, 1200);
+          return () => window.clearTimeout(timer);
+        }, [queryClient, role]);
+
         return (
           <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
             
@@ -364,6 +399,7 @@
                     key={item.label}
                     item={item}
                     pathname={pathname}
+                    onNavIntent={handleNavIntent}
                     alertCount={pendingAlerts}
                   />
                 ))}
@@ -422,6 +458,7 @@
                           item={item}
                           pathname={pathname}
                           onNavigate={handleNavClick}
+                          onNavIntent={handleNavIntent}
                           alertCount={pendingAlerts}
                         />
                       ))}
@@ -439,8 +476,8 @@
             </AnimatePresence>
 
             {/* Main Content - Full scrollable */}
-            <div className="flex min-h-screen flex-col overflow-y-auto">
-              <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-app/70 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
+            <div className="flex min-h-screen flex-col overflow-y-auto bg-[#0c0c0c]">
+              <header className="sticky top-0 z-30 flex-shrink-0 border-b border-white/10 bg-[#0c0c0c]/90 px-4 py-4 text-white backdrop-blur-xl lg:px-8">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3 min-w-0 lg:flex-1">
                     {/* Mobile Menu Button */}
@@ -463,7 +500,7 @@
                   </div>
 
                   {role === "admin" ? (
-                    <div className="w-full lg:max-w-xl lg:flex-1 lg:px-4">
+                    <div className="w-full lg:w-72 lg:flex-none lg:px-4">
                       <DashboardSearch navItems={navItems} role="admin" />
                     </div>
                   ) : null}
@@ -472,20 +509,22 @@
                     
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 whitespace-nowrap"
+                      size="icon"
+                      className="relative h-9 w-9 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
                       onClick={() => {
                         window.location.href = alertsHref;
                       }}
+                      aria-label={
+                        pendingAlerts > 0
+                          ? `Alerts (${pendingAlerts > 99 ? "99+" : pendingAlerts})`
+                          : "Alerts"
+                      }
                     >
-                      <Bell className="h-4 w-4 mr-1.5" />
+                      <Bell className="h-4 w-4" />
                       {pendingAlerts > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="ml-1.5 h-5 min-w-5 rounded-full px-1 flex items-center justify-center text-[10px]"
-                        >
+                        <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#0c0c0c]">
                           {pendingAlerts > 99 ? "99+" : pendingAlerts}
-                        </Badge>
+                        </span>
                       )}
                     </Button>
                     <Button
@@ -501,7 +540,7 @@
                 </div>
               </header>
 
-              <main className="flex-1 px-4 py-6 text-white lg:px-8 overflow-y-auto">
+              <main className="flex-1 overflow-y-auto bg-[#0c0c0c] px-4 py-6 text-white lg:px-8">
                 <div className="max-w-full">
                   {children}
                 </div>

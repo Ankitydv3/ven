@@ -12,7 +12,7 @@ import {
   type OrderPayload
 } from "@/services/orders";
 
-const orderKeys = {
+export const orderKeys = {
   all: ["orders"] as const,
   lists: () => [...orderKeys.all, "list"] as const,
   list: (filters: OrderFilters) => [...orderKeys.lists(), filters] as const,
@@ -20,10 +20,11 @@ const orderKeys = {
   detail: (id: string) => [...orderKeys.details(), id] as const
 };
 
-export function useOrders(filters: OrderFilters) {
+export function useOrders(filters: OrderFilters, enabled = true) {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => fetchOrders(filters),
+    enabled,
     placeholderData: (previous) => previous,
     staleTime: 30_000,
     retry: 1,

@@ -44,16 +44,19 @@
   } from "@/components/ui/dropdown-menu";
   import { Label } from "@/components/ui/label";
   import { Textarea } from "@/components/ui/textarea";
-  import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
   import { getComplaintDetailsPath, getMyTasksPath } from "@/lib/record-navigation";
-  import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
+  import { complaintListScope } from "@/lib/active-complaints";
   import { useQuery, useQueryClient } from "@tanstack/react-query";
-  import { useComplaints, useComplaintStats, complaintKeys } from "@/hooks/useComplaints";
+  import {
+    useComplaints,
+    useComplaintStats,
+    complaintKeys,
+    prependComplaintToListCache,
+  } from "@/hooks/useComplaints";
   import { useTeams } from "@/hooks/use-teams";
   import { useSession } from "@/hooks/use-session";
   import { assignComplaint, fetchComplaints, scheduleRevisit } from "@/services/complaints";
   import { fetchAssignableUsers } from "@/services/users";
-  import * as XLSX from "xlsx";
   import { getApiErrorMessage } from "@/lib/api";
   import { readUser } from "@/lib/storage";
   import { canManageComplaints } from "@/lib/permissions";
@@ -69,6 +72,21 @@
 import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests";
   import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
   import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
+  import dynamic from "next/dynamic";
+
+  const ComplaintRegistrationForm = dynamic(
+    () =>
+      import("@/components/forms/complaint-registration-form").then(
+        (mod) => mod.ComplaintRegistrationForm
+      ),
+    {
+      loading: () => (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+        </div>
+      ),
+    }
+  );
 
   const DISPLAY_STATUSES = workflowDisplayStatuses;
 
@@ -377,9 +395,9 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           : {}),
         page,
         limit,
-        scope: role === "team" ? ACTIVE_COMPLAINT_SCOPE : "all",
+        scope: complaintListScope(role),
       }),
-      [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit]
+      [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit, role]
     );
 
     const statsParams = useMemo(
@@ -392,8 +410,21 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
       [dateFilterActive, dateRange, teamFilter]
     );
 
+    const [deferStats, setDeferStats] = useState(false);
+    useEffect(() => {
+      const timer = window.setTimeout(() => setDeferStats(true), 0);
+      return () => window.clearTimeout(timer);
+    }, []);
+
     const { data, isLoading, isError, error, refetch } = useComplaints(listParams, ready);
-    const { data: stats, isLoading: statsLoading } = useComplaintStats(statsParams);
+    useEffect(() => {
+      if (!ready) return;
+      void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+    }, [ready, queryClient]);
+    const { data: stats, isLoading: statsLoading } = useComplaintStats(
+      statsParams,
+      ready && deferStats
+    );
 
     const items = data?.items ?? [];
     const total = data?.total ?? 0;
@@ -583,6 +614,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "—",
         ]);
 
+        const XLSX = await import("xlsx");
         const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Complaints");
@@ -1254,15 +1286,14 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
             </DialogHeader>
             <ComplaintRegistrationForm
               source="MANUAL"
-              onSuccess={(complaint) => {
+              onSuccess={async (complaint) => {
                 setShowNewComplaint(false);
                 setPage(1);
-                void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
-                if (complaint?.complaintId) {
-                  router.push(getComplaintDetailsPath(role, complaint.complaintId));
-                } else {
-                  void refetch();
+                if (complaint) {
+                  prependComplaintToListCache(queryClient, listParams, complaint, limit);
                 }
+                await queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+                await queryClient.refetchQueries({ queryKey: complaintKeys.all });
               }}
             />
           </DialogContent>

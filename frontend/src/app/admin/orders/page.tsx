@@ -1,13 +1,13 @@
 "use client";
 
-import { Suspense } from "react";
-import { OrdersPage } from "@/components/orders/OrdersPage";
-import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { DashboardRouteLoading } from "@/components/layout/dashboard-route-loading";
+
+const OrdersPage = dynamic(
+  () => import("@/components/orders/OrdersPage").then((mod) => mod.OrdersPage),
+  { loading: () => <DashboardRouteLoading /> }
+);
 
 export default function AdminOrdersPage() {
-  return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-app"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>}>
-      <OrdersPage role="admin" />
-    </Suspense>
-  );
+  return <OrdersPage role="admin" />;
 }

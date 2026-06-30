@@ -282,7 +282,7 @@ export function ComplaintRegistrationForm({
   const onSubmit = form.handleSubmit(
     (values) => {
       if (!selectedOrderId) {
-        toast.error("Please verify your phone number and select an order");
+        toast.error("Please verify your details and select an order");
         scrollToFirstError();
         return;
       }
@@ -312,7 +312,7 @@ export function ComplaintRegistrationForm({
           
           const response = await createComplaint(formData);
           setSubmittedComplaint(response.complaint);
-          onSuccess?.(response.complaint);
+          await onSuccess?.(response.complaint);
           toast.success("Complaint submitted successfully!");
           form.reset(defaultValues);
           setPicture(null);
@@ -723,13 +723,11 @@ export function ComplaintRegistrationForm({
           <div className="flex shrink-0 flex-col space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Search By</span>
             <div className="flex w-fit rounded-xl bg-white/5 p-1 ring-1 ring-[#185FA5]/20">
-              {/* --- ORDER ID TOGGLE (uncomment to restore) ---
               <button type="button" onClick={() => { setLookupType("orderId"); resetLookup(); }}
                 className={cn("rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px]",
                   lookupType === "orderId" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
                 Order ID
               </button>
-              --- END ORDER ID TOGGLE --- */}
               <button type="button" onClick={() => { setLookupType("phone"); resetLookup(); }}
                 className={cn("rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px]",
                   lookupType === "phone" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
@@ -739,25 +737,29 @@ export function ComplaintRegistrationForm({
           </div>
 
           <div className="relative w-full min-w-0 flex-1 space-y-2">
-            <Label className="text-sm font-medium">Enter Mobile Number *</Label>
+            <Label className="text-sm font-medium">
+              {lookupType === "phone" ? "Enter Mobile Number *" : "Enter Order ID *"}
+            </Label>
             <div className="relative">
-              <Input {...phoneInputProps} value={mobileNumber}
-                onChange={(e) => { const next = sanitizePhoneDigits(e.target.value); form.setValue("mobileNumber", next, { shouldValidate: true, shouldDirty: true }); if (next !== sanitizePhoneDigits(mobileNumber)) resetLookup(); }}
-                onKeyDown={(e) => { blockNonDigitPhoneKeys(e); if (e.key === "Enter") { e.preventDefault(); void handleLookup("phone"); setShowSuggestions(false); } }}
-                onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                onPaste={(e) => { e.preventDefault(); const pasted = sanitizePhoneDigits(e.clipboardData.getData("text")); form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true }); resetLookup(); }}
-                onBlur={() => { if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) void handleLookup("phone"); }}
-                placeholder="e.g. 9876543210" className={cn(dInputCls, "pr-10")} />
-              {/* --- ORDER ID LOOKUP INPUT (uncomment to restore) ---
               {lookupType === "phone" ? (
-                <Input {...phoneInputProps} value={mobileNumber} ... />
+                <Input {...phoneInputProps} value={mobileNumber}
+                  onChange={(e) => { const next = sanitizePhoneDigits(e.target.value); form.setValue("mobileNumber", next, { shouldValidate: true, shouldDirty: true }); if (next !== sanitizePhoneDigits(mobileNumber)) resetLookup(); }}
+                  onKeyDown={(e) => { blockNonDigitPhoneKeys(e); if (e.key === "Enter") { e.preventDefault(); void handleLookup("phone"); setShowSuggestions(false); } }}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  onPaste={(e) => { e.preventDefault(); const pasted = sanitizePhoneDigits(e.clipboardData.getData("text")); form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true }); resetLookup(); }}
+                  onBlur={() => { if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) void handleLookup("phone"); }}
+                  placeholder="e.g. 9876543210" className={cn(dInputCls, "pr-10")} />
               ) : (
-                <Input value={orderIdQuery} ... />
+                <Input value={orderIdQuery}
+                  onChange={(e) => { setOrderIdQuery(e.target.value); resetLookup(); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleLookup("orderId"); setShowSuggestions(false); } }}
+                  onBlur={() => { if (orderIdQuery.trim() && !lookupDone) void handleLookup("orderId"); }}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  placeholder="e.g. ORD-2024-001" className={cn(dInputCls, "pr-10")} />
               )}
-              --- END ORDER ID LOOKUP INPUT --- */}
               <button type="button"
-                disabled={lookupLoading || sanitizePhoneDigits(mobileNumber).length !== 10}
-                onClick={() => void handleLookup("phone")}
+                disabled={lookupLoading || (lookupType === "phone" && sanitizePhoneDigits(mobileNumber).length !== 10) || (lookupType === "orderId" && !orderIdQuery.trim())}
+                onClick={() => void handleLookup(lookupType)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#378ADD] transition-colors hover:text-[#85B7EB] disabled:opacity-30">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </button>
@@ -784,13 +786,16 @@ export function ComplaintRegistrationForm({
         </div>
 
         <p className="text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
-          We verify your phone against existing orders before you can register a complaint.
-          {/* {lookupType === "phone" ? "We verify your phone against existing orders before you can register a complaint." : "Search for your order directly using the Order ID."} */}
+          {lookupType === "phone"
+            ? "We verify your phone against existing orders before you can register a complaint."
+            : "Search for your order directly using the Order ID."}
         </p>
 
         {lookupDone && matchedOrders.length === 0 && (
           <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-400">
-            No orders found for this number. Only registered customers can file a complaint.
+            {lookupType === "phone"
+              ? "No orders found for this number. Only registered customers can file a complaint."
+              : "No orders found for this Order ID. Only registered customers can file a complaint."}
           </p>
         )}
 
@@ -828,13 +833,11 @@ export function ComplaintRegistrationForm({
         <FieldError message={form.formState.errors.name?.message} />
       </div>
 
-      {/* --- ORDER ID FIELD (uncomment to restore) ---
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Order ID *</Label>
         <Input {...form.register("orderId")} placeholder="Select an order above" className={dInputCls} readOnly />
         <FieldError message={form.formState.errors.orderId?.message} />
       </div>
-      --- END ORDER ID FIELD --- */}
 
       {/* Email */}
       <div className="space-y-1.5">

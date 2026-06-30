@@ -213,9 +213,9 @@ async function buildRecentOrders(scope: DashboardScope) {
 
 async function buildRecentComplaints(scope: DashboardScope) {
   return Complaint.find(scope.complaintFilter)
-    .sort({ updatedAt: -1 })
+    .sort({ createdAt: -1, _id: -1 })
     .limit(5)
-    .select("complaintId clientName title status updatedAt assignedTeam reason")
+    .select("complaintId clientName title status createdAt updatedAt assignedTeam reason")
     .lean()
     .maxTimeMS(QUERY_TIMEOUT_MS);
 }

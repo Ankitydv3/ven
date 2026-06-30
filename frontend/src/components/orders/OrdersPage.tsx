@@ -58,7 +58,6 @@ import type { Order, OrderFilters } from "@/lib/types";
 import { readUser } from "@/lib/storage";
 import { canManageOrders } from "@/lib/permissions";
 import { downloadOrderImportTemplate, parseOrdersFromFile } from "@/lib/order-import";
-import * as XLSX from "xlsx";
 
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
@@ -103,7 +102,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     limit
   }), [appliedSearch, materialType, paymentStatus, orderStatus, page, limit]);
 
-  const { data, isLoading, refetch } = useOrders(activeFilters);
+  const { data, isLoading, refetch } = useOrders(activeFilters, ready);
   const items = data?.items || [];
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -311,6 +310,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         o.salesPerson || "",
       ]);
 
+      const XLSX = await import("xlsx");
       const worksheet = XLSX.utils.aoa_to_sheet([headers, ...csvRows]);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
