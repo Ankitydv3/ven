@@ -71,13 +71,29 @@ function parseTab(value: string | null): PortalTab {
   return "login";
 }
 
+function tabToSearchParam(tab: PortalTab) {
+  return tab === "login" ? null : tab;
+}
+
 export function PortalScreen() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<PortalTab>("login");
+  const [activeTab, setActiveTab] = useState<PortalTab>(() => parseTab(searchParams.get("tab")));
 
   useEffect(() => {
     setActiveTab(parseTab(searchParams.get("tab")));
   }, [searchParams]);
+
+  const handleTabChange = (tab: PortalTab) => {
+    setActiveTab(tab);
+    const next = new URL(window.location.href);
+    const param = tabToSearchParam(tab);
+    if (param) {
+      next.searchParams.set("tab", param);
+    } else {
+      next.searchParams.delete("tab");
+    }
+    window.history.replaceState({}, "", `${next.pathname}${next.search}${next.hash}`);
+  };
 
   const meta = tabMeta[activeTab];
 
@@ -103,7 +119,7 @@ export function PortalScreen() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     "inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-medium transition-all sm:h-10 sm:gap-2 sm:px-4 sm:text-sm",
                     isActive

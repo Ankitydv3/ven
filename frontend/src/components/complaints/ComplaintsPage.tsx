@@ -19,7 +19,6 @@
     Loader2,
     Users,
     RefreshCw,
-    Play,
     Download,
     Eye,
   } from "lucide-react";
@@ -46,13 +45,13 @@
   import { Label } from "@/components/ui/label";
   import { Textarea } from "@/components/ui/textarea";
   import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
-  import { getComplaintDetailsPath } from "@/lib/record-navigation";
+  import { getComplaintDetailsPath, getMyTasksPath } from "@/lib/record-navigation";
   import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
   import { useQuery, useQueryClient } from "@tanstack/react-query";
-  import { useComplaints, useComplaintStats } from "@/hooks/useComplaints";
+  import { useComplaints, useComplaintStats, complaintKeys } from "@/hooks/useComplaints";
   import { useTeams } from "@/hooks/use-teams";
   import { useSession } from "@/hooks/use-session";
-  import { assignComplaint, fetchComplaints, startComplaint, scheduleRevisit } from "@/services/complaints";
+  import { assignComplaint, fetchComplaints, scheduleRevisit } from "@/services/complaints";
   import { fetchAssignableUsers } from "@/services/users";
   import * as XLSX from "xlsx";
   import { getApiErrorMessage } from "@/lib/api";
@@ -203,16 +202,15 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
     onClose,
     title,
     filters,
-    onStartWork,
     role,
   }: {
     isOpen: boolean;
     onClose: () => void;
     title: string;
     filters: any;
-    onStartWork: (complaint: Complaint) => void;
     role: "admin" | "team";
   }) {
+    const router = useRouter();
     const { data, isLoading } = useQuery({
       queryKey: ["complaints-details", filters],
       queryFn: () => fetchComplaints({ ...filters, limit: 50 }),
@@ -246,7 +244,12 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                 {items.map((item) => (
                   <div
                     key={item._id}
-                    className={summaryListCardClass}
+                    className={cn(summaryListCardClass, "cursor-pointer transition-colors hover:bg-white/[0.06]")}
+                    onClick={() => {
+                      if (item.complaintId) {
+                        router.push(getComplaintDetailsPath(role, item.complaintId));
+                      }
+                    }}
                   >
                     <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
@@ -281,16 +284,16 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                         </div>
                       </div>
 
-                      {role === "team" && item.status === "Assigned" && (
+                      {role === "team" && item.complaintId && (
                         <button
                           onClick={() => {
-                            onStartWork(item);
+                            router.push(getMyTasksPath(role, { complaintId: item.complaintId }));
                             onClose();
                           }}
-                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+                          className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
                         >
-                          <Play className="h-3 w-3" />
-                          Start Work
+                          <ChevronRight className="h-3 w-3" />
+                          My Tasks
                         </button>
                       )}
                     </div>
@@ -374,7 +377,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           : {}),
         page,
         limit,
-        scope: role === "team" ? ACTIVE_COMPLAINT_SCOPE : ("reviewed" as const),
+        scope: role === "team" ? ACTIVE_COMPLAINT_SCOPE : "all",
       }),
       [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit]
     );
@@ -429,7 +432,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           onClick: () => setDetailModal({
             isOpen: true,
             title: "All Complaints",
-            filters: { ...statsParams, scope: "reviewed" }
+            filters: { ...statsParams, scope: "all" }
           }),
         },
         {
@@ -512,19 +515,6 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           await queryClient.invalidateQueries({ queryKey: ["alerts"] });
         } catch (err) {
           toast.error(getApiErrorMessage(err, "Assignment failed"));
-        }
-      });
-    };
-
-    const handleStartWork = (complaint: Complaint) => {
-      startTransition(async () => {
-        try {
-          await startComplaint(complaint._id);
-          toast.success("Work started successfully");
-          await refetch();
-          await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-        } catch (err) {
-          toast.error(getApiErrorMessage(err, "Failed to start work"));
         }
       });
     };
@@ -616,7 +606,6 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           {...detailModal}
           role={role}
           onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
-          onStartWork={handleStartWork}
         />
         <div className="space-y-4">
           {/* ── KPI Cards ── */}
@@ -806,7 +795,9 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                     <TH className="w-[10%] text-xs">Complaint Type</TH>
                     <TH className="w-[10%] text-xs">Assigned Team</TH>
                     <TH className="w-[10%] text-xs">Status</TH>
-                    <TH className="w-[8%] text-xs text-right">Assign/<br /> Reassign/<br /> Reschedule</TH>
+                    <TH className="w-[8%] text-xs text-right">
+                      {role === "team" ? "Action" : <>Assign/<br /> Reassign/<br /> Reschedule</>}
+                    </TH>
                   </tr>
                 </THead>
                 <tbody>
@@ -962,6 +953,22 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                               </TD>
                               <TD className="text-right">
                                 <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                  {role === "team" ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      title="Open in My Tasks"
+                                      onClick={() =>
+                                        router.push(
+                                          getMyTasksPath(role, { complaintId: complaint.complaintId })
+                                        )
+                                      }
+                                      className="h-7 w-7 p-0 text-slate-400 hover:bg-white/10 hover:text-white"
+                                    >
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <>
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -970,16 +977,6 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </Button>
-                                  {role === "team" && complaint.status === "Assigned" && (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleStartWork(complaint)}
-                                      className="h-7 rounded-lg bg-emerald-600 px-2 text-[10px] text-white hover:bg-emerald-50"
-                                    >
-                                      <Play className="mr-1 h-3 w-3" />
-                                      Start
-                                    </Button>
-                                  )}
                                   {canManage && complaint.status !== "Completed" && (
                                     <>
                                       <Button
@@ -1002,6 +999,8 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                                       >
                                         <RefreshCw className="h-3.5 w-3.5" />
                                       </Button>
+                                    </>
+                                  )}
                                     </>
                                   )}
                                 </div>
@@ -1255,9 +1254,15 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
             </DialogHeader>
             <ComplaintRegistrationForm
               source="MANUAL"
-              onSuccess={() => {
+              onSuccess={(complaint) => {
                 setShowNewComplaint(false);
-                void refetch();
+                setPage(1);
+                void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+                if (complaint?.complaintId) {
+                  router.push(getComplaintDetailsPath(role, complaint.complaintId));
+                } else {
+                  void refetch();
+                }
               }}
             />
           </DialogContent>

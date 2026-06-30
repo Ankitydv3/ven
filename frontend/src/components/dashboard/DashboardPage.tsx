@@ -41,8 +41,9 @@ import {
   ArrowUpRight,
   Zap,
   Calendar,
-  Play,
+  ChevronRight,
   Eye,
+  Play,
   Users, // Added
 } from "lucide-react";
 import { toast } from "sonner";
@@ -68,7 +69,7 @@ import {
 import { useSession } from "@/hooks/use-session";
 import { readUser } from "@/lib/storage";
 import { fetchDashboardPage } from "@/services/dashboard";
-import { fetchComplaints, startComplaint } from "@/services/complaints";
+import { fetchComplaints } from "@/services/complaints";
 import { fetchTasks, patchTaskStatus } from "@/services/task.service";
 import { fetchOrders } from "@/services/orders";
 import { materialStatusLabel, getMaterialStatusBadgeClass } from "@/services/material-requests";
@@ -455,22 +456,16 @@ import type { Task } from "@/lib/task.types";
                             Update Task
                           </button>
                         )}
-                        {role === "team" && type === "complaint" && item.status === "Assigned" && (
+                        {role === "team" && type === "complaint" && item.complaintId && (
                           <button
-                            onClick={async () => {
-                              try {
-                                await startComplaint(item._id);
-                                toast.success("Complaint work started");
-                                await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-                                await queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
-                              } catch (err) {
-                                toast.error("Failed to start work");
-                              }
+                            onClick={() => {
+                              router.push(getMyTasksPath(role, { complaintId: item.complaintId }));
+                              onClose();
                             }}
-                            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+                            className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
                           >
-                            <Play className="h-3 w-3" />
-                            Start Work
+                            <ChevronRight className="h-3 w-3" />
+                            My Tasks
                           </button>
                         )}
                       </div>
@@ -874,16 +869,6 @@ import type { Task } from "@/lib/task.types";
       }
     };
 
-    const handleStartComplaint = async (complaintId: string) => {
-      try {
-        await startComplaint(complaintId);
-        toast.success("Complaint work started");
-        await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      } catch (err) {
-        toast.error("Failed to start work");
-      }
-    };
-
     return (
       <div className={cn("grid gap-6", showSiteVisits ? "xl:grid-cols-2" : "grid-cols-1")}>
         {/* Site Visits — hidden for sub-admin (only their approval queue below) */}
@@ -1164,13 +1149,15 @@ import type { Task } from "@/lib/task.types";
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  {role === "team" && c.status === "Assigned" && (
+                                  {role === "team" && c.complaintId && (
                                     <button
-                                      onClick={() => handleStartComplaint(c.complaintId)}
-                                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+                                      onClick={() =>
+                                        router.push(getMyTasksPath(role, { complaintId: c.complaintId }))
+                                      }
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                                      title="Open in My Tasks"
                                     >
-                                      <Play className="h-3 w-3" />
-                                      Start
+                                      <ChevronRight className="h-4 w-4" />
                                     </button>
                                   )}
                               </div>

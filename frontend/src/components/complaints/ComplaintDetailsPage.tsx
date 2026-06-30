@@ -40,7 +40,7 @@ interface ComplaintDetailsPageProps {
 export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data, isLoading, isError } = useComplaint(id);
+  const { data, isPending, isError } = useComplaint(id);
   const { data: teams = [] } = useTeams();
 
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -120,8 +120,8 @@ export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
     return list;
   }, [complaint, materialRequests]);
 
-  if (isLoading) return <LoadingSkeleton />;
-  if (isError || !complaint) return <ErrorState onRetry={() => router.back()} />;
+  if (!id || isPending) return <LoadingSkeleton role={role} />;
+  if (isError || !complaint) return <ErrorState role={role} onRetry={() => router.back()} />;
 
   return (
     <DashboardShell
@@ -649,9 +649,9 @@ function DetailItem({ icon: Icon, label, value, className, mono }: {
   );
 }
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ role }: { role: "admin" | "team" }) {
   return (
-    <DashboardShell role="admin" title="Loading Complaint..." subtitle="Please wait while we fetch the details.">
+    <DashboardShell role={role} title="Loading Complaint..." subtitle="Please wait while we fetch the details.">
       <div className="space-y-6 max-w-7xl mx-auto animate-pulse">
         <div className="flex justify-between">
           <Skeleton className="h-8 w-32 bg-white/5 rounded-lg" />
@@ -672,9 +672,9 @@ function LoadingSkeleton() {
   );
 }
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
+function ErrorState({ role, onRetry }: { role: "admin" | "team"; onRetry: () => void }) {
   return (
-    <DashboardShell role="admin" title="Error" subtitle="Something went wrong.">
+    <DashboardShell role={role} title="Error" subtitle="Something went wrong.">
       <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
         <div className="h-16 w-16 rounded-full bg-rose-500/10 flex items-center justify-center ring-1 ring-rose-500/20">
           <AlertTriangle className="h-8 w-8 text-rose-500" />

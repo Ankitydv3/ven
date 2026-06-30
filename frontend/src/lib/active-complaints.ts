@@ -1,7 +1,7 @@
 export const ACTIVE_COMPLAINT_SCOPE = "active_assigned" as const;
 
 export function complaintListScope(role: "admin" | "team") {
-  return role === "team" ? ACTIVE_COMPLAINT_SCOPE : "reviewed";
+  return role === "team" ? ACTIVE_COMPLAINT_SCOPE : "all";
 }
 
 export function buildActiveComplaintListParams(input: {
