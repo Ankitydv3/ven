@@ -11,6 +11,7 @@
         X,
         ChevronRight,
         ChevronDown,
+        RefreshCw,
         LayoutDashboard,
         Users,
         FileText,
@@ -340,6 +341,10 @@
           window.location.href = "/";
         };
 
+        const handleRefresh = () => {
+          window.location.reload();
+        };
+
         return (
           <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
             
@@ -483,57 +488,15 @@
                         </Badge>
                       )}
                     </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full border-white/10 bg-white/5 pl-1.5 pr-2.5 text-white hover:bg-white/10"
-                        >
-                          <UserAvatar
-                            name={user?.name ?? "User"}
-                            avatarUrl={user?.avatarUrl}
-                            className="h-7 w-7 rounded-full text-xs"
-                            textClassName="text-blue-300"
-                          />
-                          <span className="hidden max-w-[120px] truncate sm:inline">
-                            {user?.name ?? "Profile"}
-                          </span>
-                          <ChevronDown className="h-4 w-4 opacity-60" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-64 rounded-2xl border border-white/10 bg-app p-2 text-white shadow-xl"
-                      >
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <Badge
-                            variant="info"
-                            className="mb-2 bg-blue-500/20 text-blue-300 border-blue-500/20"
-                          >
-                            {roleBadgeLabel}
-                          </Badge>
-                          <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
-                          <p className="text-xs text-slate-400 truncate">{user?.email ?? "Signed in"}</p>
-                        </div>
-                        <DropdownMenuSeparator className="my-2 bg-white/10" />
-                        <DropdownMenuItem asChild className="rounded-xl px-3 py-2.5 cursor-pointer">
-                          <Link href={settingsHref} className="flex items-center gap-2 text-white">
-                            <Settings className="h-4 w-4" />
-                            Settings
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-2 bg-white/10" />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          className="rounded-xl px-3 py-2.5 text-red-400 focus:bg-red-500/10 focus:text-red-300 cursor-pointer"
-                          onClick={handleSignOut}
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Log out
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                      onClick={handleRefresh}
+                      aria-label="Refresh"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </header>

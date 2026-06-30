@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import MaterialRequest from "../models/MaterialRequest";
 import type { AuthRequest } from "../middleware/auth";
 import {
   assertMaterialRequestAccess,
@@ -74,6 +75,17 @@ export async function readMaterialRequestHandler(req: AuthRequest, res: Response
   const request = await getMaterialRequestById(req.params.id as string);
   await assertMaterialRequestAccess(req.user, request);
   res.json({ request });
+}
+
+export async function readMaterialRequestImageHandler(req: AuthRequest, res: Response) {
+  const request = await MaterialRequest.findById(req.params.id as string)
+    .select("requestedById imageUrl")
+    .lean();
+  if (!request) {
+    throw new ApiError(404, "Material request not found");
+  }
+  await assertMaterialRequestAccess(req.user, request);
+  res.json({ imageUrl: request.imageUrl ?? "" });
 }
 
 export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) {

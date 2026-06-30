@@ -29,6 +29,8 @@ export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
 const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["Completed"];
 const QUERY_TIMEOUT_MS = 20_000;
+/** List endpoints must not load task history — entries can embed large photo payloads. */
+const TASK_LIST_PROJECTION = "-history";
 let lastOverdueRunAt = 0;
 const OVERDUE_DEBOUNCE_MS = 60_000;
 
@@ -473,7 +475,13 @@ export async function getTasks(options: TaskListOptions) {
   const sort: Record<string, 1 | -1> = { [options.sortBy]: options.sortOrder };
 
   const [rawItems, total] = await Promise.all([
-    Task.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+    Task.find(filter)
+      .select(TASK_LIST_PROJECTION)
+      .sort(sort)
+      .skip(skip)
+      .limit(options.limit)
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS),
     Task.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
   ]);
 

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
 import {
   Bell,
   Package,
@@ -386,13 +387,12 @@ export function StoreAlertsPage() {
                 onClick={() => setSelectedRequest(req)}
               >
                 <div className="flex items-start gap-3">
-                  {req.imageUrl ? (
-                    <img src={req.imageUrl} alt={req.materialName} className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
-                  ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 ring-1 ring-blue-500/20">
-                      <Package className="h-5 w-5 text-blue-400" />
-                    </div>
-                  )}
+                  <MaterialRequestImageThumb
+                    id={req._id}
+                    hasImage={req.hasImage}
+                    imageUrl={req.imageUrl}
+                    alt={req.materialName}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-white">{req.materialName}</p>
@@ -474,9 +474,16 @@ export function StoreAlertsPage() {
           </div>
 
           <div className="space-y-5 p-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
-            {selectedRequest?.imageUrl && (
+            {(selectedRequest?.hasImage || selectedRequest?.imageUrl) && (
               <div className="rounded-xl overflow-hidden border border-white/10">
-                <img src={selectedRequest.imageUrl} alt="Material" className="w-full h-auto object-contain bg-black/20 max-h-64" />
+                <MaterialRequestImageThumb
+                  id={selectedRequest._id}
+                  hasImage={selectedRequest.hasImage ?? Boolean(selectedRequest.imageUrl)}
+                  imageUrl={selectedRequest.imageUrl}
+                  alt={selectedRequest.materialName}
+                  loadImmediately
+                  detail
+                />
               </div>
             )}
 

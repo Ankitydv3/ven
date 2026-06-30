@@ -14,6 +14,7 @@ import {
   listMaterialRequestsHandler,
   materialRequestStatsHandler,
   readMaterialRequestHandler,
+  readMaterialRequestImageHandler,
   updateMaterialRequestStatusHandler,
   serviceHeadReviewHandler,
   confirmMaterialPaymentHandler,
@@ -30,6 +31,7 @@ router.get("/stats", asyncHandler(materialRequestStatsHandler));
 router.get("/user-history", asyncHandler(getUserActivityHistoryHandler));
 router.get("/", asyncHandler(listMaterialRequestsHandler));
 router.get("/:id/payment-details", asyncHandler(getMaterialPaymentDetailsHandler));
+router.get("/:id/image", asyncHandler(readMaterialRequestImageHandler));
 router.get("/:id", asyncHandler(readMaterialRequestHandler));
 router.post("/", validateRequest(materialRequestCreateSchema), asyncHandler(createMaterialRequestHandler));
 router.patch(

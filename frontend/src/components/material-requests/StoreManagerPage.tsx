@@ -17,13 +17,13 @@ import {
   PackageX,
   Hourglass,
   History,
-  ImageOff,
   CheckSquare,
   Square,
   RefreshCw,
   X,
   Eye,
 } from "lucide-react";
+import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
@@ -134,33 +134,6 @@ function UrgencyTag({ urgency }: { urgency: Urgency }) {
       <span className={cn("h-1.5 w-1.5 rounded-full", isUrgent ? "animate-pulse bg-red-400" : "bg-amber-400")} />
       {isUrgent ? "Overdue" : "Aging"}
     </span>
-  );
-}
-
-function RequestImage({
-  url,
-  alt,
-  size = "md",
-}: {
-  url?: string;
-  alt: string;
-  size?: "sm" | "md";
-}) {
-  const dims = size === "sm" ? "h-12 w-12" : "h-16 w-16";
-  if (!url) {
-    return (
-      <div
-        className={cn(
-          dims,
-          "flex shrink-0 items-center justify-center rounded-lg border border-dashed border-white/10 bg-white/[0.02] text-slate-500"
-        )}
-      >
-        <ImageOff className="h-4 w-4" />
-      </div>
-    );
-  }
-  return (
-    <img src={url} alt={alt} className={cn(dims, "shrink-0 rounded-lg border border-white/10 object-cover")} />
   );
 }
 
@@ -382,7 +355,13 @@ function RequestRow({
         </button>
       </TD>
       <TD>
-        <RequestImage url={req.imageUrl} alt={req.materialName} size="sm" />
+        <MaterialRequestImageThumb
+          id={req._id}
+          hasImage={req.hasImage}
+          imageUrl={req.imageUrl}
+          alt={req.materialName}
+          size="sm"
+        />
       </TD>
       <TD className="font-mono text-sm">{req.requestId}</TD>
       <TD>{req.requestedBy}</TD>
@@ -453,7 +432,13 @@ function RequestCard({
         <button onClick={(e) => { e.stopPropagation(); onToggleSelect(); }} className="mt-1 text-slate-400 hover:text-white">
           {selected ? <CheckSquare className="h-4 w-4 text-blue-400" /> : <Square className="h-4 w-4" />}
         </button>
-        <RequestImage url={req.imageUrl} alt={req.materialName} size="sm" />
+        <MaterialRequestImageThumb
+          id={req._id}
+          hasImage={req.hasImage}
+          imageUrl={req.imageUrl}
+          alt={req.materialName}
+          size="sm"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -650,12 +635,15 @@ function ReviewModal({
         </DialogHeader>
         {request && (
           <div className="space-y-5 text-sm">
-            {request.imageUrl && (
+            {(request.hasImage || request.imageUrl) && (
               <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-                <img
-                  src={request.imageUrl}
+                <MaterialRequestImageThumb
+                  id={request._id}
+                  hasImage={request.hasImage ?? Boolean(request.imageUrl)}
+                  imageUrl={request.imageUrl}
                   alt={request.materialName}
-                  className="max-h-48 w-full object-contain"
+                  loadImmediately
+                  detail
                 />
               </div>
             )}

@@ -35,6 +35,7 @@ import {
   type MaterialRequest,
 } from "@/services/material-requests";
 import { PaymentDetailsModal } from "@/components/material-requests/PaymentDetailsModal";
+import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
@@ -1121,15 +1122,12 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       onClick={() => setHistoryTarget(req)}
                     >
                         <TD className="px-2 py-2">
-                          {req.imageUrl ? (
-                            <img
-                              src={req.imageUrl}
-                              alt={req.materialName}
-                              className="h-10 w-10 rounded-none border border-white/10 object-cover sm:h-12 sm:w-12"
-                            />
-                          ) : (
-                            <span className="text-xs text-slate-500">—</span>
-                          )}
+                          <MaterialRequestImageThumb
+                            id={req._id}
+                            hasImage={req.hasImage}
+                            imageUrl={req.imageUrl}
+                            alt={req.materialName}
+                          />
                         </TD>
                         <TD className="px-2 py-2 font-mono text-xs">
                           <button

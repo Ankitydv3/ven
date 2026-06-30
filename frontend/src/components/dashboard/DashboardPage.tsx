@@ -40,7 +40,6 @@ import {
   Activity,
   ArrowUpRight,
   Zap,
-  RefreshCw,
   Calendar,
   Play,
   Eye,
@@ -596,13 +595,14 @@ import type { Task } from "@/lib/task.types";
     const enriched = (data ?? []).map((c, i) => ({ ...c, fill: barColors[i % barColors.length] }));
 
     return (
-      <GlassCard className="p-5 lg:p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
+      <GlassCard className="flex h-[260px] flex-col p-4 lg:p-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5 shrink-0" style={{ color: ACCENT }}>
           Distribution
         </p>
-        <h3 className="text-base font-bold text-white mb-5">Top Complaint Categories</h3>
+        <h3 className="text-sm font-bold text-white mb-2 shrink-0">Top Complaint Categories</h3>
 
-        <ResponsiveContainer width="100%" height={220}>
+        <div className="min-h-0 flex-1">
+          <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={enriched}
             layout="vertical"
@@ -642,6 +642,7 @@ import type { Task } from "@/lib/task.types";
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        </div>
       </GlassCard>
     );
   }
@@ -677,52 +678,52 @@ import type { Task } from "@/lib/task.types";
         </div>
 
         {total > 0 ? (
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-              {data.map((item) => {
-                const color = REASON_COLORS[item.name] ?? "#64748B";
-                const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
-                const pct = ((item.value / total) * 100).toFixed(1);
+          <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-stretch">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:contents">
+            {data.map((item) => {
+              const color = REASON_COLORS[item.name] ?? "#64748B";
+              const Icon = REASON_ICONS[item.name] ?? AlertTriangle;
+              const pct = ((item.value / total) * 100).toFixed(1);
 
-                return (
+              return (
+                <div
+                  key={item.name}
+                  className="flex min-w-0 flex-1 flex-col rounded-xl p-3.5 cursor-pointer transition-transform hover:scale-[1.01]"
+                  onClick={() => onItemClick?.(item.name)}
+                  style={{
+                    background: `${color}10`,
+                    border: `1px solid ${color}25`,
+                  }}
+                >
                   <div
-                    key={item.name}
-                    className="rounded-xl p-4 cursor-pointer hover:scale-[1.02] transition-transform"
-                    onClick={() => onItemClick?.(item.name)}
+                    className="mb-2.5 flex h-8 w-8 items-center justify-center rounded-md"
                     style={{
-                      background: `${color}10`,
-                      border: `1px solid ${color}25`,
+                      background: `${color}20`,
+                      color,
+                      boxShadow: `0 0 12px ${color}30`,
                     }}
                   >
-                    <div
-                      className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
-                      style={{
-                        background: `${color}20`,
-                        color,
-                        boxShadow: `0 0 18px ${color}30`,
-                      }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <p className="text-xs text-slate-400 mb-1 truncate">{item.name}</p>
-                    <p className="text-2xl font-bold text-white leading-none">{item.value}</p>
-                    <p className="mt-1 text-[11px] font-medium" style={{ color }}>
-                      {pct}% of unresolved
-                    </p>
+                    <Icon className="h-4 w-4" />
                   </div>
-                );
-              })}
+                  <p className="mb-1 text-[11px] leading-snug text-slate-400">{item.name}</p>
+                  <p className="text-2xl font-bold leading-none text-white">{item.value}</p>
+                  <p className="mt-1.5 text-[10px] font-medium" style={{ color }}>
+                    {pct}% of unresolved
+                  </p>
+                </div>
+              );
+            })}
             </div>
 
-            <div className="flex shrink-0 flex-col items-center gap-5 xl:w-[260px]">
-              <div className="relative h-[160px] w-[160px]">
-                <ResponsiveContainer width={160} height={160}>
+            <div className="flex shrink-0 items-center justify-center gap-4 lg:justify-end lg:gap-5">
+              <div className="relative h-[96px] w-[96px] shrink-0 sm:h-[104px] sm:w-[104px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={data}
                       dataKey="value"
-                      innerRadius={50}
-                      outerRadius={74}
+                      innerRadius={30}
+                      outerRadius={46}
                       paddingAngle={2}
                       stroke="none"
                       onClick={(slice) => {
@@ -743,26 +744,26 @@ import type { Task } from "@/lib/task.types";
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-white">{total}</p>
-                  <p className="text-[10px] text-slate-500">Total</p>
+                  <p className="text-xl font-bold text-white">{total}</p>
+                  <p className="text-[9px] text-slate-500">Total</p>
                 </div>
               </div>
 
-              <div className="w-full space-y-2">
+              <div className="w-[150px] shrink-0 space-y-2 sm:w-[170px]">
                 {data.map((item) => {
                   const color = REASON_COLORS[item.name] ?? "#64748B";
                   const pct = ((item.value / total) * 100).toFixed(1);
                   return (
                     <div
                       key={item.name}
-                      className="flex items-center justify-between text-xs cursor-pointer group"
+                      className="flex cursor-pointer items-center justify-between gap-2 text-[11px] group"
                       onClick={() => onItemClick?.(item.name)}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        <span className="text-slate-400 truncate group-hover:text-slate-200 transition-colors">{item.name}</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="text-slate-400 transition-colors group-hover:text-slate-200">{item.name}</span>
                       </div>
-                      <span className="text-slate-300 font-medium ml-2 shrink-0">
+                      <span className="shrink-0 font-medium text-slate-300">
                         {item.value} ({pct}%)
                       </span>
                     </div>
@@ -794,29 +795,30 @@ import type { Task } from "@/lib/task.types";
     ];
 
     return (
-      <GlassCard className="p-5 lg:p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
-          Productivity
-        </p>
-        <h3 className="text-base font-bold text-white mb-2">Task Progress</h3>
+      <GlassCard className="flex h-[260px] flex-col p-4 lg:p-5">
+        <div className="shrink-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-0.5" style={{ color: ACCENT }}>
+            Productivity
+          </p>
+          <h3 className="text-sm font-bold text-white mb-1">Task Progress</h3>
 
-        {/* completion rate big number */}
-        <div className="mb-6 flex items-end gap-2">
-          <span className="text-4xl font-bold text-white">{stats.completionRate ?? 0}%</span>
-          <span className="mb-1 text-sm text-slate-400">completion rate</span>
+          <div className="mb-2 flex items-end gap-2">
+            <span className="text-2xl font-bold text-white">{stats.completionRate ?? 0}%</span>
+            <span className="mb-0.5 text-xs text-slate-400">completion rate</span>
+          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {rows.map((r) => {
             const pct = r.total > 0 ? (r.value / r.total) * 100 : 0;
             return (
               <div key={r.label} className="cursor-pointer group" onClick={() => onRowClick?.(r.label)}>
-                <div className="mb-1.5 flex items-center justify-between text-xs">
+                <div className="mb-1 flex items-center justify-between text-xs">
                   <span className="text-slate-400 group-hover:text-slate-200 transition-colors">{r.label}</span>
                   <span className="font-semibold text-white">{r.value}</span>
                 </div>
                 <div
-                  className="h-1.5 w-full rounded-full overflow-hidden"
+                  className="h-1 w-full rounded-full overflow-hidden"
                   style={{ background: "rgba(255,255,255,0.07)" }}
                 >
                   <motion.div
@@ -832,7 +834,7 @@ import type { Task } from "@/lib/task.types";
           })}
         </div>
 
-        <div className="mt-6 pt-4 border-t cursor-pointer group" style={{ borderColor: BORDER }} onClick={() => onRowClick?.("Total Tasks")}>
+        <div className="mt-2 shrink-0 border-t cursor-pointer group pt-2" style={{ borderColor: BORDER }} onClick={() => onRowClick?.("Total Tasks")}>
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="group-hover:text-slate-200 transition-colors">Total Tasks</span>
             <span className="text-white font-bold text-sm">{stats.totalTasks}</span>
@@ -1212,7 +1214,7 @@ import type { Task } from "@/lib/task.types";
         <SummaryTables data={data} role={role} />
       </motion.div>
     );
-    const { data, isLoading, refetch, isFetching, isError, error } = useQuery({
+    const { data, isLoading, refetch, isError, error } = useQuery({
       queryKey: ["dashboard", role, user?.role, user?.subAdminType],
       queryFn: () => fetchDashboardPage(role, user?.role),
       placeholderData: (previous) => previous,
@@ -1382,26 +1384,11 @@ import type { Task } from "@/lib/task.types";
 
             {/* ── Section: Complaint Overview KPIs ── */}
             <motion.section variants={fadeUp} className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-  <SectionLabel
-    eyebrow="Complaints"
-    title="Complaint Overview"
-    subtitle="Track performance and resolution metrics at a glance"
-  />
-
-  <button
-    type="button"
-    onClick={() => refetch()}
-    className="flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
-    style={{ borderColor: BORDER, background: SURFACE }}
-  >
-    <RefreshCw
-      className={cn("h-3.5 w-3.5", isFetching && "animate-spin")}
-      style={{ color: ACCENT }}
-    />
-    Refresh
-  </button>
-</div>
+              <SectionLabel
+                eyebrow="Complaints"
+                title="Complaint Overview"
+                subtitle="Track performance and resolution metrics at a glance"
+              />
               <motion.div
                 variants={stagger}
                 className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"

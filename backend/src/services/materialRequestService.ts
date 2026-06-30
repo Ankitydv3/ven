@@ -527,8 +527,9 @@ export async function listMaterialRequests(options: MaterialRequestListOptions) 
   const skip = (options.page - 1) * options.limit;
   const queryTimeoutMs = 20_000;
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     MaterialRequest.find(filter)
+      .select("-imageUrl -history")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(options.limit)
@@ -536,6 +537,26 @@ export async function listMaterialRequests(options: MaterialRequestListOptions) 
       .maxTimeMS(queryTimeoutMs),
     MaterialRequest.countDocuments(filter).maxTimeMS(queryTimeoutMs),
   ]);
+
+  const idsWithImage =
+    rawItems.length > 0
+      ? new Set(
+          (
+            await MaterialRequest.find({
+              _id: { $in: rawItems.map((item) => item._id) },
+              imageUrl: { $exists: true, $nin: [null, ""] },
+            })
+              .select("_id")
+              .lean()
+              .maxTimeMS(queryTimeoutMs)
+          ).map((row) => String(row._id))
+        )
+      : new Set<string>();
+
+  const items = rawItems.map((item) => ({
+    ...item,
+    hasImage: idsWithImage.has(String(item._id)),
+  }));
 
   const complaintIds = [
     ...new Set(items.map((item) => item.complaintId).filter(Boolean) as string[]),
@@ -1336,6 +1357,7 @@ export async function getUserActivityHistory(userId: string, q?: string) {
   }
 
   const materialRequests = await MaterialRequest.find({ requestedById: userObjectId })
+    .select("-imageUrl")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -1346,7 +1368,9 @@ export async function getUserActivityHistory(userId: string, q?: string) {
   ];
 
   const tasks = complaintIds.length
-    ? await Task.find({ complaintId: { $in: complaintIds } }).lean()
+    ? await Task.find({ complaintId: { $in: complaintIds } })
+        .select("-history")
+        .lean()
     : [];
 
   const allComplaintIds = [
@@ -1411,7 +1435,6 @@ export async function getUserActivityHistory(userId: string, q?: string) {
         status: h.status,
         remarks: h.remarks ?? undefined,
         createdAt: h.createdAt,
-        imageUrl: r.imageUrl,
         paid: Boolean(r.paymentId),
       });
     }

@@ -49,6 +49,7 @@ export interface MaterialRequest {
   paymentMode?: "received" | "onsite" | "";
   paymentRequired?: boolean | null;
   orderId?: string;
+  hasImage?: boolean;
   imageUrl?: string;
   taskId?: string;
   complaintId?: string;
@@ -104,6 +105,13 @@ export async function fetchMaterialRequestStats() {
     timeout: 20_000,
   });
   return data;
+}
+
+export async function fetchMaterialRequestImage(id: string) {
+  const { data } = await api.get<{ imageUrl: string }>(`/material-requests/${id}/image`, {
+    timeout: 30_000,
+  });
+  return data.imageUrl;
 }
 
 export async function createMaterialRequest(payload: {
