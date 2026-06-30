@@ -221,7 +221,8 @@ export async function updateMaterialRequestStatus(
 ) {
   const { data } = await api.patch<{ message: string; request: MaterialRequest }>(
     `/material-requests/${id}/status`,
-    payload
+    payload,
+    { timeout: 45_000 }
   );
   return data;
 }

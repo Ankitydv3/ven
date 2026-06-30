@@ -81,6 +81,11 @@ type AlertType =
   | "material_granted"
   | "material_not_received";
 
+/** Status updates must not load embedded photos — each image can be several MB. */
+async function findMaterialRequestForMutation(id: string) {
+  return MaterialRequest.findById(id).select("-imageUrl");
+}
+
 async function createMaterialAlert(
   type: AlertType,
   request: {
@@ -144,11 +149,13 @@ async function notifyServiceHeadsForStockCheck(request: InstanceType<typeof Mate
       ? `Onsite payment scheduled for ${request.requestId}. Complete stock check — team will collect payment after approval.`
       : STATUS_MESSAGES.AWAITING_STOCK_CHECK;
 
-  for (const head of serviceHeads) {
-    await createMaterialAlert("material_service_head_pending", request, message, {
-      userId: head._id,
-    });
-  }
+  await Promise.all(
+    serviceHeads.map((head) =>
+      createMaterialAlert("material_service_head_pending", request, message, {
+        userId: head._id,
+      })
+    )
+  );
 }
 
 async function notifyServiceHeads(request: InstanceType<typeof MaterialRequest>) {
@@ -163,11 +170,13 @@ async function notifyServiceHeads(request: InstanceType<typeof MaterialRequest>)
 
   const message = `${request.requestedBy} requested ${request.quantity} ${request.unit} of ${request.materialName}. Awaiting Service Head approval.`;
 
-  for (const head of serviceHeads) {
-    await createMaterialAlert("material_service_head_pending", request, message, {
-      userId: head._id,
-    });
-  }
+  await Promise.all(
+    serviceHeads.map((head) =>
+      createMaterialAlert("material_service_head_pending", request, message, {
+        userId: head._id,
+      })
+    )
+  );
 }
 
 async function notifyServiceHeadsForStoreGrant(request: InstanceType<typeof MaterialRequest>) {
@@ -182,11 +191,13 @@ async function notifyServiceHeadsForStoreGrant(request: InstanceType<typeof Mate
 
   const message = `Store granted ${request.quantity} ${request.unit} of ${request.materialName} (${request.requestId}). Confirm whether material was received.`;
 
-  for (const head of serviceHeads) {
-    await createMaterialAlert("material_awaiting_final_grant", request, message, {
-      userId: head._id,
-    });
-  }
+  await Promise.all(
+    serviceHeads.map((head) =>
+      createMaterialAlert("material_awaiting_final_grant", request, message, {
+        userId: head._id,
+      })
+    )
+  );
 }
 
 async function notifyStoreManagersMaterialNotReceived(request: InstanceType<typeof MaterialRequest>) {
@@ -683,7 +694,7 @@ export async function serviceHeadReview(
     throw new ApiError(403, "Only Service Head can approve or deny material requests");
   }
 
-  const request = await MaterialRequest.findById(id);
+  const request = await findMaterialRequestForMutation(id);
   if (!request) {
     throw new ApiError(404, "Material request not found");
   }
@@ -1025,7 +1036,7 @@ export async function confirmMaterialPayment(
     throw new ApiError(403, "Only Accounts or Service Head can confirm material payments");
   }
 
-  const request = await MaterialRequest.findById(id);
+  const request = await findMaterialRequestForMutation(id);
   if (!request) {
     throw new ApiError(404, "Material request not found");
   }
@@ -1081,7 +1092,7 @@ export async function completeOnsiteMaterialPayment(
   actor: { name: string; role: string; team?: string; teamName?: string; id?: string },
   remarks?: string
 ) {
-  const request = await MaterialRequest.findById(id);
+  const request = await findMaterialRequestForMutation(id);
   if (!request) {
     throw new ApiError(404, "Material request not found");
   }
@@ -1182,7 +1193,7 @@ export async function updateMaterialRequestStatus(
   revisitDate?: string,
   revisitTimeSlot?: string
 ) {
-  const request = await MaterialRequest.findById(id);
+  const request = await findMaterialRequestForMutation(id);
   if (!request) {
     throw new ApiError(404, "Material request not found");
   }
