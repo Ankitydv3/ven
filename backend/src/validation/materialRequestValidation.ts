@@ -24,6 +24,8 @@ export const materialServiceHeadSchema = z.object({
   revisitDate: z.string().trim().optional(),
   revisitTimeSlot: z.string().trim().optional(),
   stockDecision: z.enum(["STOCK_AVAILABLE", "OUT_OF_STOCK"]).optional(),
+  paymentRequired: z.boolean().optional(),
+  paymentAction: z.enum(["received", "onsite"]).optional(),
 });
 
 export const materialPaymentConfirmSchema = z.object({

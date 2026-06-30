@@ -47,6 +47,7 @@ export interface MaterialRequest {
   storeManagerRemarks?: string;
   paymentId?: string;
   paymentMode?: "received" | "onsite" | "";
+  paymentRequired?: boolean | null;
   orderId?: string;
   imageUrl?: string;
   taskId?: string;
@@ -129,6 +130,8 @@ export async function serviceHeadReviewMaterialRequest(
     revisitDate?: string;
     revisitTimeSlot?: string;
     stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK";
+    paymentRequired?: boolean;
+    paymentAction?: "received" | "onsite";
   }
 ) {
   const { data } = await api.patch<{ message: string; request: MaterialRequest }>(
@@ -312,7 +315,7 @@ export const materialStatusLabel: Record<string, string> = {
   PENDING_FINAL_DECISION: "Final Decision (Service Head)",
   WAITING_FOR_STOCK: "Waiting for Stock",
   DECLINED_BY_STORE: "Declined by Store",
-  GRANTED_BY_STORE: "Granted by Store",
+  GRANTED_BY_STORE: "Awaiting Receipt Confirmation",
   WAITING_BY_STORE: "Waiting in Store",
   WAITING: "Waiting for Stock",
   OUT_OF_STOCK: "Out Of Stock",

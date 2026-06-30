@@ -27,6 +27,8 @@ const mongoose_1 = require("mongoose");
 const Task_1 = __importDefault(require("../models/Task"));
 const TaskAlert_1 = __importDefault(require("../models/TaskAlert"));
 const Complaint_1 = __importDefault(require("../models/Complaint"));
+const MaterialRequest_1 = __importDefault(require("../models/MaterialRequest"));
+const Payment_1 = __importDefault(require("../models/Payment"));
 const User_1 = __importDefault(require("../models/User"));
 const Team_1 = __importDefault(require("../models/Team"));
 const taskId_1 = require("../utils/taskId");
@@ -36,6 +38,36 @@ const teamScope_1 = require("../utils/teamScope");
 const dateKey_1 = require("../utils/dateKey");
 const complaintAssignmentService_1 = require("./complaintAssignmentService");
 const BLOCKED_COMPLAINT_TASK_STATUSES = ["Completed"];
+const QUERY_TIMEOUT_MS = 20_000;
+let lastOverdueRunAt = 0;
+const OVERDUE_DEBOUNCE_MS = 60_000;
+async function getPendingOnsiteMaterialPayment(complaintId) {
+    if (!complaintId)
+        return null;
+    const materialRequest = await MaterialRequest_1.default.findOne({
+        complaintId,
+        status: "PAYMENT_PENDING_ONSITE",
+    })
+        .select("paymentId requestId")
+        .lean();
+    if (!materialRequest)
+        return null;
+    const payment = materialRequest.paymentId
+        ? await Payment_1.default.findOne({ paymentId: materialRequest.paymentId })
+            .select("totalAmount materialPaymentStatus")
+            .lean()
+        : null;
+    if (payment?.materialPaymentStatus === "Payment Received") {
+        return null;
+    }
+    return {
+        materialRequest,
+        amount: payment?.totalAmount ?? 0,
+    };
+}
+function taskCount(filter) {
+    return Task_1.default.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS);
+}
 function blocksComplaintTaskAssignment(status) {
     return status === "Completed" || status === "Cancelled";
 }
@@ -163,7 +195,11 @@ async function createTaskAlert(type, task, message) {
 async function backfillDueDateKeys() {
     const tasks = await Task_1.default.find({
         $or: [{ dueDateKey: { $exists: false } }, { dueDateKey: null }, { dueDateKey: "" }],
-    }).limit(200);
+    })
+        .select("_id dueDate")
+        .limit(200)
+        .lean()
+        .maxTimeMS(QUERY_TIMEOUT_MS);
     if (tasks.length === 0)
         return;
     const bulk = tasks.map((task) => ({
@@ -174,17 +210,30 @@ async function backfillDueDateKeys() {
     }));
     await Task_1.default.bulkWrite(bulk);
 }
-async function applyOverdueUpdates() {
+async function applyOverdueUpdates(force = false) {
+    const now = Date.now();
+    if (!force && now - lastOverdueRunAt < OVERDUE_DEBOUNCE_MS) {
+        return;
+    }
+    lastOverdueRunAt = now;
     await backfillDueDateKeys();
     const todayKey = (0, dateKey_1.todayDateKey)();
-    // Only auto-mark Pending tasks as Overdue — never downgrade active work (In Progress).
     const overdueTasks = await Task_1.default.find({
         status: "Pending",
         dueDateKey: { $exists: true, $ne: "", $lt: todayKey },
-    });
+    })
+        .select("_id taskId title dueDateKey assignedTeamName assignedUserId priority")
+        .lean()
+        .maxTimeMS(QUERY_TIMEOUT_MS);
+    if (overdueTasks.length === 0)
+        return;
+    await Task_1.default.bulkWrite(overdueTasks.map((task) => ({
+        updateOne: {
+            filter: { _id: task._id },
+            update: { $set: { status: "Overdue" } },
+        },
+    })));
     for (const task of overdueTasks) {
-        task.status = "Overdue";
-        await task.save();
         await createTaskAlert("task_overdue", task, `Task ${task.taskId} is overdue (due ${task.dueDateKey})`);
     }
 }
@@ -249,7 +298,9 @@ async function getTasks(options) {
             ],
         })
             .select("complaintId")
-            .lean();
+            .limit(100)
+            .lean()
+            .maxTimeMS(QUERY_TIMEOUT_MS);
         const complaintIds = matchingComplaints.map((c) => c.complaintId);
         const searchClauses = [
             { taskId: { $regex: options.q, $options: "i" } },
@@ -315,8 +366,8 @@ async function getTasks(options) {
     const skip = (options.page - 1) * options.limit;
     const sort = { [options.sortBy]: options.sortOrder };
     const [rawItems, total] = await Promise.all([
-        Task_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean(),
-        Task_1.default.countDocuments(filter),
+        Task_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+        Task_1.default.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
     ]);
     const items = dedupeActiveTasksByComplaint(rawItems);
     const complaintIds = items
@@ -324,7 +375,10 @@ async function getTasks(options) {
         .filter((id) => Boolean(id));
     let complaintMap = {};
     if (complaintIds.length > 0) {
-        const complaints = await Complaint_1.default.find({ complaintId: { $in: complaintIds } }).lean();
+        const complaints = await Complaint_1.default.find({ complaintId: { $in: complaintIds } })
+            .select("complaintId clientName mobileNumber location status assignedTeam title")
+            .lean()
+            .maxTimeMS(QUERY_TIMEOUT_MS);
         complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
     }
     const enrichedItems = items.map((task) => ({
@@ -425,22 +479,22 @@ async function getTaskStats(scopeFilter, team) {
     const todayKey = (0, dateKey_1.todayDateKey)();
     const todayStart = startOfDay(new Date());
     const [total, pending, inProgress, completed, overdue, upcoming, dueToday, completedOnTime, completedToday, needRevisit, needMaterial,] = await Promise.all([
-        Task_1.default.countDocuments(baseFilter),
-        Task_1.default.countDocuments({ ...baseFilter, status: "Pending" }),
-        Task_1.default.countDocuments({ ...baseFilter, status: "In Progress" }),
-        Task_1.default.countDocuments({ ...baseFilter, status: "Completed" }),
-        Task_1.default.countDocuments({ ...baseFilter, status: "Overdue" }),
-        Task_1.default.countDocuments({
+        taskCount(baseFilter),
+        taskCount({ ...baseFilter, status: "Pending" }),
+        taskCount({ ...baseFilter, status: "In Progress" }),
+        taskCount({ ...baseFilter, status: "Completed" }),
+        taskCount({ ...baseFilter, status: "Overdue" }),
+        taskCount({
             ...baseFilter,
             status: { $in: ["Pending", "In Progress"] },
             dueDateKey: { $gt: todayKey },
         }),
-        Task_1.default.countDocuments({
+        taskCount({
             ...baseFilter,
             status: { $in: ["Pending", "In Progress", "Overdue"] },
             dueDateKey: todayKey,
         }),
-        Task_1.default.countDocuments({
+        taskCount({
             ...baseFilter,
             status: "Completed",
             completedAt: { $exists: true },
@@ -451,13 +505,13 @@ async function getTaskStats(scopeFilter, team) {
                 ],
             },
         }),
-        Task_1.default.countDocuments({
+        taskCount({
             ...baseFilter,
             status: "Completed",
             completedAt: { $gte: todayStart },
         }),
-        Task_1.default.countDocuments({ ...baseFilter, status: "Need Re-visit" }),
-        Task_1.default.countDocuments({ ...baseFilter, status: "Need Material" }),
+        taskCount({ ...baseFilter, status: "Need Re-visit" }),
+        taskCount({ ...baseFilter, status: "Need Material" }),
     ]);
     const completionRate = total === 0 ? 0 : Math.round((completed / total) * 1000) / 10;
     const pendingRate = total === 0 ? 0 : Math.round((pending / total) * 1000) / 10;
@@ -648,19 +702,27 @@ async function patchTaskStatusById(id, status, actor, options) {
         }
     }
     if ((0, teamScope_1.isTeamRole)(actor.role)) {
+        const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
         const fromInProgress = task.status === "In Progress";
+        const fromNeedMaterialOnsite = task.status === "Need Material" && Boolean(pendingOnsite);
         const progressStatuses = ["Completed", "Need Re-visit", "Need Material"];
         const startStatuses = ["In Progress"];
-        if (fromInProgress) {
+        if (fromInProgress || fromNeedMaterialOnsite) {
             if (!progressStatuses.includes(status)) {
                 throw new ApiError_1.ApiError(403, "You can mark tasks as Completed, Need Re-visit, or Need Material");
             }
+            if (status === "Completed" && pendingOnsite) {
+                throw new ApiError_1.ApiError(400, `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`);
+            }
+        }
+        else if (task.status === "Need Material" && !pendingOnsite && status === "Completed") {
+            // Onsite payment collected — team may complete the task
         }
         else if (startStatuses.includes(status)) {
             if (!["Pending", "Overdue", "Need Re-visit"].includes(task.status)) {
                 throw new ApiError_1.ApiError(400, "Only pending or re-visit tasks can be started");
             }
-            if (task.status === "Need Material") {
+            if (task.status === "Need Material" && !pendingOnsite) {
                 throw new ApiError_1.ApiError(400, "Cannot Update Task while waiting for material approval");
             }
         }
@@ -669,6 +731,12 @@ async function patchTaskStatusById(id, status, actor, options) {
         }
         if (task.status === "Completed" || task.isLocked) {
             throw new ApiError_1.ApiError(400, "Completed tasks cannot be updated");
+        }
+    }
+    if (status === "Completed") {
+        const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
+        if (pendingOnsite) {
+            throw new ApiError_1.ApiError(400, `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`);
         }
     }
     const allowReopen = (0, teamScope_1.isAdminRole)(actor.role) && status === "Pending" && task.status === "Completed";

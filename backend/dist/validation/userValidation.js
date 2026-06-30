@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.changePasswordSchema = exports.resetPasswordSchema = exports.profileSelfUpdateSchema = exports.userUpdateSchema = exports.userCreateSchema = void 0;
 const zod_1 = require("zod");
-const createRoles = ["admin", "sub_admin", "team", "store_manager"];
+const createRoles = ["admin", "sub_admin", "team"];
 const allRoles = ["super_admin", "admin", "sub_admin", "team", "manager", "team_lead", "accountant", "customer", "store_manager"];
 const passwordField = zod_1.z.string().min(8, "Password must be at least 8 characters");
 const subAdminTypeField = zod_1.z.enum(["accountant", "plant_head"]).optional();

@@ -20,9 +20,8 @@ export function useTasks(filters: TaskFilters) {
     queryKey: taskKeys.list(filters),
     queryFn: () => fetchTasks(filters),
     placeholderData: (previous) => previous,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 120_000,
     retry: 1,
     retryDelay: 2_000,
   });

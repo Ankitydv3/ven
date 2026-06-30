@@ -29,6 +29,7 @@ const complaintSchema = new mongoose_1.Schema({
     mobileNumber: { type: String, required: true, index: true },
     email: { type: String, default: "" },
     orderId: { type: String, default: "", index: true },
+    salesPerson: { type: String, default: "" },
     title: { type: String, required: true },
     description: { type: String, required: true },
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },
@@ -67,6 +68,8 @@ const complaintSchema = new mongoose_1.Schema({
     history: { type: [historySchema], default: [] },
     assignments: { type: [assignmentSchema], default: [] },
 }, { timestamps: true });
+complaintSchema.index({ createdAt: -1 });
+complaintSchema.index({ status: 1, createdAt: -1 });
 complaintSchema.pre("save", function () {
     for (const assignment of this.assignments) {
         const endReason = assignment.get("endReason");

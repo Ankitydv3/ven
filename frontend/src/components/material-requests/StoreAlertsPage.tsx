@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Clock,
   Hourglass,
-  XCircle,
   AlertTriangle,
   ChevronRight,
   MoreHorizontal,
@@ -246,7 +245,7 @@ export function StoreAlertsPage() {
     );
   }, [requests, requestSearch]);
 
-  const handleUpdateStatus = async (id: string, decision: "WAIT" | "DECLINE" | "GRANT", availability: "AVAILABLE" | "OUT_OF_STOCK") => {
+  const handleUpdateStatus = async (id: string, decision: "WAIT" | "GRANT", availability: "AVAILABLE" | "OUT_OF_STOCK") => {
     try {
       await updateMutation.mutateAsync({
         id,
@@ -438,10 +437,6 @@ export function StoreAlertsPage() {
                               <Clock className="mr-2 h-4 w-4 text-amber-400" />
                               Out of Stock: Wait
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "DECLINE", "OUT_OF_STOCK"); }}>
-                              <XCircle className="mr-2 h-4 w-4 text-rose-400" />
-                              Out of Stock: Decline
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -533,10 +528,6 @@ export function StoreAlertsPage() {
                   <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "WAIT", "OUT_OF_STOCK")}>
                     <Hourglass className="mr-2 h-4 w-4 text-orange-400" />
                     Out of Stock: Wait
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "DECLINE", "OUT_OF_STOCK")}>
-                    <XCircle className="mr-2 h-4 w-4 text-rose-400" />
-                    Out of Stock: Decline
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

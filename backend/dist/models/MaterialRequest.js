@@ -26,6 +26,7 @@ const materialRequestSchema = new mongoose_1.Schema({
             "PENDING_SERVICE_HEAD",
             "DENIED",
             "AWAITING_ACCOUNTS",
+            "PAYMENT_PENDING_ONSITE",
             "AWAITING_STOCK_CHECK",
             "AWAITING_STORE",
             "AWAITING_MATERIAL_RECEIVED",
@@ -53,6 +54,9 @@ const materialRequestSchema = new mongoose_1.Schema({
         type: String,
         enum: ["received", "onsite", ""],
         default: "",
+    },
+    paymentRequired: {
+        type: Boolean,
     },
     orderId: { type: String, default: "", index: true },
     storeManagerRemarks: { type: String, default: "" },

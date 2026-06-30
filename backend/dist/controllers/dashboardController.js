@@ -15,11 +15,16 @@ exports.getPendingActions = getPendingActions;
 exports.getDashboard = getDashboard;
 const Complaint_1 = __importDefault(require("../models/Complaint"));
 const Order_1 = __importDefault(require("../models/Order"));
+const Task_1 = __importDefault(require("../models/Task"));
 const taskService_1 = require("../services/taskService");
 const teamService_1 = require("../services/teamService");
 const dashboardScope_1 = require("../utils/dashboardScope");
 const materialRequestService_1 = require("../services/materialRequestService");
 const complaintIssueTypes_1 = require("../utils/complaintIssueTypes");
+const QUERY_TIMEOUT_MS = 20_000;
+function scopedCount(model, filter) {
+    return model.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS);
+}
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function getMonthRange(monthIndex, year) {
     return {
@@ -31,14 +36,14 @@ async function buildSummary(scope) {
     const orderFilter = scope.orderFilter;
     const complaintFilter = scope.complaintFilter;
     const [totalOrders, complaintsReceived, complaintsResolved, complaintsUnresolved, paidServicesDone] = await Promise.all([
-        Order_1.default.countDocuments(orderFilter),
-        Complaint_1.default.countDocuments(complaintFilter),
-        Complaint_1.default.countDocuments({ ...complaintFilter, status: "Completed" }),
-        Complaint_1.default.countDocuments({
+        scopedCount(Order_1.default, orderFilter),
+        scopedCount(Complaint_1.default, complaintFilter),
+        scopedCount(Complaint_1.default, { ...complaintFilter, status: "Completed" }),
+        scopedCount(Complaint_1.default, {
             ...complaintFilter,
             status: { $in: ["Pending Review", "Pending Assignment", "Assigned", "In Progress"] },
         }),
-        Order_1.default.countDocuments({ ...orderFilter, paid: true }),
+        scopedCount(Order_1.default, { ...orderFilter, paid: true }),
     ]);
     return {
         totalOrders,
@@ -55,9 +60,9 @@ async function buildMonthlyTrend(scope) {
     return Promise.all(months.map(async (month, index) => {
         const { start, end } = getMonthRange(index, year);
         const [orders, complaintsReceived, resolved] = await Promise.all([
-            Order_1.default.countDocuments({ ...orderFilter, createdAt: { $gte: start, $lt: end } }),
-            Complaint_1.default.countDocuments({ ...complaintFilter, createdAt: { $gte: start, $lt: end } }),
-            Complaint_1.default.countDocuments({
+            scopedCount(Order_1.default, { ...orderFilter, createdAt: { $gte: start, $lt: end } }),
+            scopedCount(Complaint_1.default, { ...complaintFilter, createdAt: { $gte: start, $lt: end } }),
+            scopedCount(Complaint_1.default, {
                 ...complaintFilter,
                 status: "Completed",
                 updatedAt: { $gte: start, $lt: end },
@@ -102,7 +107,7 @@ async function countComplaintsByReason(complaintFilter, reason, resolved) {
             : resolved
                 ? buildResolvedPaymentFilter()
                 : buildUnresolvedPaymentFilter();
-    return Complaint_1.default.countDocuments({
+    return scopedCount(Complaint_1.default, {
         ...complaintFilter,
         ...statusFilter,
         ...categoryFilter,
@@ -127,7 +132,7 @@ async function countComplaintsByIssue(complaintFilter, issue, options) {
         ...(0, complaintIssueTypes_1.buildIssueTitleFilter)(issue),
         ...(options?.unresolvedOnly ? { status: { $in: OPEN_COMPLAINT_STATUSES } } : {}),
     };
-    return Complaint_1.default.countDocuments(filter);
+    return scopedCount(Complaint_1.default, filter);
 }
 async function buildUnresolvedReasons(scope) {
     return buildComplaintReasons(scope, false);
@@ -138,7 +143,7 @@ async function buildResolvedReasons(scope) {
 async function buildComplaintOverview(scope) {
     const complaintFilter = scope.complaintFilter;
     const [resolved, ...issueCounts] = await Promise.all([
-        Complaint_1.default.countDocuments({ ...complaintFilter, status: "Completed" }),
+        scopedCount(Complaint_1.default, { ...complaintFilter, status: "Completed" }),
         ...complaintIssueTypes_1.COMPLAINT_ISSUE_TYPES.map((issue) => countComplaintsByIssue(complaintFilter, issue, { unresolvedOnly: true })),
     ]);
     const [lockingIssue, leakageIssue, difficultyMoving, alignmentIssue, other] = issueCounts;
@@ -160,14 +165,19 @@ async function buildTopCategories(scope) {
     })));
 }
 async function buildRecentOrders(scope) {
-    return Order_1.default.find(scope.orderFilter).sort({ createdAt: -1 }).limit(5).lean();
+    return Order_1.default.find(scope.orderFilter)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean()
+        .maxTimeMS(QUERY_TIMEOUT_MS);
 }
 async function buildRecentComplaints(scope) {
     return Complaint_1.default.find(scope.complaintFilter)
         .sort({ updatedAt: -1 })
         .limit(5)
         .select("complaintId clientName title status updatedAt assignedTeam reason")
-        .lean();
+        .lean()
+        .maxTimeMS(QUERY_TIMEOUT_MS);
 }
 async function buildTeamStats(scope) {
     if (scope.kind === "personal") {
@@ -179,13 +189,30 @@ async function buildTeamStats(scope) {
         return [{ team: scope.teamName, assigned: stats.total, completed: stats.completed }];
     }
     const teams = await (0, teamService_1.listActiveTeamNames)();
-    return Promise.all(teams.map(async (team) => {
-        const stats = await (0, taskService_1.getTaskStats)(undefined, team);
-        return {
-            team,
-            assigned: stats.total,
-            completed: stats.completed,
-        };
+    if (!teams.length)
+        return [];
+    const rows = await Task_1.default.aggregate([
+        {
+            $match: {
+                assignedTeamName: { $in: teams },
+                status: { $ne: "Cancelled" },
+            },
+        },
+        {
+            $group: {
+                _id: "$assignedTeamName",
+                assigned: { $sum: 1 },
+                completed: {
+                    $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
+                },
+            },
+        },
+    ]).option({ maxTimeMS: QUERY_TIMEOUT_MS });
+    const statsMap = new Map(rows.map((row) => [row._id, row]));
+    return teams.map((team) => ({
+        team,
+        assigned: statsMap.get(team)?.assigned ?? 0,
+        completed: statsMap.get(team)?.completed ?? 0,
     }));
 }
 function scopeFromRequest(req) {
@@ -221,10 +248,10 @@ async function getPendingActions(req, res) {
     res.json(result);
 }
 async function getDashboard(req, res) {
-    await (0, taskService_1.applyOverdueUpdates)();
     const scope = scopeFromRequest(req);
-    const taskStats = await (0, taskService_1.getTaskStats)(Object.keys(scope.taskScopeFilter).length > 0 ? scope.taskScopeFilter : undefined, scope.kind === "team" ? scope.teamName : undefined);
-    const [summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, teamStats,] = await Promise.all([
+    const taskStatsPromise = (0, taskService_1.getTaskStats)(Object.keys(scope.taskScopeFilter).length > 0 ? scope.taskScopeFilter : undefined, scope.kind === "team" ? scope.teamName : undefined);
+    const [taskStats, summary, monthlyTrend, unresolvedReasons, complaintOverview, categories, recentOrders, recentComplaints, teamStats,] = await Promise.all([
+        taskStatsPromise,
         buildSummary(scope),
         buildMonthlyTrend(scope),
         buildUnresolvedReasons(scope),

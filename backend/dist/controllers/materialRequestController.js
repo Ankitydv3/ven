@@ -6,6 +6,8 @@ exports.materialRequestStatsHandler = materialRequestStatsHandler;
 exports.readMaterialRequestHandler = readMaterialRequestHandler;
 exports.serviceHeadReviewHandler = serviceHeadReviewHandler;
 exports.confirmMaterialPaymentHandler = confirmMaterialPaymentHandler;
+exports.getMaterialPaymentDetailsHandler = getMaterialPaymentDetailsHandler;
+exports.completeOnsiteMaterialPaymentHandler = completeOnsiteMaterialPaymentHandler;
 exports.getUserActivityHistoryHandler = getUserActivityHistoryHandler;
 exports.updateMaterialRequestStatusHandler = updateMaterialRequestStatusHandler;
 const materialRequestService_1 = require("../services/materialRequestService");
@@ -63,7 +65,7 @@ async function serviceHeadReviewHandler(req, res) {
         name: req.user?.name ?? "Service Head",
         role: req.user?.role ?? "sub_admin",
         subAdminType: req.user?.subAdminType,
-    }, req.body.serviceHeadRemarks, req.body.revisitDate, req.body.revisitTimeSlot, req.body.stockDecision);
+    }, req.body.serviceHeadRemarks, req.body.revisitDate, req.body.revisitTimeSlot, req.body.stockDecision, req.body.paymentRequired, req.body.paymentAction);
     res.json({
         message: req.body.decision === "APPROVED"
             ? "Material request approved"
@@ -76,8 +78,32 @@ async function confirmMaterialPaymentHandler(req, res) {
         name: req.user?.name ?? "Accounts",
         role: req.user?.role ?? "accountant",
         subAdminType: req.user?.subAdminType,
-    }, req.body.paymentMode);
-    res.json({ message: "Payment confirmed — forwarded to Store Manager", request });
+        team: req.user?.team,
+        teamName: req.user?.teamName,
+    }, req.body.paymentMode, req.body.remarks, req.body.materialUnitPrice);
+    const message = req.body.paymentMode === "onsite"
+        ? "Payment marked for onsite collection — Service Head will complete stock check first"
+        : "Payment received — forwarded to Service Head for stock check";
+    res.json({ message, request });
+}
+async function getMaterialPaymentDetailsHandler(req, res) {
+    const request = await (0, materialRequestService_1.getMaterialRequestById)(req.params.id);
+    await (0, materialRequestService_1.assertMaterialRequestAccess)(req.user, request);
+    const details = await (0, materialRequestService_1.getMaterialRequestPaymentDetails)(req.params.id);
+    res.json({ details });
+}
+async function completeOnsiteMaterialPaymentHandler(req, res) {
+    if (req.user?.role !== "team" && !(0, teamScope_1.isAdminRole)(req.user?.role)) {
+        throw new ApiError_1.ApiError(403, "Only the assigned team can complete onsite payment collection");
+    }
+    const request = await (0, materialRequestService_1.completeOnsiteMaterialPayment)(req.params.id, {
+        id: req.user?.id,
+        name: req.user?.name ?? "Team",
+        role: req.user?.role ?? "team",
+        team: req.user?.team,
+        teamName: req.user?.teamName,
+    }, req.body.remarks);
+    res.json({ message: "Onsite payment received — workflow updated", request });
 }
 async function getUserActivityHistoryHandler(req, res) {
     const { userId, q } = req.query;

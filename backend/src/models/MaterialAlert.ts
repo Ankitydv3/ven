@@ -14,6 +14,7 @@ const materialAlertSchema = new Schema(
         "material_waiting",
         "material_out_of_stock",
         "material_granted",
+        "material_not_received",
       ],
       required: true,
       index: true,

@@ -59,6 +59,9 @@ const materialRequestSchema = new Schema(
       enum: ["received", "onsite", ""],
       default: "",
     },
+    paymentRequired: {
+      type: Boolean,
+    },
     orderId: { type: String, default: "", index: true },
     storeManagerRemarks: { type: String, default: "" },
     scheduledRevisitDate: { type: String, default: "" },

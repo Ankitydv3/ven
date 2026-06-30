@@ -9,8 +9,8 @@ export function useAlerts(filters?: AlertsFilters) {
     queryKey: ["alerts", filters],
     queryFn: () => fetchAlerts(filters),
     placeholderData: (previous) => previous,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
     retry: 1,
     retryDelay: 2_000,
   });

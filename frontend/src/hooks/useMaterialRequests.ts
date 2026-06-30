@@ -28,9 +28,8 @@ export function useMaterialRequests(filters?: {
     queryKey: materialRequestKeys.list(filters ?? {}),
     queryFn: () => fetchMaterialRequests(filters),
     placeholderData: (previous) => previous,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 120_000,
     retry: 1,
     retryDelay: 2_000,
   });
@@ -41,9 +40,8 @@ export function useMaterialRequestStats() {
     queryKey: materialRequestKeys.stats(),
     queryFn: fetchMaterialRequestStats,
     placeholderData: (previous) => previous,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 120_000,
     retry: 1,
     retryDelay: 2_000,
   });
@@ -72,6 +70,8 @@ export function useServiceHeadReviewMaterial() {
       revisitDate,
       revisitTimeSlot,
       stockDecision,
+      paymentRequired,
+      paymentAction,
     }: {
       id: string;
       decision: "APPROVED" | "DENIED" | "COMPLETED";
@@ -79,7 +79,9 @@ export function useServiceHeadReviewMaterial() {
       revisitDate?: string;
       revisitTimeSlot?: string;
       stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK";
-    }) => serviceHeadReviewMaterialRequest(id, { decision, serviceHeadRemarks, revisitDate, revisitTimeSlot, stockDecision }),
+      paymentRequired?: boolean;
+      paymentAction?: "received" | "onsite";
+    }) => serviceHeadReviewMaterialRequest(id, { decision, serviceHeadRemarks, revisitDate, revisitTimeSlot, stockDecision, paymentRequired: paymentRequired, paymentAction }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });

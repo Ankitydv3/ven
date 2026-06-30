@@ -127,8 +127,8 @@ async function getOrders(options) {
     const skip = (options.page - 1) * options.limit;
     const sort = { [options.sortBy]: options.sortOrder };
     const [items, total] = await Promise.all([
-        Order_1.default.find(filter).sort(sort).skip(skip).limit(options.limit),
-        Order_1.default.countDocuments(filter)
+        Order_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(20_000),
+        Order_1.default.countDocuments(filter).maxTimeMS(20_000),
     ]);
     return { items, total };
 }

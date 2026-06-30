@@ -41,9 +41,8 @@ export function useComplaints(
     queryFn: () => fetchComplaints(params),
     enabled,
     placeholderData: (previous) => previous,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    staleTime: 120_000,
     retry: 1,
     retryDelay: 2_000,
   });
@@ -57,7 +56,7 @@ export function useComplaintStats(params: {
   return useQuery({
     queryKey: [...complaintKeys.all, "stats", params] as const,
     queryFn: () => fetchComplaintStats(params),
-    staleTime: 30_000,
+    staleTime: 120_000,
     placeholderData: (previous) => previous,
     retry: 1,
     retryDelay: 2_000,

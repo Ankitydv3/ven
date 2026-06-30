@@ -65,6 +65,7 @@ const STATUS_MESSAGES: Record<string, string> = {
   AWAITING_FINAL_GRANT: "Store released material. Service Head must confirm receipt and reschedule.",
   WAITING: "Material request is waiting for stock availability.",
   OUT_OF_STOCK: "Requested material is currently out of stock.",
+  GRANTED_BY_STORE: "Store granted material. Service Head must confirm receipt.",
   GRANTED: "Material granted. Team can resume work.",
 };
 
@@ -77,7 +78,8 @@ type AlertType =
   | "material_awaiting_final_grant"
   | "material_waiting"
   | "material_out_of_stock"
-  | "material_granted";
+  | "material_granted"
+  | "material_not_received";
 
 async function createMaterialAlert(
   type: AlertType,
@@ -164,6 +166,42 @@ async function notifyServiceHeads(request: InstanceType<typeof MaterialRequest>)
   for (const head of serviceHeads) {
     await createMaterialAlert("material_service_head_pending", request, message, {
       userId: head._id,
+    });
+  }
+}
+
+async function notifyServiceHeadsForStoreGrant(request: InstanceType<typeof MaterialRequest>) {
+  const serviceHeads = await User.find({
+    $or: [
+      { role: { $in: ["super_admin", "admin"] } },
+      { role: "sub_admin", subAdminType: "plant_head" },
+    ],
+    status: "active",
+    deletedAt: null,
+  }).select("_id");
+
+  const message = `Store granted ${request.quantity} ${request.unit} of ${request.materialName} (${request.requestId}). Confirm whether material was received.`;
+
+  for (const head of serviceHeads) {
+    await createMaterialAlert("material_awaiting_final_grant", request, message, {
+      userId: head._id,
+    });
+  }
+}
+
+async function notifyStoreManagersMaterialNotReceived(request: InstanceType<typeof MaterialRequest>) {
+  const storeManagers = await User.find({
+    role: "store_manager",
+    status: "active",
+    deletedAt: null,
+  }).select("_id");
+
+  const message = `Material not received for ${request.requestId} (${request.materialName}). Please verify and re-release.`;
+
+  for (const sm of storeManagers) {
+    await createMaterialAlert("material_not_received", request, message, {
+      userId: sm._id,
+      targetRole: "store_manager",
     });
   }
 }
@@ -616,7 +654,9 @@ export async function serviceHeadReview(
   serviceHeadRemarks?: string,
   revisitDate?: string,
   revisitTimeSlot?: string,
-  stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK"
+  stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK",
+  paymentRequired?: boolean,
+  paymentAction?: "received" | "onsite"
 ) {
   if (!isServiceHead(actor)) {
     throw new ApiError(403, "Only Service Head can approve or deny material requests");
@@ -632,17 +672,24 @@ export async function serviceHeadReview(
   // Service Head confirms material received from store → reschedule
   if (materialReceivedStatuses.includes(request.status)) {
     if (decision === "DENIED") {
-      request.status = "DENIED";
+      request.status = "AWAITING_STORE";
+      request.serviceHeadRemarks = serviceHeadRemarks ?? "";
       request.history.push({
-        action: "Service Head Denied — Material Not Accepted",
+        action: "Service Head — Material Not Received — Sent back to Store",
         by: actor.name,
         role: actor.role,
-        status: "DENIED",
+        status: "AWAITING_STORE",
         remarks: serviceHeadRemarks ?? "",
         createdAt: new Date(),
       });
       await request.save();
-      await addTaskHistory(request.taskId ?? undefined, "Service Head Denied Material Receipt", actor.name, actor.role);
+      await addTaskHistory(
+        request.taskId ?? undefined,
+        "Material not received — sent back to Store Manager",
+        actor.name,
+        actor.role
+      );
+      await notifyStoreManagersMaterialNotReceived(request);
       return request.toObject();
     }
 
@@ -661,41 +708,32 @@ export async function serviceHeadReview(
     return request.toObject();
   }
 
-  // Service Head Final Decision after Store Manager Grants
+  // Service Head confirms receipt after Store Manager grants & forwards
   if (request.status === "GRANTED_BY_STORE") {
     if (decision === "DENIED") {
-      request.status = "REJECTED";
+      request.status = "AWAITING_STORE";
+      request.serviceHeadRemarks = serviceHeadRemarks ?? "";
       request.history.push({
-        action: "Service Head Rejected Final Decision",
+        action: "Service Head — Material Not Received — Sent back to Store",
         by: actor.name,
         role: actor.role,
-        status: "REJECTED",
+        status: "AWAITING_STORE",
         remarks: serviceHeadRemarks ?? "",
         createdAt: new Date(),
       });
       await request.save();
-      await addTaskHistory(request.taskId ?? undefined, "Service Head Rejected Material", actor.name, actor.role);
+      await addTaskHistory(
+        request.taskId ?? undefined,
+        "Material not received — sent back to Store Manager",
+        actor.name,
+        actor.role
+      );
+      await notifyStoreManagersMaterialNotReceived(request);
       return request.toObject();
     }
 
-    if ((decision as any) === "COMPLETED") {
-      request.status = "COMPLETED";
-      request.history.push({
-        action: "Service Head Marked as Completed",
-        by: actor.name,
-        role: actor.role,
-        status: "COMPLETED",
-        remarks: serviceHeadRemarks ?? "",
-        createdAt: new Date(),
-      });
-      await request.save();
-      await addTaskHistory(request.taskId ?? undefined, "Material Request Completed", actor.name, actor.role);
-      return request.toObject();
-    }
-
-    // Default Approved
     if (!revisitDate) {
-      throw new ApiError(400, "Revisit date is required for final approval and rescheduling");
+      throw new ApiError(400, "Revisit date is required to confirm material received and reschedule");
     }
 
     await finalizeMaterialGrantWithReschedule(
@@ -703,7 +741,7 @@ export async function serviceHeadReview(
       actor,
       revisitDate,
       revisitTimeSlot,
-      "Service Head Final Approval",
+      "Material Received & Task Rescheduled",
       serviceHeadRemarks
     );
     return request.toObject();
@@ -843,30 +881,112 @@ export async function serviceHeadReview(
   request.serviceHeadRemarks = serviceHeadRemarks ?? "";
   request.orderId = order.orderId;
 
-  const paymentId = await createDraftMaterialPayment(request, complaint, order);
-  request.paymentId = paymentId;
-  request.status = "AWAITING_ACCOUNTS";
+  if (paymentRequired === undefined) {
+    throw new ApiError(400, "Please select whether payment is required");
+  }
+
+  request.paymentRequired = paymentRequired;
+
+  if (!paymentRequired) {
+    if (!stockDecision) {
+      throw new ApiError(400, "Please choose Available on Stock or Transfer to Stock");
+    }
+
+    if (stockDecision === "STOCK_AVAILABLE") {
+      if (!revisitDate) {
+        throw new ApiError(400, "Revisit date is required when stock is available");
+      }
+      await finalizeMaterialGrantWithReschedule(
+        request,
+        actor,
+        revisitDate,
+        revisitTimeSlot,
+        "Service Head Approved — No Payment — Stock Available — Task Rescheduled",
+        serviceHeadRemarks
+      );
+      return request.toObject();
+    }
+
+    request.status = "AWAITING_STORE";
+    request.history.push({
+      action: "Service Head Approved — No Payment — Transferred to Store",
+      by: actor.name,
+      role: actor.role,
+      status: "AWAITING_STORE",
+      remarks: serviceHeadRemarks ?? "",
+      createdAt: new Date(),
+    });
+    await request.save();
+    await addTaskHistory(request.taskId ?? undefined, "Transferred to Store", actor.name, actor.role);
+    await notifyStoreManagers(request);
+    if (request.requestedById) {
+      await createMaterialAlert("material_awaiting_store", request, STATUS_MESSAGES.AWAITING_STORE, {
+        userId: request.requestedById,
+      });
+    }
+    return request.toObject();
+  }
+
+  if (!paymentAction) {
+    throw new ApiError(400, "Please select Received or Onsite payment");
+  }
+
+  request.paymentMode = paymentAction;
+
+  if (paymentAction === "onsite") {
+    request.status = "AWAITING_STOCK_CHECK";
+    request.history.push({
+      action: "Service Head Approved — Payment Onsite — Awaiting Stock Check",
+      by: actor.name,
+      role: actor.role,
+      status: "AWAITING_STOCK_CHECK",
+      remarks: serviceHeadRemarks ?? "",
+      createdAt: new Date(),
+    });
+    await request.save();
+    await addTaskHistory(request.taskId ?? undefined, "Payment Onsite — Stock Check Required", actor.name, actor.role);
+    return request.toObject();
+  }
+
+  if (!stockDecision) {
+    throw new ApiError(400, "Please choose Available on Stock or Transfer to Stock");
+  }
+
+  request.paymentVerifiedAt = new Date();
+  request.paymentVerifiedBy = actor.name;
+  request.paymentVerifiedByRole = actor.role;
+
+  if (stockDecision === "STOCK_AVAILABLE") {
+    if (!revisitDate) {
+      throw new ApiError(400, "Revisit date is required when stock is available");
+    }
+    await finalizeMaterialGrantWithReschedule(
+      request,
+      actor,
+      revisitDate,
+      revisitTimeSlot,
+      "Service Head Approved — Payment Received — Stock Available — Task Rescheduled",
+      serviceHeadRemarks
+    );
+    return request.toObject();
+  }
+
+  request.status = "AWAITING_STORE";
   request.history.push({
-    action: "Service Head Approved — Awaiting Payment",
+    action: "Service Head Approved — Payment Received — Transferred to Store",
     by: actor.name,
     role: actor.role,
-    status: "AWAITING_ACCOUNTS",
+    status: "AWAITING_STORE",
     remarks: serviceHeadRemarks ?? "",
     createdAt: new Date(),
   });
   await request.save();
-
-  await addTaskHistory(request.taskId ?? undefined, "Service Head Approved", actor.name, actor.role);
-  await addTaskHistory(request.taskId ?? undefined, "Awaiting payment confirmation", "System", "system");
-  await notifyAccountants(request, paymentId);
-
+  await addTaskHistory(request.taskId ?? undefined, "Payment Received — Transferred to Store", actor.name, actor.role);
+  await notifyStoreManagers(request);
   if (request.requestedById) {
-    await createMaterialAlert(
-      "material_awaiting_accounts",
-      request,
-      STATUS_MESSAGES.AWAITING_ACCOUNTS,
-      { userId: request.requestedById }
-    );
+    await createMaterialAlert("material_awaiting_store", request, STATUS_MESSAGES.AWAITING_STORE, {
+      userId: request.requestedById,
+    });
   }
 
   return request.toObject();
@@ -1097,8 +1217,11 @@ export async function updateMaterialRequestStatus(
   await request.save();
   await addTaskHistory(request.taskId ?? undefined, actionLabel, actor.name, actor.role);
 
-  // Notify Service Head for all Store Manager decisions
-  await notifyServiceHeads(request);
+  if (nextStatus === "GRANTED_BY_STORE") {
+    await notifyServiceHeadsForStoreGrant(request);
+  } else {
+    await notifyServiceHeads(request);
+  }
 
   if (request.requestedById) {
     let alertType: AlertType = "material_waiting";
@@ -1497,7 +1620,7 @@ function materialStatusLabel(status: string) {
     AWAITING_STORE: "Store release required",
     AWAITING_STOCK_CHECK: "Stock check required",
     AWAITING_FINAL_GRANT: "Confirm material received",
-    GRANTED_BY_STORE: "Final approval required",
+    GRANTED_BY_STORE: "Confirm material received",
   };
   return labels[status] ?? "Action required";
 }

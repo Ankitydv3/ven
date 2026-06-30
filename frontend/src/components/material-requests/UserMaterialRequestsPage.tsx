@@ -93,11 +93,26 @@ function MaterialRequestActions({
   const [remarks, setRemarks] = useState("");
   const [revisitDate, setRevisitDate] = useState("");
   const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
+  const [paymentRequired, setPaymentRequired] = useState<boolean | null>(null);
+  const [paymentAction, setPaymentAction] = useState<"received" | "onsite" | null>(null);
+  const [stockChoice, setStockChoice] = useState<"STOCK_AVAILABLE" | "OUT_OF_STOCK" | null>(null);
+  const [receiptChoice, setReceiptChoice] = useState<"received" | "not_received" | null>(null);
+
+  const resetReviewForm = () => {
+    setRemarks("");
+    setRevisitDate("");
+    setRevisitTimeSlot("");
+    setPaymentRequired(null);
+    setPaymentAction(null);
+    setStockChoice(null);
+    setReceiptChoice(null);
+  };
 
   const isMaterialReceived =
     req.status === "AWAITING_MATERIAL_RECEIVED" || req.status === "AWAITING_FINAL_GRANT";
   const isStockCheck = req.status === "AWAITING_STOCK_CHECK";
   const isFinalStep = req.status === "GRANTED_BY_STORE";
+  const isConfirmReceipt = isMaterialReceived || isFinalStep;
   const isInitialReview = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
   const isAwaitingAccounts = req.status === "AWAITING_ACCOUNTS";
   const isOnsitePending = req.status === "PAYMENT_PENDING_ONSITE";
@@ -108,7 +123,7 @@ function MaterialRequestActions({
   const isAcc = isAccountantUser(user || undefined);
   const isTeamView = role === "team";
 
-  const canServiceHead = isHead && (isInitialReview || isStockCheck || isMaterialReceived || isFinalStep);
+  const canServiceHead = isHead && (isInitialReview || isStockCheck || isConfirmReceipt);
   const canAccounts = isAcc && isAwaitingAccounts;
   const canCollectPayment = (canAccounts || (isHead && isAwaitingAccounts)) && isAwaitingAccounts;
   const canTeamCollectOnsite = isTeamView && isOnsitePending;
@@ -132,11 +147,48 @@ function MaterialRequestActions({
 
   const handleServiceHead = async (
     decision: "APPROVED" | "DENIED" | "COMPLETED",
-    stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK"
+    options?: {
+      stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK";
+      paymentRequired?: boolean;
+      paymentAction?: "received" | "onsite";
+    }
   ) => {
-    if (decision === "APPROVED" && (isMaterialReceived || isStockCheck || isFinalStep) && stockDecision !== "OUT_OF_STOCK" && !revisitDate) {
+    const stockDecision = options?.stockDecision;
+    if (
+      decision === "APPROVED" &&
+      (isConfirmReceipt || isStockCheck) &&
+      stockDecision !== "OUT_OF_STOCK" &&
+      !revisitDate
+    ) {
       toast.error("Please select a revisit date");
       return;
+    }
+
+    if (decision === "APPROVED" && isInitialReview) {
+      if (options?.paymentRequired === undefined && paymentRequired === null) {
+        toast.error("Please select whether payment is required");
+        return;
+      }
+      const required = options?.paymentRequired ?? paymentRequired;
+      const action = options?.paymentAction ?? paymentAction;
+      const stock = options?.stockDecision ?? stockChoice;
+
+      if (required && !action) {
+        toast.error("Please select Received or Onsite");
+        return;
+      }
+      if (required && action === "received" && !stock) {
+        toast.error("Please choose Available on Stock or Transfer to Stock");
+        return;
+      }
+      if (!required && !stock) {
+        toast.error("Please choose Available on Stock or Transfer to Stock");
+        return;
+      }
+      if (stock === "STOCK_AVAILABLE" && !revisitDate) {
+        toast.error("Please select a revisit date");
+        return;
+      }
     }
 
     try {
@@ -146,17 +198,20 @@ function MaterialRequestActions({
         serviceHeadRemarks: remarks.trim() || undefined,
         revisitDate: revisitDate || undefined,
         revisitTimeSlot: revisitTimeSlot || undefined,
-        stockDecision,
+        stockDecision: options?.stockDecision ?? stockChoice ?? undefined,
+        paymentRequired: options?.paymentRequired ?? paymentRequired ?? undefined,
+        paymentAction: options?.paymentAction ?? paymentAction ?? undefined,
       });
-      toast.success(decision === "APPROVED" ? "Updated successfully" : "Request denied");
-      setRemarks("");
-      setRevisitDate("");
-      setRevisitTimeSlot("");
+      toast.success(
+        decision === "APPROVED"
+          ? "Updated successfully"
+          : isConfirmReceipt
+            ? "Store manager notified — material not received"
+            : "Request denied"
+      );
+      resetReviewForm();
       setOpen(false);
       onDone();
-      if (decision === "APPROVED" && isInitialReview) {
-        setPaymentOpen(true);
-      }
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
@@ -166,13 +221,11 @@ function MaterialRequestActions({
     ? "Payment"
     : canTeamCollectOnsite
       ? "Collect"
-      : isStockCheck
-        ? "Stock Check"
-        : isMaterialReceived
-          ? "Received"
-          : isFinalStep
-            ? "Final"
-            : "Review";
+      : isConfirmReceipt
+        ? "Confirm Receipt"
+        : isStockCheck
+          ? "Stock Check"
+          : "Review";
 
   const dialogTitle = isOnsiteAwaitingStockCheck
     ? `Stock Check · Onsite — ${req.requestId}`
@@ -244,7 +297,13 @@ function MaterialRequestActions({
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) resetReviewForm();
+        }}
+      >
         <DialogContent
           className="flex max-h-[90vh] max-w-md flex-col overflow-hidden rounded-2xl border-white/10 bg-app text-white"
           onClick={(e) => e.stopPropagation()}
@@ -268,11 +327,11 @@ function MaterialRequestActions({
             <Textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder={isFinalStep ? "Final instructions / remarks" : "Remarks (optional)"}
+              placeholder="Remarks (optional)"
               className="min-h-[60px] rounded-lg border-white/10 bg-white/5 text-xs text-white"
             />
 
-            {(isStockCheck || isMaterialReceived || isFinalStep) && (
+            {(isStockCheck || (isConfirmReceipt && receiptChoice === "received") || stockChoice === "STOCK_AVAILABLE") && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-slate-500">Revisit Date *</Label>
@@ -301,22 +360,138 @@ function MaterialRequestActions({
             )}
 
             {canServiceHead && isInitialReview && (
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("APPROVED")}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-red-500/30 text-red-300"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("DENIED")}
-                >
-                  Deny
-                </Button>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase text-slate-500">Payment Required?</Label>
+                  <div className="flex gap-4">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
+                      <input
+                        type="radio"
+                        name={`payment-required-${req._id}`}
+                        checked={paymentRequired === true}
+                        onChange={() => {
+                          setPaymentRequired(true);
+                          setPaymentAction(null);
+                          setStockChoice(null);
+                        }}
+                        className="accent-emerald-500"
+                      />
+                      Yes
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
+                      <input
+                        type="radio"
+                        name={`payment-required-${req._id}`}
+                        checked={paymentRequired === false}
+                        onChange={() => {
+                          setPaymentRequired(false);
+                          setPaymentAction(null);
+                          setStockChoice(null);
+                        }}
+                        className="accent-emerald-500"
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+
+                {paymentRequired === true && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase text-slate-500">Payment Method</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={cn(
+                          "flex-1",
+                          paymentAction === "received"
+                            ? "bg-emerald-600 ring-2 ring-white/20"
+                            : "bg-emerald-600/80 hover:bg-emerald-500"
+                        )}
+                        onClick={() => {
+                          setPaymentAction("received");
+                          setStockChoice(null);
+                        }}
+                      >
+                        Received
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={cn(
+                          "flex-1",
+                          paymentAction === "onsite"
+                            ? "bg-orange-600 ring-2 ring-white/20"
+                            : "bg-orange-600/80 hover:bg-orange-500"
+                        )}
+                        disabled={serviceHeadMutation.isPending}
+                        onClick={() =>
+                          void handleServiceHead("APPROVED", {
+                            paymentRequired: true,
+                            paymentAction: "onsite",
+                          })
+                        }
+                      >
+                        Onsite
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {(paymentRequired === false ||
+                  (paymentRequired === true && paymentAction === "received")) && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase text-slate-500">Stock Action</Label>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        className={cn(
+                          "w-full",
+                          stockChoice === "STOCK_AVAILABLE"
+                            ? "bg-emerald-600 ring-2 ring-white/20"
+                            : "bg-emerald-600 hover:bg-emerald-500"
+                        )}
+                        onClick={() => setStockChoice("STOCK_AVAILABLE")}
+                      >
+                        Available on Stock
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "w-full border-orange-500/30 text-orange-300",
+                          stockChoice === "OUT_OF_STOCK" && "ring-2 ring-orange-400/40"
+                        )}
+                        disabled={serviceHeadMutation.isPending}
+                        onClick={() =>
+                          void handleServiceHead("APPROVED", {
+                            paymentRequired: paymentRequired ?? false,
+                            paymentAction: paymentRequired ? "received" : undefined,
+                            stockDecision: "OUT_OF_STOCK",
+                          })
+                        }
+                      >
+                        Transfer to Store
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {stockChoice === "STOCK_AVAILABLE" && paymentRequired !== null && (
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-500"
+                    disabled={serviceHeadMutation.isPending}
+                    onClick={() =>
+                      void handleServiceHead("APPROVED", {
+                        paymentRequired: paymentRequired ?? false,
+                        paymentAction: paymentRequired ? paymentAction ?? undefined : undefined,
+                        stockDecision: "STOCK_AVAILABLE",
+                      })
+                    }
+                  >
+                    Confirm & Reschedule
+                  </Button>
+                )}
               </div>
             )}
 
@@ -325,75 +500,95 @@ function MaterialRequestActions({
                 <Button
                   className="w-full bg-emerald-600 hover:bg-emerald-500"
                   disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("APPROVED", "STOCK_AVAILABLE")}
+                  onClick={() =>
+                    void handleServiceHead("APPROVED", { stockDecision: "STOCK_AVAILABLE" })
+                  }
                 >
-                  Stock Available & Reschedule
+                  Available on Stock & Reschedule
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full border-orange-500/30 text-orange-300"
                   disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("APPROVED", "OUT_OF_STOCK")}
+                  onClick={() =>
+                    void handleServiceHead("APPROVED", { stockDecision: "OUT_OF_STOCK" })
+                  }
                 >
-                  Out of Stock → Send to Store
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full border-red-500/30 text-red-300"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("DENIED")}
-                >
-                  Deny
+                  Transfer to Stock
                 </Button>
               </div>
             )}
 
-            {canServiceHead && isMaterialReceived && (
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("APPROVED")}
-                >
-                  Material Received & Reschedule
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-red-500/30 text-red-300"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("DENIED")}
-                >
-                  Deny
-                </Button>
-              </div>
-            )}
+            {canServiceHead && isConfirmReceipt && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-100">
+                  Store manager granted and forwarded {req.quantity} {req.unit} of {req.materialName}.
+                  Confirm whether the material was received.
+                </div>
 
-            {canServiceHead && isFinalStep && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase text-slate-500">Material received?</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className={cn(
+                        "flex-1",
+                        receiptChoice === "received"
+                          ? "bg-emerald-600 ring-2 ring-white/20"
+                          : "bg-emerald-600/80 hover:bg-emerald-500"
+                      )}
+                      onClick={() => setReceiptChoice("received")}
+                    >
+                      Received
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className={cn(
+                        "flex-1",
+                        receiptChoice === "not_received"
+                          ? "bg-red-600 ring-2 ring-white/20"
+                          : "bg-red-600/80 hover:bg-red-500"
+                      )}
+                      onClick={() => setReceiptChoice("not_received")}
+                    >
+                      Not Received
+                    </Button>
+                  </div>
+                </div>
+
+                {receiptChoice === "received" && (
+                  <p className="text-xs text-emerald-300">
+                    Material received — select a revisit date to reschedule the task.
+                  </p>
+                )}
+
+                {receiptChoice === "not_received" && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-red-300">
+                      Material not received. The store manager will be notified to verify and re-release.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full border-red-500/30 text-red-300"
+                      disabled={serviceHeadMutation.isPending}
+                      onClick={() => void handleServiceHead("DENIED")}
+                    >
+                      Confirm — Not Received
+                    </Button>
+                  </div>
+                )}
+
+                {receiptChoice === "received" && (
                   <Button
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-500"
-                    disabled={serviceHeadMutation.isPending}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    disabled={serviceHeadMutation.isPending || !revisitDate}
                     onClick={() => void handleServiceHead("APPROVED")}
                   >
-                    Approve & Reschedule
+                    Confirm Received & Reschedule
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-red-500/30 text-red-300"
-                    disabled={serviceHeadMutation.isPending}
-                    onClick={() => void handleServiceHead("DENIED")}
-                  >
-                    Reject
-                  </Button>
-                </div>
-                <Button
-                  className="w-full bg-slate-600 hover:bg-slate-500"
-                  disabled={serviceHeadMutation.isPending}
-                  onClick={() => void handleServiceHead("COMPLETED")}
-                >
-                  Mark as Completed
-                </Button>
+                )}
               </div>
             )}
 
