@@ -35,7 +35,7 @@ export async function fetchPendingActions(limit = 10) {
   return data;
 }
 
-const DASHBOARD_TIMEOUT_MS = 45_000;
+const DASHBOARD_TIMEOUT_MS = 20_000;
 
 export async function fetchDashboardPage(
   portalRole: "admin" | "team" | "store" = "admin",

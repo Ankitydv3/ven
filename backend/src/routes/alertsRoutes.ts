@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { clearAlerts, getAlerts } from "../controllers/alertsController";
+import { clearAlerts, getAlerts, getAlertsCount } from "../controllers/alertsController";
 import { authRequired } from "../middleware/auth";
 
 const router = Router();
 
+router.get("/count", authRequired, asyncHandler(getAlertsCount));
 router.get("/", authRequired, asyncHandler(getAlerts));
 router.patch("/clear", authRequired, asyncHandler(clearAlerts));
 

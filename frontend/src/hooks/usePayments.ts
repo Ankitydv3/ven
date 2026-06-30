@@ -11,7 +11,6 @@ import {
   type PaymentFilters,
 } from "@/services/payments";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
 export function usePayments(filters?: PaymentFilters) {
   return useQuery({
@@ -26,7 +25,6 @@ export function usePaymentStats() {
     queryKey: ["payment-stats"],
     queryFn: fetchPaymentStats,
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 60 * 1000,
   });
 }
 
@@ -87,11 +85,13 @@ export function useExportPaymentsCSV() {
   return useMutation({
     mutationFn: exportPaymentsCSV,
 
-    onSuccess: (payments: any[]) => {
+    onSuccess: async (payments: any[]) => {
       if (!payments || payments.length === 0) {
         toast.error("No payments found to export");
         return;
       }
+
+      const XLSX = await import("xlsx");
 
       const headers = [
         "Payment ID",

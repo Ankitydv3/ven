@@ -10,7 +10,7 @@ import type {
 } from "@/lib/task.types";
 
 export async function fetchTasks(params: TaskFilters) {
-  const { data } = await api.get<TaskListResponse>("/tasks", { params, timeout: 45_000 });
+  const { data } = await api.get<TaskListResponse>("/tasks", { params, timeout: 20_000 });
   return data;
 }
 
@@ -22,13 +22,13 @@ export async function fetchTask(id: string) {
 export async function fetchTaskCalendar(year: number, month: number, team?: string) {
   const { data } = await api.get<{ items: CalendarDayCount[] }>("/tasks/calendar", {
     params: { year, month, team },
-    timeout: 45_000,
+    timeout: 20_000,
   });
   return data.items;
 }
 
 export async function fetchTaskStats(team?: string) {
-  const { data } = await api.get<TaskStats>("/tasks/stats", { params: { team }, timeout: 45_000 });
+  const { data } = await api.get<TaskStats>("/tasks/stats", { params: { team }, timeout: 20_000 });
   return data;
 }
 

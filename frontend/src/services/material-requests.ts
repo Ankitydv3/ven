@@ -94,14 +94,14 @@ export async function fetchMaterialRequests(params?: {
 }) {
   const { data } = await api.get<MaterialRequestListResponse>("/material-requests", {
     params,
-    timeout: 45_000,
+    timeout: 20_000,
   });
   return data;
 }
 
 export async function fetchMaterialRequestStats() {
   const { data } = await api.get<MaterialRequestStats>("/material-requests/stats", {
-    timeout: 45_000,
+    timeout: 20_000,
   });
   return data;
 }

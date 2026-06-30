@@ -6,8 +6,21 @@ export interface AlertsFilters {
   team?: string;
 }
 
+export interface AlertsCountsResponse {
+  counts: {
+    pendingReview: number;
+    taskAlerts: number;
+    materialAlerts: number;
+  };
+}
+
+export async function fetchAlertsCounts() {
+  const { data } = await api.get<AlertsCountsResponse>("/alerts/count", { timeout: 10_000 });
+  return data;
+}
+
 export async function fetchAlerts(filters?: AlertsFilters) {
-  const { data } = await api.get<AlertsResponse>("/alerts", { params: filters, timeout: 45_000 });
+  const { data } = await api.get<AlertsResponse>("/alerts", { params: filters, timeout: 20_000 });
   return data;
 }
 

@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAlertsCounts = getAlertsCounts;
 exports.getAlertsData = getAlertsData;
 exports.clearAllAlertsForUser = clearAllAlertsForUser;
 const Complaint_1 = __importDefault(require("../models/Complaint"));
@@ -72,6 +73,29 @@ function buildTeamMessage(team, total, completed, pending) {
         return { message: `${team} completed all tasks ${completed}/${total}`, status: "all_complete" };
     }
     return { message: `${team} has pending ${pending}/${total}`, status: "has_pending" };
+}
+async function getAlertsCounts(filters) {
+    const pendingFilter = { status: "Pending Review" };
+    const alertFilter = buildTaskAlertFilter(filters?.scopeFilter);
+    const materialFilter = filters?.userId && filters?.userRole
+        ? buildMaterialAlertFilter(filters.userId, filters.userRole, filters.subAdminType)
+        : (0, teamScope_1.isAdminRole)(filters?.userRole ?? "")
+            ? { read: false }
+            : null;
+    const [pendingReview, taskAlerts, materialAlerts] = await Promise.all([
+        filters?.teamOnly
+            ? Promise.resolve(0)
+            : Complaint_1.default.countDocuments(pendingFilter).maxTimeMS(10_000),
+        TaskAlert_1.default.countDocuments(alertFilter).maxTimeMS(10_000),
+        materialFilter
+            ? MaterialAlert_1.default.countDocuments(materialFilter).maxTimeMS(10_000)
+            : Promise.resolve(0),
+    ]);
+    return {
+        pendingReview,
+        taskAlerts,
+        materialAlerts,
+    };
 }
 async function getAlertsData(filters) {
     await (0, taskService_1.applyOverdueUpdates)();

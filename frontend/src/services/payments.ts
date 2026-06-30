@@ -1,4 +1,5 @@
-import { api } from "./api";
+import { api, getApiBaseUrl } from "@/lib/api";
+import { readToken } from "@/lib/storage";
 import { Payment, PaymentStats } from "@/lib/types";
 
 export interface PaymentFilters {
@@ -50,19 +51,17 @@ export const deletePayment = async (id: string): Promise<void> => {
 };
 
 export const getInvoiceUrl = (id: string) => {
-  return `${process.env.NEXT_PUBLIC_API_URL}/payments/${id}/invoice`;
+  return `${getApiBaseUrl()}/payments/${id}/invoice`;
 };
-export const downloadInvoice = async (id: string) => {
-  const token = localStorage.getItem("complaint-system-token");
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/payments/${id}/invoice`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+export const downloadInvoice = async (id: string) => {
+  const token = readToken();
+
+  const response = await fetch(`${getApiBaseUrl()}/payments/${id}/invoice`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   if (!response.ok) {
     throw new Error("Failed to download invoice");

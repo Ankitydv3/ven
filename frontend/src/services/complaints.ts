@@ -51,7 +51,7 @@ export async function fetchComplaints(params: {
 }) {
   const { data } = await api.get<{ items: Complaint[]; total: number; page: number; limit: number }>(
     "/complaints",
-    { params, timeout: 45_000 }
+    { params, timeout: 20_000 }
   );
   return data;
 }

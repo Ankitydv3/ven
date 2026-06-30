@@ -2,7 +2,7 @@
 
       import Link from "next/link";
       import { usePathname } from "next/navigation";
-      import { useState, useEffect } from "react";
+      import { useState, useEffect, useLayoutEffect } from "react";
       import {
         Bell,
         LogOut,
@@ -43,6 +43,7 @@
       import dynamic from "next/dynamic";
       import { usePendingAlertsCount } from "@/hooks/useAlerts";
       import { UserAvatar } from "@/components/profile/UserAvatar";
+      import { useDashboardLayoutContext } from "@/components/layout/dashboard-layout-context";
 
       const DashboardSearch = dynamic(
         () => import("@/components/layout/dashboard-search").then((mod) => mod.DashboardSearch),
@@ -72,38 +73,52 @@
         History: History,
       };
 
+      const sidebarNavLinkClass = (active: boolean, nested?: boolean) =>
+        cn(
+          "group flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium tracking-wide transition-colors duration-150",
+          nested ? "ml-0 rounded-none py-2 pl-8" : "rounded-none",
+          active
+            ? "bg-[#3b82f6] text-white"
+            : "text-[#94a3b8] hover:bg-white/[0.04] hover:text-white"
+        );
+
       function NavLinkItem({
         item,
         pathname,
         onNavigate,
         nested = false,
+        alertCount = 0,
       }: {
         item: NavItem;
         pathname: string;
         onNavigate?: () => void;
         nested?: boolean;
+        alertCount?: number;
       }) {
         if (!item.href) return null;
         const active = pathname === item.href;
         const Icon = iconMap[item.label] || ChevronRight;
+        const showAlertDot = item.label === "Alerts" && alertCount > 0;
 
         return (
           <Link
             href={item.href}
             onClick={onNavigate}
-            className={cn(
-              "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
-              nested && "ml-4 py-2.5 rounded-xl",
-              active
-                ? "bg-white/10 text-white shadow-lg shadow-white/5"
-                : "text-slate-300 hover:bg-white/5 hover:text-white hover:translate-x-1"
-            )}
+            className={sidebarNavLinkClass(active, nested)}
           >
-            <span className="flex items-center gap-3">
-              <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+            <Icon
+              className={cn(
+                "h-[18px] w-[18px] shrink-0",
+                active ? "text-white" : "text-[#94a3b8] group-hover:text-white"
+              )}
+              strokeWidth={1.75}
+            />
+            <span className="flex min-w-0 flex-1 items-center gap-2">
               {item.label}
+              {showAlertDot ? (
+                <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-red-500" />
+              ) : null}
             </span>
-            {active ? <span className="h-2 w-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50" /> : null}
           </Link>
         );
       }
@@ -112,43 +127,56 @@
         item,
         pathname,
         onNavigate,
+        alertCount = 0,
       }: {
         item: NavItem;
         pathname: string;
         onNavigate?: () => void;
+        alertCount?: number;
       }) {
         const childActive = item.children?.some((c) => c.href === pathname) ?? false;
         const [open, setOpen] = useState(childActive);
         const Icon = iconMap[item.label] || ChevronRight;
 
         if (!item.children?.length) {
-          return <NavLinkItem item={item} pathname={pathname} onNavigate={onNavigate} />;
+          return (
+            <NavLinkItem
+              item={item}
+              pathname={pathname}
+              onNavigate={onNavigate}
+              alertCount={alertCount}
+            />
+          );
         }
 
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               className={cn(
-                "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
-                childActive
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+                sidebarNavLinkClass(childActive),
+                "w-full justify-between"
               )}
             >
               <span className="flex items-center gap-3">
-                <Icon className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+                <Icon
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    childActive ? "text-white" : "text-[#94a3b8] group-hover:text-white"
+                  )}
+                  strokeWidth={1.75}
+                />
                 {item.label}
               </span>
               {open ? (
-                <ChevronDown className="h-4 w-4 opacity-60" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-[#94a3b8]" strokeWidth={1.75} />
               ) : (
-                <ChevronRight className="h-4 w-4 opacity-60" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-[#94a3b8]" strokeWidth={1.75} />
               )}
             </button>
             {open && (
-              <div className="space-y-1 border-l border-white/10 ml-6 pl-2">
+              <div className="ml-3 space-y-0.5 border-l border-white/[0.08] pl-2">
                 {item.children.map((child) => (
                   <NavLinkItem
                     key={child.href ?? child.label}
@@ -156,10 +184,89 @@
                     pathname={pathname}
                     onNavigate={onNavigate}
                     nested
+                    alertCount={alertCount}
                   />
                 ))}
               </div>
             )}
+          </div>
+        );
+      }
+
+      function SidebarUserProfile({
+        user,
+        roleBadgeLabel,
+        settingsHref,
+        onSignOut,
+      }: {
+        user: ReturnType<typeof readUser>;
+        roleBadgeLabel: string;
+        settingsHref: string;
+        onSignOut: () => void;
+      }) {
+        return (
+          <div className="mt-auto flex-shrink-0 border-t border-white/[0.08] px-4 pt-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-[10px] px-1 py-2 text-left transition-colors hover:bg-white/[0.04]"
+                >
+                  <UserAvatar
+                    name={user?.name ?? "User"}
+                    avatarUrl={user?.avatarUrl}
+                    className="h-9 w-9 shrink-0 rounded-full bg-[#3b82f6] text-sm text-white"
+                    textClassName="text-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-white">
+                        {user?.name ?? "Demo user"}
+                      </span>
+                      <Badge className="shrink-0 rounded px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide bg-[#854d2b] text-white border-0">
+                        {roleBadgeLabel}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-xs text-[#94a3b8]">
+                      {user?.email ?? "Signed in"}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-[#94a3b8]" strokeWidth={1.75} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="start"
+                className="mb-2 w-64 rounded-xl border border-white/10 bg-[#0c0c0c] p-2 text-white shadow-xl"
+              >
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <Badge
+                    variant="info"
+                    className="mb-2 bg-blue-500/20 text-blue-300 border-blue-500/20"
+                  >
+                    {roleBadgeLabel}
+                  </Badge>
+                  <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
+                  <p className="text-xs text-slate-400 truncate">{user?.email ?? "Signed in"}</p>
+                </div>
+                <DropdownMenuSeparator className="my-2 bg-white/10" />
+                <DropdownMenuItem asChild className="rounded-lg px-3 py-2.5 cursor-pointer">
+                  <Link href={settingsHref} className="flex items-center gap-2 text-white">
+                    <Settings className="h-4 w-4" strokeWidth={1.75} />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2 bg-white/10" />
+                <DropdownMenuItem
+                  variant="destructive"
+                  className="rounded-lg px-3 py-2.5 text-red-400 focus:bg-red-500/10 focus:text-red-300 cursor-pointer"
+                  onClick={onSignOut}
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={1.75} />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       }
@@ -176,7 +283,7 @@
         return "/team/settings";
       }
 
-      export function DashboardShell({
+      export function DashboardShellFrame({
         role, 
         title, 
         subtitle, 
@@ -209,6 +316,10 @@
           setIsMobileMenuOpen(false);
         };
 
+        useEffect(() => {
+          setIsMobileMenuOpen(false);
+        }, [pathname]);
+
         // Prevent body scroll when mobile menu is open
         useEffect(() => {
           if (isMobileMenuOpen) {
@@ -233,22 +344,32 @@
           <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
             
             {/* Desktop Sidebar - Fixed height with scroll */}
-            <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/10 bg-app px-5 py-6 text-white backdrop-blur-xl overflow-y-auto">
-              <div className="flex-shrink-0 mb-10 bg-Black flex items-center gap-3">
-              <img
-                    src="/okna.png"
-                    alt="Complaint Flow OS"
-                    className="w-28 sm:w-36 md:w-44 lg:w-52 h-20 object-contain"
-                  />
+            <aside className="hidden lg:flex lg:flex-col h-screen sticky top-0 border-r border-white/[0.06] bg-[#0c0c0c] pt-2 pb-3 text-white overflow-hidden">
+              <div className="mb-3 w-full shrink-0 pl-0">
+                <img
+                  src="/okna.png"
+                  alt="Complaint Flow OS"
+                  className="block h-20 w-auto object-contain object-left"
+                />
               </div>
-              
-            
 
-              <nav className="flex-1 overflow-y-auto pb-4 space-y-2">
+              <nav className="flex-1 space-y-1 min-h-0">
                 {navItems.map((item) => (
-                  <NavGroupItem key={item.label} item={item} pathname={pathname} />
+                  <NavGroupItem
+                    key={item.label}
+                    item={item}
+                    pathname={pathname}
+                    alertCount={pendingAlerts}
+                  />
                 ))}
               </nav>
+
+              <SidebarUserProfile
+                user={user}
+                roleBadgeLabel={roleBadgeLabel}
+                settingsHref={settingsHref}
+                onSignOut={handleSignOut}
+              />
             </aside>
 
             {/* Mobile Menu Overlay */}
@@ -271,38 +392,42 @@
                     animate={{ x: 0 }}
                     exit={{ x: -320 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="fixed left-0 top-0 z-50 h-full w-[300px] border-r border-white/10 bg-app px-5 py-6 text-white backdrop-blur-xl overflow-y-auto lg:hidden"
+                    className="fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col border-r border-white/[0.06] bg-[#0c0c0c] pt-2 pb-3 text-white overflow-hidden lg:hidden"
                   >
-                    <div className="flex-shrink-0 mb-8 flex items-center justify-between">
-                      <img src="/okna.png" alt="Complaint Flow OS" />
+                    <div className="mb-3 flex shrink-0 items-start justify-between pl-4 pr-4">
+                      <img
+                        src="/okna.png"
+                        alt="Complaint Flow OS"
+                        className="block h-20 w-auto object-contain object-left"
+                      />
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 rounded-full hover:bg-white/10 flex-shrink-0"
+                        className="h-9 w-9 shrink-0 rounded-lg text-[#94a3b8] hover:bg-white/[0.06] hover:text-white"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <X className="h-5 w-5" />
+                        <X className="h-5 w-5" strokeWidth={1.75} />
                       </Button>
                     </div>
 
-                    <nav className="flex-1 overflow-y-auto pb-4 space-y-2">
+                    <nav className="flex-1 space-y-1 min-h-0 overflow-y-auto">
                       {navItems.map((item) => (
                         <NavGroupItem
                           key={item.label}
                           item={item}
                           pathname={pathname}
                           onNavigate={handleNavClick}
+                          alertCount={pendingAlerts}
                         />
                       ))}
                     </nav>
 
-                    <div className="flex-shrink-0 mt-4 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-4 backdrop-blur-sm">
-                      <Badge variant="info" className="mb-3 bg-blue-500/20 text-blue-300 border-blue-500/20">
-                        {roleBadgeLabel}
-                      </Badge>
-                      <p className="text-sm font-semibold text-white">{user?.name ?? "Demo user"}</p>
-                      <p className="text-xs text-slate-400">{user?.email ?? "Signed in"}</p>
-                    </div>
+                    <SidebarUserProfile
+                      user={user}
+                      roleBadgeLabel={roleBadgeLabel}
+                      settingsHref={settingsHref}
+                      onSignOut={handleSignOut}
+                    />
                   </motion.aside>
                 </>
               )}
@@ -420,5 +545,34 @@
               </main>
             </div>
           </div>
+        );
+      }
+
+      export function DashboardShell({
+        role,
+        title,
+        subtitle,
+        children,
+      }: {
+        role: "admin" | "team" | "store";
+        title: string;
+        subtitle: string;
+        children: React.ReactNode;
+      }) {
+        const layout = useDashboardLayoutContext();
+        const setMeta = layout?.setMeta;
+
+        useLayoutEffect(() => {
+          setMeta?.({ title, subtitle });
+        }, [setMeta, title, subtitle]);
+
+        if (layout) {
+          return <>{children}</>;
+        }
+
+        return (
+          <DashboardShellFrame role={role} title={title} subtitle={subtitle}>
+            {children}
+          </DashboardShellFrame>
         );
       }

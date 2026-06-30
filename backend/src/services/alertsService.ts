@@ -125,6 +125,40 @@ function buildTeamMessage(
   return { message: `${team} has pending ${pending}/${total}`, status: "has_pending" };
 }
 
+export async function getAlertsCounts(filters?: {
+  teamOnly?: boolean;
+  scopeFilter?: Record<string, unknown>;
+  userId?: string;
+  userRole?: string;
+  subAdminType?: string;
+}) {
+  const pendingFilter: Record<string, unknown> = { status: "Pending Review" };
+  const alertFilter = buildTaskAlertFilter(filters?.scopeFilter);
+
+  const materialFilter =
+    filters?.userId && filters?.userRole
+      ? buildMaterialAlertFilter(filters.userId, filters.userRole, filters.subAdminType)
+      : isAdminRole(filters?.userRole ?? "")
+        ? { read: false }
+        : null;
+
+  const [pendingReview, taskAlerts, materialAlerts] = await Promise.all([
+    filters?.teamOnly
+      ? Promise.resolve(0)
+      : Complaint.countDocuments(pendingFilter).maxTimeMS(10_000),
+    TaskAlert.countDocuments(alertFilter).maxTimeMS(10_000),
+    materialFilter
+      ? MaterialAlert.countDocuments(materialFilter).maxTimeMS(10_000)
+      : Promise.resolve(0),
+  ]);
+
+  return {
+    pendingReview,
+    taskAlerts,
+    materialAlerts,
+  };
+}
+
 export async function getAlertsData(filters?: {
   q?: string;
   team?: string;
