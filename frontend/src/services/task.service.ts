@@ -15,7 +15,9 @@ export async function fetchTasks(params: TaskFilters) {
 }
 
 export async function fetchTask(id: string) {
-  const { data } = await api.get<{ task: Task }>(`/tasks/${id}`);
+  const { data } = await api.get<{ task: Task }>(`/tasks/${encodeURIComponent(id)}`, {
+    timeout: 45_000,
+  });
   return data.task;
 }
 

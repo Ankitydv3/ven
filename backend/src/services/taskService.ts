@@ -31,8 +31,28 @@ const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["Completed"];
 const QUERY_TIMEOUT_MS = 20_000;
 /** List endpoints must not load task history — entries can embed large photo payloads. */
 const TASK_LIST_PROJECTION = "-history";
+const TASK_DETAIL_COMPLAINT_SELECT =
+  "complaintId clientName contactPerson mobileNumber email title description location assignedBy assignedDate priority";
+const MAX_TASK_HISTORY_ENTRIES = 25;
+const MAX_INLINE_HISTORY_PHOTO_CHARS = 512;
 let lastOverdueRunAt = 0;
 const OVERDUE_DEBOUNCE_MS = 60_000;
+
+function sanitizeTaskHistoryForApi<T extends Record<string, unknown>>(task: T): T {
+  const history = Array.isArray(task.history) ? task.history : [];
+  return {
+    ...task,
+    history: history.slice(-MAX_TASK_HISTORY_ENTRIES).map((entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const row = entry as Record<string, unknown>;
+      const photoUrl = typeof row.photoUrl === "string" ? row.photoUrl : "";
+      if (photoUrl.length > MAX_INLINE_HISTORY_PHOTO_CHARS) {
+        return { ...row, photoUrl: "" };
+      }
+      return row;
+    }),
+  };
+}
 
 async function getPendingOnsiteMaterialPayment(complaintId?: string | null) {
   if (!complaintId) return null;
@@ -509,22 +529,31 @@ export async function getTasks(options: TaskListOptions) {
 }
 
 export async function findTaskByLookup(id: string, options?: { lean?: boolean }) {
-  await applyOverdueUpdates();
   const useLean = options?.lean ?? false;
 
+  if (id.startsWith("CMP-")) {
+    const byComplaint = Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 });
+    const task = useLean
+      ? await byComplaint.lean().maxTimeMS(QUERY_TIMEOUT_MS)
+      : await byComplaint.maxTimeMS(QUERY_TIMEOUT_MS);
+    return task ?? null;
+  }
+
   if (Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)) {
-    const byId = useLean ? await Task.findById(id).lean() : await Task.findById(id);
+    const byId = useLean
+      ? await Task.findById(id).lean().maxTimeMS(QUERY_TIMEOUT_MS)
+      : await Task.findById(id).maxTimeMS(QUERY_TIMEOUT_MS);
     if (byId) return byId;
   }
 
   let task = useLean
-    ? await Task.findOne({ ...activeTaskQuery(), taskId: id }).lean()
-    : await Task.findOne({ ...activeTaskQuery(), taskId: id });
+    ? await Task.findOne({ ...activeTaskQuery(), taskId: id }).lean().maxTimeMS(QUERY_TIMEOUT_MS)
+    : await Task.findOne({ ...activeTaskQuery(), taskId: id }).maxTimeMS(QUERY_TIMEOUT_MS);
   if (task) return task;
 
   task = useLean
-    ? await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).lean()
-    : await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 });
+    ? await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).lean().maxTimeMS(QUERY_TIMEOUT_MS)
+    : await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).maxTimeMS(QUERY_TIMEOUT_MS);
   return task ?? null;
 }
 
@@ -536,10 +565,13 @@ export async function getTaskById(id: string) {
 
   let complaint = null;
   if (task.complaintId) {
-    complaint = await Complaint.findOne({ complaintId: task.complaintId }).lean();
+    complaint = await Complaint.findOne({ complaintId: task.complaintId })
+      .select(TASK_DETAIL_COMPLAINT_SELECT)
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS);
   }
 
-  return { ...task, complaint };
+  return sanitizeTaskHistoryForApi({ ...task, complaint });
 }
 
 export async function getCalendarTaskCounts(options: CalendarOptions) {

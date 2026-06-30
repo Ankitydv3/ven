@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Task, TaskStatus } from "@/lib/task.types";
+import type { Task, TaskPriority, TaskStatus } from "@/lib/task.types";
 import {
   formatDueDate,
   panelClass,
@@ -79,6 +79,43 @@ function formatDateTime(dateStr?: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function stubTaskFromComplaint(complaint: Complaint): Task {
+  const dueDate =
+    complaint.taskScheduleDueDate ??
+    complaint.assignedDate ??
+    complaint.createdAt ??
+    new Date().toISOString();
+  const priority = (complaint.priority as TaskPriority | undefined) ?? "Medium";
+  const status = (complaint.taskScheduleStatus as TaskStatus | undefined) ?? "Pending";
+
+  return {
+    _id: complaint._id,
+    taskId: complaint.taskId ?? complaint.complaintId,
+    complaintId: complaint.complaintId,
+    title: complaint.title,
+    description: complaint.description ?? complaint.complaintDescription ?? "",
+    priority,
+    status,
+    assignedTeamName: complaint.assignedTeam,
+    assignedUserName: complaint.assignedUserName,
+    createdBy: complaint.assignedBy ?? "Admin",
+    dueDate: typeof dueDate === "string" ? dueDate : new Date(dueDate).toISOString(),
+    complaint: {
+      complaintId: complaint.complaintId,
+      clientName: complaint.clientName,
+      mobileNumber: complaint.mobileNumber ?? "",
+      email: complaint.email,
+      title: complaint.title,
+      description: complaint.description ?? complaint.complaintDescription ?? "",
+      priority: complaint.priority ?? "Medium",
+      location: complaint.location ?? "",
+      assignedBy: complaint.assignedBy,
+      assignedDate: complaint.assignedDate,
+    },
+    history: [],
+  };
 }
 
 function StatCard({
@@ -843,6 +880,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailReady, setDetailReady] = useState(false);
 
   const limit = 10;
 
@@ -894,17 +932,24 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const loadComplaintWorkDetail = useCallback(async (complaint: Complaint, options?: { silent?: boolean }) => {
     setSelectedComplaintId(complaint.complaintId);
     setSelectedComplaint(complaint);
+    setSelectedTask(stubTaskFromComplaint(complaint));
+    setDetailReady(false);
     if (!options?.silent) {
       setLoadingDetail(true);
     }
+    const lookupId = complaint.taskId ?? complaint.complaintId;
     try {
-      const lookupId = complaint.taskId ?? complaint.complaintId;
       const detail = await fetchTask(lookupId);
       setSelectedTask(detail);
+      setDetailReady(true);
     } catch (error) {
       if (!options?.silent) {
-        toast.error(getApiErrorMessage(error, "Failed to load complaint work details"));
-        setSelectedTask(null);
+        toast.error(
+          getApiErrorMessage(
+            error,
+            "Full task details are slow to load — showing summary. Pull to refresh or try again."
+          )
+        );
       }
     } finally {
       if (!options?.silent) {
@@ -952,6 +997,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
   const handleTaskUpdated = useCallback((task: Task) => {
     setSelectedTask(task);
+    setDetailReady(true);
     setSelectedComplaint((prev) => {
       if (!prev || prev.complaintId !== task.complaintId) return prev;
       return {
@@ -972,6 +1018,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     try {
       const detail = await fetchTask(lookupId);
       setSelectedTask(detail);
+      setDetailReady(true);
     } catch {
       // Keep the last known task state if a background refresh fails.
     }
@@ -985,6 +1032,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
         try {
           const detail = await fetchTask(updated.taskId);
           setSelectedTask(detail);
+          setDetailReady(true);
         } catch {
           // Ignore secondary refresh failures.
         }
@@ -1143,18 +1191,22 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
           </div>
 
           <div className={cn(panelClass, "min-h-[600px] p-5")}>
-            {loadingDetail ? (
-              <div className="flex h-full items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+            {selectedComplaint && selectedTask ? (
+              <div className="relative h-full">
+                {loadingDetail && (
+                  <div className="absolute right-0 top-0 z-10 flex items-center gap-2 rounded-full bg-slate-900/90 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
+                    Loading details…
+                  </div>
+                )}
+                <TaskDetailPanel
+                  task={selectedTask}
+                  complaint={selectedComplaint}
+                  canUpdate={canUpdate && detailReady}
+                  onRefresh={handleRefreshDetail}
+                  onTaskUpdated={handleTaskUpdated}
+                />
               </div>
-            ) : selectedTask ? (
-              <TaskDetailPanel
-                task={selectedTask}
-                complaint={selectedComplaint}
-                canUpdate={canUpdate}
-                onRefresh={handleRefreshDetail}
-                onTaskUpdated={handleTaskUpdated}
-              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">
                 <ClipboardList className="mb-3 h-12 w-12 opacity-30" />
