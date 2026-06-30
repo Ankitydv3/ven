@@ -550,7 +550,7 @@ function KpiDetailsModal({
           </div>
         </DialogHeader>
         <div className="custom-scrollbar flex-1 overflow-y-auto p-6 pt-2">
-          {isLoading ? (
+          {isLoading && !data ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <Skeleton key={i} className="h-20 w-full rounded-2xl bg-white/5" />
@@ -1113,7 +1113,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
             />
           </div>
 
-          {isLoading ? (
+          {isLoading && !data ? (
             <div className="space-y-3 p-5">
               {[1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-16 w-full rounded-xl bg-white/5" />

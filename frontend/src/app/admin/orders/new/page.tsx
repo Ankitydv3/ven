@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { complaintIssueTypes, type ComplaintIssueType } from "@/lib/constants";
+import { format } from "date-fns";
 import { phoneInputProps, sanitizePhoneDigits } from "@/lib/phone";
 import { pincodeInputProps, sanitizePincodeDigits, blockNonDigitPincodeKeys } from "@/lib/pincode";
 
@@ -31,7 +32,7 @@ export default function NewOrderPage() {
   pincode: "",
   materialType: "Aluminium" as "Aluminium" | "uPVC",
   salesPerson: "",
-  deliveryDate: new Date().toISOString().split("T")[0]
+  deliveryDate: format(new Date(), "yyyy-MM-dd")
 });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,6 +72,7 @@ export default function NewOrderPage() {
       newErrors.deliveryDate = "Delivery date is required";
     } else {
       const selectedDate = new Date(formData.deliveryDate);
+      selectedDate.setHours(0, 0, 0, 0);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (selectedDate > today) {
@@ -205,7 +207,7 @@ export default function NewOrderPage() {
                   <Input
                     id="deliveryDate"
                     type="date"
-                    max={new Date().toISOString().split("T")[0]}
+                    max={format(new Date(), "yyyy-MM-dd")}
                     value={formData.deliveryDate}
                     onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
                     className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/40 focus-visible:ring-[#378ADD]/30"

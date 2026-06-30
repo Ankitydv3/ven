@@ -309,6 +309,11 @@ export interface Complaint {
   taskId?: string | null;
   materialRequestStatus?: string | null;
   materialRequestId?: string | null;
+  materialRequestObjectId?: string | null;
+  materialPaymentStatus?: string | null;
+  materialPaidAmount?: number | null;
+  materialPaymentDueAmount?: number | null;
+  materialPaymentTime?: string | null;
   workflowStage?: string | null;
 }
 

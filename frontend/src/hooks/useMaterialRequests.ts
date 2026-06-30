@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   confirmMaterialPayment,
+  completeOnsiteMaterialPayment,
   createMaterialRequest,
   fetchMaterialRequestStats,
   fetchMaterialRequests,
@@ -26,10 +27,12 @@ export function useMaterialRequests(filters?: {
   return useQuery({
     queryKey: materialRequestKeys.list(filters ?? {}),
     queryFn: () => fetchMaterialRequests(filters),
-    refetchInterval: 15_000,
-    refetchOnMount: "always",
+    placeholderData: (previous) => previous,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
 
@@ -37,10 +40,12 @@ export function useMaterialRequestStats() {
   return useQuery({
     queryKey: materialRequestKeys.stats(),
     queryFn: fetchMaterialRequestStats,
-    refetchInterval: 15_000,
-    refetchOnMount: "always",
+    placeholderData: (previous) => previous,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
 
@@ -87,8 +92,32 @@ export function useServiceHeadReviewMaterial() {
 export function useConfirmMaterialPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, paymentMode }: { id: string; paymentMode: "received" | "onsite" }) =>
-      confirmMaterialPayment(id, paymentMode),
+    mutationFn: ({
+      id,
+      paymentMode,
+      remarks,
+      materialUnitPrice,
+    }: {
+      id: string;
+      paymentMode: "received" | "onsite";
+      remarks?: string;
+      materialUnitPrice?: number;
+    }) => confirmMaterialPayment(id, paymentMode, remarks, materialUnitPrice),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+  });
+}
+
+export function useCompleteOnsiteMaterialPayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, remarks }: { id: string; remarks?: string }) =>
+      completeOnsiteMaterialPayment(id, remarks),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });

@@ -52,20 +52,31 @@ export async function syncOrderPayment(order: any) {
  * Scans all orders and ensures the Payment collection strictly matches the
  * (Paid + Completed) criteria.
  */
-export async function syncAllPaidOrders() {
-  // 1. Find all orders that SHOULD have a payment
-  const eligibleOrders = await Order.find({ paid: true, status: "Completed" });
+let lastPaymentSyncAt = 0;
+const PAYMENT_SYNC_DEBOUNCE_MS = 120_000;
+
+export async function syncAllPaidOrders(force = false) {
+  const now = Date.now();
+  if (!force && now - lastPaymentSyncAt < PAYMENT_SYNC_DEBOUNCE_MS) {
+    return;
+  }
+  lastPaymentSyncAt = now;
+
+  const eligibleOrders = await Order.find({ paid: true, status: "Completed" })
+    .select("orderId customerName phone materialType amount assignedTeam paid status")
+    .lean()
+    .maxTimeMS(20_000);
 
   for (const order of eligibleOrders) {
     await createPaymentFromOrder(order);
   }
 
-  // 2. Remove any payments that NO LONGER meet the criteria (Hide them)
-  // This handles cases where an order status was changed away from "Completed"
-  const allOrderIdsInPayments = await Payment.find({ orderId: { $exists: true } }).distinct("orderId");
+  const allOrderIdsInPayments = await Payment.distinct("orderId", {
+    orderId: { $exists: true, $ne: "" },
+  });
 
   for (const orderId of allOrderIdsInPayments) {
-    const order = await Order.findOne({ orderId });
+    const order = await Order.findOne({ orderId }).select("orderId paid status").lean().maxTimeMS(5_000);
     if (!order || order.status !== "Completed" || !order.paid) {
       await Payment.deleteOne({ orderId });
     }

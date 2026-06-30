@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Play,
   Trash2,
+  CreditCard,
+  Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -50,8 +52,23 @@ import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
 import { feedbackTargetFromTask } from "@/lib/feedback-target";
+import { PaymentDetailsModal } from "@/components/material-requests/PaymentDetailsModal";
+import { useCompleteOnsiteMaterialPayment } from "@/hooks/useMaterialRequests";
 
 const PROGRESS_OPTIONS: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
+
+function formatTimelineAction(action: string, dueAmount?: number | null) {
+  const normalized = action.replace(/^Marked\s+/i, "");
+  if (
+    dueAmount &&
+    dueAmount > 0 &&
+    /payment pending.*onsite collection/i.test(normalized) &&
+    !/₹/.test(normalized)
+  ) {
+    return `Payment Pending — Onsite Collection (₹${dueAmount.toLocaleString("en-IN")})`;
+  }
+  return normalized;
+}
 
 function formatDateTime(dateStr?: string) {
   if (!dateStr) return "—";
@@ -199,15 +216,19 @@ function TaskListCard({
 
 function TaskDetailPanel({
   task,
+  complaint,
   canUpdate,
   onRefresh,
 }: {
   task: Task;
+  complaint?: Complaint | null;
   canUpdate: boolean;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }) {
   const patchMutation = usePatchTaskStatus();
+  const completeOnsiteMutation = useCompleteOnsiteMaterialPayment();
   const { openFeedback } = useFeedbackPrompt();
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [nextStatus, setNextStatus] = useState<TaskStatus | "">("");
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -218,6 +239,7 @@ function TaskDetailPanel({
   const [revisitDate, setRevisitDate] = useState("");
   const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
   const [forceUpdateForm, setForceUpdateForm] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
   useEffect(() => {
     setNotes("");
@@ -230,13 +252,37 @@ function TaskDetailPanel({
     setRevisitDate("");
     setRevisitTimeSlot("");
     setForceUpdateForm(false);
+    setPaymentConfirmed(false);
   }, [task._id]);
 
-  const complaint = task.complaint;
-  const customerName = complaint?.clientName ?? task.title;
-  const address = complaint?.location ?? "—";
-  const mobile = complaint?.mobileNumber ?? "—";
-  const description = complaint?.description ?? task.description ?? "No description provided.";
+  useEffect(() => {
+    if (complaint?.materialPaymentStatus === "Payment Received") {
+      setPaymentConfirmed(true);
+    }
+  }, [complaint?.materialPaymentStatus, task._id]);
+
+  const taskComplaint = task.complaint;
+  const customerName = taskComplaint?.clientName ?? complaint?.clientName ?? task.title;
+  const address = taskComplaint?.location ?? complaint?.location ?? "—";
+  const mobile = taskComplaint?.mobileNumber ?? complaint?.mobileNumber ?? "—";
+  const description =
+    complaint?.description ?? taskComplaint?.description ?? task.description ?? "No description provided.";
+
+  const paymentAlreadyReceived = paymentConfirmed || complaint?.materialPaymentStatus === "Payment Received";
+  const awaitingOnsitePayment =
+    !paymentAlreadyReceived &&
+    (complaint?.materialPaymentStatus === "Payment Pending (Onsite)" ||
+      complaint?.materialRequestStatus === "PAYMENT_PENDING_ONSITE");
+  const onsiteDueAmount = complaint?.materialPaymentDueAmount ?? null;
+  const materialRequestObjectId = complaint?.materialRequestObjectId ?? null;
+
+  const progressOptions = useMemo(
+    () =>
+      awaitingOnsitePayment
+        ? PROGRESS_OPTIONS.filter((status) => status !== "Completed")
+        : PROGRESS_OPTIONS,
+    [awaitingOnsitePayment]
+  );
 
   const timeline = useMemo(() => {
     const entries = [...(task.history ?? [])].sort(
@@ -293,6 +339,11 @@ function TaskDetailPanel({
       }
     }
 
+    if (nextStatus === "Completed" && awaitingOnsitePayment) {
+      toast.error("Collect onsite payment before completing this task");
+      return;
+    }
+
     // Photo is mandatory for ALL status updates (Completed, Need Material, Need Re-visit)
     if (!photoFile) {
       toast.error(`Photo is required to mark task as ${nextStatus}`);
@@ -346,10 +397,35 @@ function TaskDetailPanel({
   };
 
   const showProgressForm =
-    canUpdate && (task.status === "In Progress" || (task.status === "Need Re-visit" && forceUpdateForm));
+    canUpdate &&
+    (task.status === "In Progress" ||
+      (task.status === "Need Re-visit" && forceUpdateForm) ||
+      (task.status === "Need Material" &&
+        ((awaitingOnsitePayment && forceUpdateForm) ||
+          (paymentAlreadyReceived && forceUpdateForm))));
   const showStartButton =
     canUpdate && ["Pending", "Overdue"].includes(task.status);
-  const showUpdateTaskButton = canUpdate && task.status === "Need Re-visit" && !forceUpdateForm;
+  const showUpdateTaskButton =
+    canUpdate &&
+    ((task.status === "Need Re-visit" && !forceUpdateForm) ||
+      (task.status === "Need Material" && awaitingOnsitePayment && !forceUpdateForm));
+  const showPaymentReceivedButton =
+    canUpdate && awaitingOnsitePayment && Boolean(materialRequestObjectId);
+
+  const handlePaymentReceived = async () => {
+    if (!materialRequestObjectId) return;
+    try {
+      await completeOnsiteMutation.mutateAsync({ id: materialRequestObjectId });
+      setPaymentConfirmed(true);
+      setForceUpdateForm(true);
+      setNextStatus("Completed");
+      toast.success("Payment received — you can now complete the task");
+      await onRefresh();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to record payment"));
+    }
+  };
+
   const submitButtonLabel =
     nextStatus === "Need Re-visit" && revisitDate
       ? "Update Task"
@@ -365,6 +441,37 @@ function TaskDetailPanel({
         <div className="flex flex-wrap items-center gap-2">
           <Badge className={cn(priorityBadgeClass[task.priority])}>{task.priority}</Badge>
           <Badge variant={statusBadgeVariant[task.status] ?? "default"}>{task.status}</Badge>
+          {paymentAlreadyReceived && (
+            <Badge className="rounded-full border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
+              Payment Received
+            </Badge>
+          )}
+          {showPaymentReceivedButton && (
+            <Button
+              size="sm"
+              onClick={() => void handlePaymentReceived()}
+              disabled={completeOnsiteMutation.isPending}
+              className="rounded-full bg-emerald-600 hover:bg-emerald-500"
+            >
+              {completeOnsiteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Banknote className="mr-1 h-3.5 w-3.5" />
+              )}
+              Payment Received
+            </Button>
+          )}
+          {showPaymentReceivedButton && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPaymentModalOpen(true)}
+              className="rounded-full border-orange-500/40 text-orange-200 hover:bg-orange-500/10"
+            >
+              <CreditCard className="mr-1 h-3.5 w-3.5" />
+              Payment Details
+            </Button>
+          )}
           {showStartButton && (
             <Button
               size="sm"
@@ -385,9 +492,11 @@ function TaskDetailPanel({
               size="sm"
               onClick={() => {
                 setForceUpdateForm(true);
-                setNextStatus("Need Re-visit");
-                if (task.dueDate) {
+                if (task.status === "Need Re-visit" && task.dueDate) {
                   setRevisitDate(new Date(task.dueDate).toISOString().split("T")[0]);
+                  setNextStatus("Need Re-visit");
+                } else if (task.status === "Need Material") {
+                  setNextStatus("Need Re-visit");
                 }
               }}
               disabled={patchMutation.isPending}
@@ -428,7 +537,9 @@ function TaskDetailPanel({
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
               <div>
                 <p className="text-xs text-slate-500">Service Type</p>
-                <p className="font-medium text-white">{complaint?.title ?? task.title}</p>
+                <p className="font-medium text-white">
+                  {taskComplaint?.title ?? complaint?.title ?? task.title}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">Scheduled Date & Time</p>
@@ -472,6 +583,14 @@ function TaskDetailPanel({
             )}
           </section>
 
+          {showProgressForm && awaitingOnsitePayment && (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-xs text-orange-100">
+              Collect onsite payment
+              {onsiteDueAmount ? ` (₹${onsiteDueAmount.toLocaleString("en-IN")})` : ""} before marking this
+              task as Completed.
+            </div>
+          )}
+
           {showProgressForm && (
             <section className={cn(panelClass, "p-5")}>
               <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-400">
@@ -497,7 +616,7 @@ function TaskDetailPanel({
                       <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {PROGRESS_OPTIONS.map((s) => (
+                      {progressOptions.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
@@ -665,7 +784,7 @@ function TaskDetailPanel({
                   </div>
                   <div className="pb-4">
                     <p className="text-sm font-medium text-white">
-                      {entry.action.replace(/^Marked\s+/i, "")}
+                      {formatTimelineAction(entry.action, onsiteDueAmount)}
                     </p>
                     <p className="text-xs text-slate-400">by {entry.by}</p>
                     {entry.remarks && (
@@ -688,6 +807,16 @@ function TaskDetailPanel({
           </div>
         </aside>
       </div>
+
+      {materialRequestObjectId && (
+        <PaymentDetailsModal
+          materialRequestId={materialRequestObjectId}
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          onCompleted={onRefresh}
+          viewerRole="team"
+        />
+      )}
     </div>
   );
 }
@@ -706,6 +835,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [page, setPage] = useState(1);
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const limit = 5;
@@ -739,6 +869,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
   const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
     setSelectedComplaintId(complaint.complaintId);
+    setSelectedComplaint(complaint);
     setLoadingDetail(true);
     try {
       const lookupId = complaint.taskId ?? complaint.complaintId;
@@ -788,6 +919,17 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const handleSelectComplaint = (complaint: Complaint) => {
     void loadComplaintWorkDetail(complaint);
   };
+
+  const handleRefreshDetail = useCallback(async () => {
+    const { data } = await refetch();
+    const items = data?.items ?? complaints;
+    if (!selectedComplaintId) return;
+    const updated = items.find((c) => c.complaintId === selectedComplaintId);
+    if (updated) {
+      setSelectedComplaint(updated);
+      await loadComplaintWorkDetail(updated);
+    }
+  }, [refetch, complaints, selectedComplaintId, loadComplaintWorkDetail]);
 
   if (!ready) {
     return (
@@ -941,16 +1083,9 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
             ) : selectedTask ? (
               <TaskDetailPanel
                 task={selectedTask}
+                complaint={selectedComplaint}
                 canUpdate={canUpdate}
-                onRefresh={() => {
-                  void refetch();
-                  if (selectedComplaintId) {
-                    const complaint = complaints.find((c) => c.complaintId === selectedComplaintId);
-                    if (complaint) {
-                      void loadComplaintWorkDetail(complaint);
-                    }
-                  }
-                }}
+                onRefresh={handleRefreshDetail}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">

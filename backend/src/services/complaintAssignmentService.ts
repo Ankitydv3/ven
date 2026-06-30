@@ -116,7 +116,8 @@ export async function getActiveTasksByComplaintIds(complaintIds: string[]) {
   })
     .select("complaintId taskId status dueDate dueDateKey assignedUserId assignedUserName assignedTeamName")
     .sort({ createdAt: -1 })
-    .lean();
+    .lean()
+    .maxTimeMS(10_000);
 
   const map = new Map<string, (typeof tasks)[number]>();
   for (const task of tasks) {

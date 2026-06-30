@@ -7,7 +7,7 @@ export interface AlertsFilters {
 }
 
 export async function fetchAlerts(filters?: AlertsFilters) {
-  const { data } = await api.get<AlertsResponse>("/alerts", { params: filters });
+  const { data } = await api.get<AlertsResponse>("/alerts", { params: filters, timeout: 45_000 });
   return data;
 }
 

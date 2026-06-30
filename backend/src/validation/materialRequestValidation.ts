@@ -19,7 +19,7 @@ export const materialRequestStatusSchema = z.object({
 });
 
 export const materialServiceHeadSchema = z.object({
-  decision: z.enum(["APPROVED", "DENIED"]),
+  decision: z.enum(["APPROVED", "DENIED", "COMPLETED"]),
   serviceHeadRemarks: z.string().trim().optional().default(""),
   revisitDate: z.string().trim().optional(),
   revisitTimeSlot: z.string().trim().optional(),
@@ -29,4 +29,11 @@ export const materialServiceHeadSchema = z.object({
 export const materialPaymentConfirmSchema = z.object({
   confirmed: z.literal(true),
   paymentMode: z.enum(["received", "onsite"]),
+  remarks: z.string().trim().optional().default(""),
+  materialUnitPrice: z.coerce.number().min(0, "Material amount cannot be negative").optional(),
+});
+
+export const materialOnsitePaymentCompleteSchema = z.object({
+  confirmed: z.literal(true),
+  remarks: z.string().trim().optional().default(""),
 });

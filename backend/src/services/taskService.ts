@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import Task from "../models/Task";
 import TaskAlert from "../models/TaskAlert";
 import Complaint from "../models/Complaint";
+import MaterialRequest from "../models/MaterialRequest";
+import Payment from "../models/Payment";
 import User from "../models/User";
 import Team from "../models/Team";
 import { generateTaskId } from "../utils/taskId";
@@ -26,6 +28,41 @@ export type TaskStatus =
 export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
 const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["Completed"];
+const QUERY_TIMEOUT_MS = 20_000;
+let lastOverdueRunAt = 0;
+const OVERDUE_DEBOUNCE_MS = 60_000;
+
+async function getPendingOnsiteMaterialPayment(complaintId?: string | null) {
+  if (!complaintId) return null;
+
+  const materialRequest = await MaterialRequest.findOne({
+    complaintId,
+    status: "PAYMENT_PENDING_ONSITE",
+  })
+    .select("paymentId requestId")
+    .lean();
+
+  if (!materialRequest) return null;
+
+  const payment = materialRequest.paymentId
+    ? await Payment.findOne({ paymentId: materialRequest.paymentId })
+        .select("totalAmount materialPaymentStatus")
+        .lean()
+    : null;
+
+  if (payment?.materialPaymentStatus === "Payment Received") {
+    return null;
+  }
+
+  return {
+    materialRequest,
+    amount: payment?.totalAmount ?? 0,
+  };
+}
+
+function taskCount(filter: Record<string, unknown>) {
+  return Task.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS);
+}
 
 export function blocksComplaintTaskAssignment(status?: string | null) {
   return status === "Completed" || status === "Cancelled";
@@ -229,7 +266,11 @@ async function createTaskAlert(
 export async function backfillDueDateKeys() {
   const tasks = await Task.find({
     $or: [{ dueDateKey: { $exists: false } }, { dueDateKey: null }, { dueDateKey: "" }],
-  }).limit(200);
+  })
+    .select("_id dueDate")
+    .limit(200)
+    .lean()
+    .maxTimeMS(QUERY_TIMEOUT_MS);
 
   if (tasks.length === 0) return;
 
@@ -243,22 +284,39 @@ export async function backfillDueDateKeys() {
   await Task.bulkWrite(bulk);
 }
 
-export async function applyOverdueUpdates() {
+export async function applyOverdueUpdates(force = false) {
+  const now = Date.now();
+  if (!force && now - lastOverdueRunAt < OVERDUE_DEBOUNCE_MS) {
+    return;
+  }
+  lastOverdueRunAt = now;
+
   await backfillDueDateKeys();
 
   const todayKey = todayDateKey();
-  // Only auto-mark Pending tasks as Overdue — never downgrade active work (In Progress).
   const overdueTasks = await Task.find({
     status: "Pending",
     dueDateKey: { $exists: true, $ne: "", $lt: todayKey },
-  });
+  })
+    .select("_id taskId title dueDateKey assignedTeamName assignedUserId priority")
+    .lean()
+    .maxTimeMS(QUERY_TIMEOUT_MS);
+
+  if (overdueTasks.length === 0) return;
+
+  await Task.bulkWrite(
+    overdueTasks.map((task) => ({
+      updateOne: {
+        filter: { _id: task._id },
+        update: { $set: { status: "Overdue" } },
+      },
+    }))
+  );
 
   for (const task of overdueTasks) {
-    task.status = "Overdue";
-    await task.save();
     await createTaskAlert(
       "task_overdue",
-      task,
+      task as InstanceType<typeof Task>,
       `Task ${task.taskId} is overdue (due ${task.dueDateKey})`
     );
   }
@@ -340,7 +398,9 @@ export async function getTasks(options: TaskListOptions) {
       ],
     })
       .select("complaintId")
-      .lean();
+      .limit(100)
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS);
 
     const complaintIds = matchingComplaints.map((c) => c.complaintId);
 
@@ -413,8 +473,8 @@ export async function getTasks(options: TaskListOptions) {
   const sort: Record<string, 1 | -1> = { [options.sortBy]: options.sortOrder };
 
   const [rawItems, total] = await Promise.all([
-    Task.find(filter).sort(sort).skip(skip).limit(options.limit).lean(),
-    Task.countDocuments(filter),
+    Task.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+    Task.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
   ]);
 
   const items = dedupeActiveTasksByComplaint(rawItems);
@@ -425,7 +485,10 @@ export async function getTasks(options: TaskListOptions) {
 
   let complaintMap: Record<string, Record<string, unknown>> = {};
   if (complaintIds.length > 0) {
-    const complaints = await Complaint.find({ complaintId: { $in: complaintIds } }).lean();
+    const complaints = await Complaint.find({ complaintId: { $in: complaintIds } })
+      .select("complaintId clientName mobileNumber location status assignedTeam title")
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS);
     complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
   }
 
@@ -560,22 +623,22 @@ export async function getTaskStats(
     needRevisit,
     needMaterial,
   ] = await Promise.all([
-    Task.countDocuments(baseFilter),
-    Task.countDocuments({ ...baseFilter, status: "Pending" }),
-    Task.countDocuments({ ...baseFilter, status: "In Progress" }),
-    Task.countDocuments({ ...baseFilter, status: "Completed" }),
-    Task.countDocuments({ ...baseFilter, status: "Overdue" }),
-    Task.countDocuments({
+    taskCount(baseFilter),
+    taskCount({ ...baseFilter, status: "Pending" }),
+    taskCount({ ...baseFilter, status: "In Progress" }),
+    taskCount({ ...baseFilter, status: "Completed" }),
+    taskCount({ ...baseFilter, status: "Overdue" }),
+    taskCount({
       ...baseFilter,
       status: { $in: ["Pending", "In Progress"] },
       dueDateKey: { $gt: todayKey },
     }),
-    Task.countDocuments({
+    taskCount({
       ...baseFilter,
       status: { $in: ["Pending", "In Progress", "Overdue"] },
       dueDateKey: todayKey,
     }),
-    Task.countDocuments({
+    taskCount({
       ...baseFilter,
       status: "Completed",
       completedAt: { $exists: true },
@@ -586,13 +649,13 @@ export async function getTaskStats(
         ],
       },
     }),
-    Task.countDocuments({
+    taskCount({
       ...baseFilter,
       status: "Completed",
       completedAt: { $gte: todayStart },
     }),
-    Task.countDocuments({ ...baseFilter, status: "Need Re-visit" }),
-    Task.countDocuments({ ...baseFilter, status: "Need Material" }),
+    taskCount({ ...baseFilter, status: "Need Re-visit" }),
+    taskCount({ ...baseFilter, status: "Need Material" }),
   ]);
 
   const completionRate = total === 0 ? 0 : Math.round((completed / total) * 1000) / 10;
@@ -848,19 +911,29 @@ export async function patchTaskStatusById(
   }
 
   if (isTeamRole(actor.role)) {
+    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
     const fromInProgress = task.status === "In Progress";
+    const fromNeedMaterialOnsite = task.status === "Need Material" && Boolean(pendingOnsite);
     const progressStatuses: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
     const startStatuses: TaskStatus[] = ["In Progress"];
 
-    if (fromInProgress) {
+    if (fromInProgress || fromNeedMaterialOnsite) {
       if (!progressStatuses.includes(status)) {
         throw new ApiError(403, "You can mark tasks as Completed, Need Re-visit, or Need Material");
       }
+      if (status === "Completed" && pendingOnsite) {
+        throw new ApiError(
+          400,
+          `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
+        );
+      }
+    } else if (task.status === "Need Material" && !pendingOnsite && status === "Completed") {
+      // Onsite payment collected — team may complete the task
     } else if (startStatuses.includes(status)) {
       if (!["Pending", "Overdue", "Need Re-visit"].includes(task.status)) {
         throw new ApiError(400, "Only pending or re-visit tasks can be started");
       }
-      if (task.status === "Need Material") {
+      if (task.status === "Need Material" && !pendingOnsite) {
         throw new ApiError(400, "Cannot Update Task while waiting for material approval");
       }
     } else {
@@ -869,6 +942,16 @@ export async function patchTaskStatusById(
 
     if (task.status === "Completed" || task.isLocked) {
       throw new ApiError(400, "Completed tasks cannot be updated");
+    }
+  }
+
+  if (status === "Completed") {
+    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
+    if (pendingOnsite) {
+      throw new ApiError(
+        400,
+        `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
+      );
     }
   }
 

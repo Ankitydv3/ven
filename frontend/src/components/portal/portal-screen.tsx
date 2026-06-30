@@ -45,7 +45,7 @@ const tabMeta: Record<PortalTab, { eyebrow: string; title: string; description: 
   login: {
     eyebrow: "Portal access",
     title: "Sign in",
-    description: "Admin and team users are routed to the right dashboard automatically.",
+    description: "Welcome",
   },
   track: {
     eyebrow: "Status lookup",

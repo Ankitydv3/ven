@@ -30,6 +30,7 @@ const materialRequestSchema = new Schema(
         "PENDING_SERVICE_HEAD",
         "DENIED",
         "AWAITING_ACCOUNTS",
+        "PAYMENT_PENDING_ONSITE",
         "AWAITING_STOCK_CHECK",
         "AWAITING_STORE",
         "AWAITING_MATERIAL_RECEIVED",

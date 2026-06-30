@@ -162,7 +162,12 @@ export async function getAlertsData(filters?: {
   const [pendingComplaints, taskAgg, taskAlerts, materialAlerts] = await Promise.all([
     filters?.teamOnly
       ? Promise.resolve([])
-      : Complaint.find(pendingFilter).sort({ createdAt: -1 }).limit(50),
+      : Complaint.find(pendingFilter)
+          .select("complaintId clientName title status createdAt assignedTeam mobileNumber")
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .lean()
+          .maxTimeMS(20_000),
     teamNamesToUse.length > 0
       ? Task.aggregate([
           { $match: { ...taskMatch, assignedTeamName: { $in: teamNamesToUse } } },

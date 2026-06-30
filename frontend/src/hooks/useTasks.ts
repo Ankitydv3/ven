@@ -19,9 +19,11 @@ export function useTasks(filters: TaskFilters) {
   return useQuery({
     queryKey: taskKeys.list(filters),
     queryFn: () => fetchTasks(filters),
-    refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
-    refetchOnMount: "always",
-    staleTime: 0,
+    staleTime: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }

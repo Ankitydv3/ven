@@ -8,8 +8,11 @@ export function useAlerts(filters?: AlertsFilters) {
   return useQuery({
     queryKey: ["alerts", filters],
     queryFn: () => fetchAlerts(filters),
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
 

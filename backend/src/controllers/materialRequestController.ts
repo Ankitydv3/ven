@@ -2,9 +2,11 @@ import type { Response } from "express";
 import type { AuthRequest } from "../middleware/auth";
 import {
   assertMaterialRequestAccess,
+  completeOnsiteMaterialPayment,
   confirmMaterialPayment,
   createMaterialRequest,
   getMaterialRequestById,
+  getMaterialRequestPaymentDetails,
   getMaterialRequestStats,
   listMaterialRequests,
   serviceHeadReview,
@@ -105,11 +107,47 @@ export async function confirmMaterialPaymentHandler(req: AuthRequest, res: Respo
       name: req.user?.name ?? "Accounts",
       role: req.user?.role ?? "accountant",
       subAdminType: req.user?.subAdminType,
+      team: req.user?.team,
+      teamName: req.user?.teamName,
     },
-    req.body.paymentMode
+    req.body.paymentMode,
+    req.body.remarks,
+    req.body.materialUnitPrice
   );
 
-  res.json({ message: "Payment confirmed — forwarded to Store Manager", request });
+  const message =
+    req.body.paymentMode === "onsite"
+      ? "Payment marked for onsite collection — Service Head will complete stock check first"
+      : "Payment received — forwarded to Service Head for stock check";
+
+  res.json({ message, request });
+}
+
+export async function getMaterialPaymentDetailsHandler(req: AuthRequest, res: Response) {
+  const request = await getMaterialRequestById(req.params.id as string);
+  await assertMaterialRequestAccess(req.user, request);
+  const details = await getMaterialRequestPaymentDetails(req.params.id as string);
+  res.json({ details });
+}
+
+export async function completeOnsiteMaterialPaymentHandler(req: AuthRequest, res: Response) {
+  if (req.user?.role !== "team" && !isAdminRole(req.user?.role)) {
+    throw new ApiError(403, "Only the assigned team can complete onsite payment collection");
+  }
+
+  const request = await completeOnsiteMaterialPayment(
+    req.params.id as string,
+    {
+      id: req.user?.id,
+      name: req.user?.name ?? "Team",
+      role: req.user?.role ?? "team",
+      team: req.user?.team,
+      teamName: req.user?.teamName,
+    },
+    req.body.remarks
+  );
+
+  res.json({ message: "Onsite payment received — workflow updated", request });
 }
 
 export async function getUserActivityHistoryHandler(req: AuthRequest, res: Response) {

@@ -25,7 +25,7 @@ export interface OrderPayload {
 }
 
 export async function fetchOrders(params: OrderFilters) {
-  const { data } = await api.get<OrderListResponse>("/orders", { params });
+  const { data } = await api.get<OrderListResponse>("/orders", { params, timeout: 45_000 });
   return data;
 }
 

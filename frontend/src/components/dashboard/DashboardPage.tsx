@@ -1199,9 +1199,12 @@ import type { Task } from "@/lib/task.types";
     const { data, isLoading, refetch, isFetching, isError, error } = useQuery({
       queryKey: ["dashboard", role, user?.role, user?.subAdminType],
       queryFn: () => fetchDashboardPage(role, user?.role),
-      staleTime: 15_000,
-      refetchInterval: 30_000,
+      placeholderData: (previous) => previous,
+      staleTime: 30_000,
+      refetchInterval: 60_000,
       enabled: ready,
+      retry: 1,
+      retryDelay: 2_000,
     });
 
     const [detailModal, setDetailModal] = useState<{
@@ -1338,7 +1341,7 @@ import type { Task } from "@/lib/task.types";
         {/* ── Page header ── */}
        
 
-        {isLoading ? (
+        {isLoading && !data ? (
           <LoadingState />
         ) : isError ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center">

@@ -24,7 +24,10 @@ export function useOrders(filters: OrderFilters) {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => fetchOrders(filters),
-    placeholderData: (previous) => previous
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
 

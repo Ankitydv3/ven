@@ -35,10 +35,13 @@ export async function fetchPendingActions(limit = 10) {
   return data;
 }
 
+const DASHBOARD_TIMEOUT_MS = 45_000;
+
 export async function fetchDashboardPage(
   portalRole: "admin" | "team" | "store" = "admin",
   userRole?: string
 ) {
+  const requestConfig = { timeout: DASHBOARD_TIMEOUT_MS };
   const siteVisitParams =
     userRole === "sub_admin"
       ? null
@@ -48,17 +51,17 @@ export async function fetchDashboardPage(
 
   const siteVisitRequest = siteVisitParams
     ? api
-        .get<{ items: Task[] }>("/tasks", { params: siteVisitParams })
+        .get<{ items: Task[] }>("/tasks", { params: siteVisitParams, ...requestConfig })
         .then((response) => response.data.items ?? [])
     : Promise.resolve([] as Task[]);
 
   const [dashboardMain, resolvedReasons, pendingActions, todaysSiteVisits] = await Promise.all([
-    api.get<DashboardMainPayload>("/dashboard").then((response) => response.data),
+    api.get<DashboardMainPayload>("/dashboard", requestConfig).then((response) => response.data),
     api
-      .get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons")
+      .get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons", requestConfig)
       .then((response) => response.data.resolvedReasons ?? []),
     api
-      .get<{ items: DashboardPendingAction[] }>("/dashboard/pending-actions")
+      .get<{ items: DashboardPendingAction[] }>("/dashboard/pending-actions", requestConfig)
       .then((response) => response.data.items ?? []),
     siteVisitRequest,
   ]);

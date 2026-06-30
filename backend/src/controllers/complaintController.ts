@@ -469,20 +469,103 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   }
 
   const skip = (Number(page) - 1) * Number(limit);
-  const [items, total] = await Promise.all([
-    Complaint.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
-    Complaint.countDocuments(filter)
-  ]);
+  const queryTimeoutMs = 20_000;
+  const listSelect =
+    "complaintId clientName mobileNumber email orderId title description complaintType complaintDescription location assignedTeam assignedUserId assignedUserName status siteVisitStatus paymentStatus createdAt updatedAt assignedDate completedDate priority availableDate timeSlot";
+
+  type ComplaintListRow = {
+    complaintId: string;
+    status: string;
+    siteVisitStatus?: string;
+    [key: string]: unknown;
+  };
+
+  let items: ComplaintListRow[];
+  let total: number;
+
+  try {
+    [items, total] = await Promise.all([
+      Complaint.find(filter)
+        .select(listSelect)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean()
+        .maxTimeMS(queryTimeoutMs),
+      Complaint.countDocuments(filter).maxTimeMS(queryTimeoutMs),
+    ]);
+  } catch {
+    throw new ApiError(504, "Complaints query timed out. Please try again.");
+  }
+
+  if (!items.length) {
+    res.json({ items: [], total, page: Number(page), limit: Number(limit) });
+    return;
+  }
 
   const complaintIds = items.map((item) => item.complaintId);
-  const [taskByComplaintId, materialByComplaint] = await Promise.all([
-    getActiveTasksByComplaintIds(complaintIds),
-    getActiveMaterialRequestsByComplaintIds(complaintIds),
-  ]);
+
+  let taskByComplaintId: Awaited<ReturnType<typeof getActiveTasksByComplaintIds>> = new Map();
+  let materialByComplaint: Awaited<ReturnType<typeof getActiveMaterialRequestsByComplaintIds>> = new Map();
+  let materialPaymentMap = new Map<
+    string,
+    {
+      paymentId: string;
+      materialPaymentStatus?: string;
+      totalAmount?: number;
+      receivedAt?: Date;
+    }
+  >();
+
+  try {
+    const enrichment = await Promise.race([
+      (async () => {
+        const [tasks, materials] = await Promise.all([
+          getActiveTasksByComplaintIds(complaintIds),
+          getActiveMaterialRequestsByComplaintIds(complaintIds),
+        ]);
+
+        const paymentIds = [
+          ...new Set(
+            [...materials.values()]
+              .map((request) => request?.paymentId)
+              .filter(Boolean) as string[]
+          ),
+        ];
+
+        const materialPayments = paymentIds.length
+          ? await Payment.find({ paymentId: { $in: paymentIds } })
+              .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost")
+              .lean()
+              .maxTimeMS(10_000)
+          : [];
+
+        return {
+          tasks,
+          materials,
+          payments: materialPayments,
+        };
+      })(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Complaint list enrichment timed out")), 8_000);
+      }),
+    ]);
+
+    taskByComplaintId = enrichment.tasks;
+    materialByComplaint = enrichment.materials;
+    materialPaymentMap = new Map(
+      enrichment.payments.map((payment) => [payment.paymentId, payment])
+    );
+  } catch {
+    // Return the complaint list even if task/material/payment enrichment is slow.
+  }
 
   const enrichedItems = items.map((item) => {
     const task = taskByComplaintId.get(item.complaintId);
     const materialRequest = materialByComplaint.get(item.complaintId);
+    const linkedPayment = materialRequest?.paymentId
+      ? materialPaymentMap.get(materialRequest.paymentId)
+      : undefined;
     const workflowStage = resolveWorkflowStage({
       complaintStatus: item.status,
       taskStatus: task?.status ?? null,
@@ -490,12 +573,29 @@ export async function listComplaints(req: AuthRequest, res: Response) {
       siteVisitStatus: item.siteVisitStatus ?? null,
     });
     return {
-      ...item.toObject(),
+      ...item,
       taskScheduleStatus: task?.status ?? null,
       taskScheduleDueDate: task?.dueDateKey ?? task?.dueDate ?? null,
       taskId: task?.taskId ?? null,
       materialRequestStatus: materialRequest?.status ?? null,
       materialRequestId: materialRequest?.requestId ?? null,
+      materialRequestObjectId: materialRequest?._id ? String(materialRequest._id) : null,
+      materialPaymentStatus:
+        linkedPayment?.materialPaymentStatus ??
+        (materialRequest?.status === "PAYMENT_PENDING_ONSITE"
+          ? "Payment Pending (Onsite)"
+          : null),
+      materialPaidAmount:
+        linkedPayment?.materialPaymentStatus === "Payment Received"
+          ? linkedPayment.totalAmount
+          : null,
+      materialPaymentDueAmount:
+        linkedPayment?.materialPaymentStatus === "Payment Pending (Onsite)"
+          ? linkedPayment.totalAmount
+          : materialRequest?.status === "PAYMENT_PENDING_ONSITE"
+            ? linkedPayment?.totalAmount ?? null
+            : null,
+      materialPaymentTime: linkedPayment?.receivedAt ?? null,
       workflowStage,
     };
   });
@@ -1053,6 +1153,11 @@ export async function getClientHistoryComplaintDetail(req: AuthRequest, res: Res
   const primaryTask =
     tasks.find((task) => task.isActive !== false) ?? tasks[0];
   const materialRequest = materialRequests[0];
+  const linkedMaterialPayment = materialRequest?.paymentId
+    ? await Payment.findOne({ paymentId: materialRequest.paymentId })
+        .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost handoverDate serviceType materials auditHistory")
+        .lean()
+    : null;
   const workflowStage = resolveWorkflowStage({
     complaintStatus: complaint.status,
     taskStatus: primaryTask?.status ?? null,
@@ -1072,6 +1177,25 @@ export async function getClientHistoryComplaintDetail(req: AuthRequest, res: Res
     tasks,
     materialRequests,
     payments,
+    materialPayment: linkedMaterialPayment
+      ? {
+          paymentId: linkedMaterialPayment.paymentId,
+          paymentStatus: linkedMaterialPayment.materialPaymentStatus,
+          paidAmount:
+            linkedMaterialPayment.materialPaymentStatus === "Payment Received"
+              ? linkedMaterialPayment.totalAmount
+              : null,
+          paymentTime: linkedMaterialPayment.receivedAt ?? null,
+          serviceFee: linkedMaterialPayment.serviceCost ?? 0,
+          materialTotal: linkedMaterialPayment.materialCost ?? 0,
+          grandTotal: linkedMaterialPayment.totalAmount ?? 0,
+          serviceType: linkedMaterialPayment.serviceType,
+          handoverDate: linkedMaterialPayment.handoverDate ?? order?.deliveryDate ?? null,
+          materials: linkedMaterialPayment.materials ?? [],
+          auditHistory: linkedMaterialPayment.auditHistory ?? [],
+        }
+      : null,
+    materialRequestObjectId: materialRequest?._id ? String(materialRequest._id) : null,
     order,
     hasFeedback,
   });

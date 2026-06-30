@@ -28,7 +28,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useTeams } from "@/hooks/use-teams";
 import { scheduleRevisit } from "@/services/complaints";
-import { materialStatusLabel } from "@/services/material-requests";
+import { materialStatusLabel, getMaterialPaymentStatusBadgeClass } from "@/services/material-requests";
+import { PaymentDetailsModal } from "@/components/material-requests/PaymentDetailsModal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface ComplaintDetailsPageProps {
@@ -45,11 +46,24 @@ export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isRevisitModalOpen, setIsRevisitModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const complaint = data?.complaint;
   const tasks = data?.tasks ?? [];
   const materialRequests = data?.materialRequests ?? [];
   const payments = data?.payments ?? [];
+  const materialPayment = (data as { materialPayment?: {
+    paymentStatus?: string;
+    paidAmount?: number | null;
+    paymentTime?: string | null;
+    serviceFee?: number;
+    materialTotal?: number;
+    grandTotal?: number;
+    serviceType?: string;
+    handoverDate?: string | null;
+    materials?: Array<{ materialName: string; quantity: number; unitPrice: number; totalPrice: number }>;
+  } | null })?.materialPayment ?? null;
+  const materialRequestObjectId = (data as { materialRequestObjectId?: string | null })?.materialRequestObjectId ?? null;
 
   const revisitMutation = useMutation({
     mutationFn: (payload: { date: string; timeSlot: string; team: string; remarks?: string }) =>
@@ -132,6 +146,20 @@ export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
             <Badge className={cn("px-4 py-1 text-sm font-bold uppercase tracking-wider rounded-full shadow-lg", workflowStageBadgeClass[status!])}>
               {status}
             </Badge>
+            {materialPayment?.paymentStatus && (
+              <Badge className={cn("px-3 py-1 text-xs font-bold rounded-full", getMaterialPaymentStatusBadgeClass(materialPayment.paymentStatus))}>
+                {materialPayment.paymentStatus}
+              </Badge>
+            )}
+            {role === "team" && materialRequestObjectId && materialPayment?.paymentStatus === "Payment Pending (Onsite)" && (
+              <Button
+                onClick={() => setPaymentModalOpen(true)}
+                className="bg-orange-600 hover:bg-orange-500 text-white font-bold shadow-md shadow-orange-600/20"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Payment Details
+              </Button>
+            )}
             {role === "admin" && complaint.status !== "Completed" && (
               <Button
                 onClick={() => setIsRevisitModalOpen(true)}
@@ -289,6 +317,57 @@ export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
                       </div>
                     );
                   })}
+                </CardContent>
+              </Card>
+            )}
+
+            {materialPayment && (
+              <Card className="border-white/10 bg-slate-900/50 backdrop-blur-sm">
+                <CardHeader className="border-b border-white/5">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-emerald-400" />
+                    Material Payment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className={cn("rounded-full px-3 py-1 text-xs font-bold", getMaterialPaymentStatusBadgeClass(materialPayment.paymentStatus || "Pending"))}>
+                      {materialPayment.paymentStatus || "Pending"}
+                    </Badge>
+                    {materialPayment.serviceType && (
+                      <Badge className="rounded-full px-3 py-1 text-xs font-bold border-white/10 bg-white/5 text-slate-300">
+                        {materialPayment.serviceType}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <DetailItem
+                      icon={Calendar}
+                      label="Handover Date"
+                      value={materialPayment.handoverDate ? format(new Date(materialPayment.handoverDate), "dd MMM yyyy") : "—"}
+                    />
+                    <DetailItem icon={CreditCard} label="Service Fee" value={`₹${(materialPayment.serviceFee ?? 0).toLocaleString("en-IN")}`} />
+                    <DetailItem icon={Package} label="Material Total" value={`₹${(materialPayment.materialTotal ?? 0).toLocaleString("en-IN")}`} />
+                    <DetailItem icon={CreditCard} label="Grand Total" value={`₹${(materialPayment.grandTotal ?? 0).toLocaleString("en-IN")}`} />
+                    {materialPayment.paidAmount != null && (
+                      <DetailItem icon={CreditCard} label="Paid Amount" value={`₹${materialPayment.paidAmount.toLocaleString("en-IN")}`} />
+                    )}
+                    {materialPayment.paymentTime && (
+                      <DetailItem
+                        icon={Clock}
+                        label="Payment Time"
+                        value={format(new Date(materialPayment.paymentTime), "dd MMM yyyy, hh:mm a")}
+                      />
+                    )}
+                  </div>
+                  {materialRequestObjectId && materialPayment.paymentStatus === "Payment Pending (Onsite)" && role === "team" && (
+                    <Button
+                      onClick={() => setPaymentModalOpen(true)}
+                      className="bg-emerald-600 hover:bg-emerald-500"
+                    >
+                      Open Payment Details
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -457,6 +536,18 @@ export function ComplaintDetailsPage({ id, role }: ComplaintDetailsPageProps) {
            <button onClick={() => setIsGalleryOpen(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><Maximize2 className="h-6 w-6 rotate-45" /></button>
         </DialogContent>
       </Dialog>
+
+      {materialRequestObjectId && (
+        <PaymentDetailsModal
+          materialRequestId={materialRequestObjectId}
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          onCompleted={() => {
+            void queryClient.invalidateQueries({ queryKey: ["complaints", "detail", id] });
+          }}
+          viewerRole={role === "team" ? "team" : "admin"}
+        />
+      )}
 
       {/* Schedule Revisit Modal */}
       <Dialog open={isRevisitModalOpen} onOpenChange={setIsRevisitModalOpen}>

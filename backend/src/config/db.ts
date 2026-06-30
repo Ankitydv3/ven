@@ -7,5 +7,10 @@ export async function connectDB() {
     throw new Error("MONGO_URI is required");
   }
 
-  await mongoose.connect(mongoUri);
+  await mongoose.connect(mongoUri, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 10_000,
+    socketTimeoutMS: 45_000,
+    connectTimeoutMS: 10_000,
+  });
 }

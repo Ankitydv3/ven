@@ -694,7 +694,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 </tr>
               </THead>
               <tbody>
-                {isLoading ? (
+                {isLoading && !data ? (
                   Array.from({ length: 4 }).map((_, idx) => (
                     <TR key={idx}>
                       <TD colSpan={8}>
@@ -845,7 +845,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
         {/* Cards - Mobile View */}
         <div className="space-y-3 md:hidden">
-          {isLoading ? (
+          {isLoading && !data ? (
             Array.from({ length: 4 }).map((_, idx) => (
               <Skeleton key={idx} className="h-36 rounded-2xl bg-slate-100 dark:bg-white/[0.04]" />
             ))

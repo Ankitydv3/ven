@@ -48,7 +48,10 @@ export async function fetchComplaints(params: {
   startDate?: string;
   endDate?: string;
 }) {
-  const { data } = await api.get<{ items: Complaint[]; total: number; page: number; limit: number }>("/complaints", { params });
+  const { data } = await api.get<{ items: Complaint[]; total: number; page: number; limit: number }>(
+    "/complaints",
+    { params, timeout: 45_000 }
+  );
   return data;
 }
 

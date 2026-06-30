@@ -6,6 +6,7 @@ export type MaterialRequestStatus =
   | "PENDING_SERVICE_HEAD"
   | "DENIED"
   | "AWAITING_ACCOUNTS"
+  | "PAYMENT_PENDING_ONSITE"
   | "AWAITING_STOCK_CHECK"
   | "AWAITING_STORE"
   | "AWAITING_MATERIAL_RECEIVED"
@@ -54,6 +55,9 @@ export interface MaterialRequest {
   customerId?: string;
   customerPhone?: string;
   orderPaid?: boolean;
+  materialPaymentStatus?: string;
+  paidAmount?: number;
+  paymentReceivedAt?: string;
   scheduledRevisitDate?: string;
   scheduledRevisitTimeSlot?: string;
   history?: MaterialRequestAudit[];
@@ -87,12 +91,17 @@ export async function fetchMaterialRequests(params?: {
   page?: number;
   limit?: number;
 }) {
-  const { data } = await api.get<MaterialRequestListResponse>("/material-requests", { params });
+  const { data } = await api.get<MaterialRequestListResponse>("/material-requests", {
+    params,
+    timeout: 45_000,
+  });
   return data;
 }
 
 export async function fetchMaterialRequestStats() {
-  const { data } = await api.get<MaterialRequestStats>("/material-requests/stats");
+  const { data } = await api.get<MaterialRequestStats>("/material-requests/stats", {
+    timeout: 45_000,
+  });
   return data;
 }
 
@@ -129,12 +138,64 @@ export async function serviceHeadReviewMaterialRequest(
   return data;
 }
 
-export async function confirmMaterialPayment(id: string, paymentMode: "received" | "onsite") {
+export async function confirmMaterialPayment(
+  id: string,
+  paymentMode: "received" | "onsite",
+  remarks?: string,
+  materialUnitPrice?: number
+) {
   const { data } = await api.patch<{ message: string; request: MaterialRequest }>(
     `/material-requests/${id}/confirm-payment`,
-    { confirmed: true, paymentMode }
+    { confirmed: true, paymentMode, remarks: remarks ?? "", materialUnitPrice }
   );
   return data;
+}
+
+export async function completeOnsiteMaterialPayment(id: string, remarks?: string) {
+  const { data } = await api.patch<{ message: string; request: MaterialRequest }>(
+    `/material-requests/${id}/complete-onsite-payment`,
+    { confirmed: true, remarks: remarks ?? "" }
+  );
+  return data;
+}
+
+export interface MaterialPaymentDetails {
+  complaintId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  handoverDate: string;
+  serviceEligibility: "Free" | "Paid";
+  serviceFee: number;
+  warrantyEndDate: string;
+  freeServiceMessage: string;
+  materials: Array<{
+    materialName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  materialTotal: number;
+  grandTotal: number;
+  paymentStatus: "Pending" | "Payment Received" | "Payment Pending (Onsite)";
+  paymentMode: "received" | "onsite" | "";
+  receivedBy: string;
+  teamName: string;
+  receivedAt: string | null;
+  remarks: string;
+  paymentId: string;
+  materialRequestId: string;
+  materialRequestStatus: string;
+  canCollectPayment: boolean;
+  canConfirmOnsite: boolean;
+  paymentActionsDisabled: boolean;
+}
+
+export async function fetchMaterialPaymentDetails(id: string) {
+  const { data } = await api.get<{ details: MaterialPaymentDetails }>(
+    `/material-requests/${id}/payment-details`
+  );
+  return data.details;
 }
 
 export async function updateMaterialRequestStatus(
@@ -165,6 +226,7 @@ export const materialStatusBadgeClass: Record<string, string> = {
   PENDING_SERVICE_HEAD: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   DENIED: "bg-red-500/20 text-red-400 border-red-500/30",
   AWAITING_ACCOUNTS: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  PAYMENT_PENDING_ONSITE: "bg-orange-500/20 text-orange-300 border-orange-500/30",
   AWAITING_STOCK_CHECK: "bg-violet-500/20 text-violet-400 border-violet-500/30",
   AWAITING_STORE: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   AWAITING_MATERIAL_RECEIVED: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
@@ -185,6 +247,16 @@ export function getMaterialStatusBadgeClass(status: string) {
   return `${materialStatusBadgeShape} ${
     materialStatusBadgeClass[status] ?? "bg-slate-500/20 text-slate-400 border-slate-500/30"
   }`;
+}
+
+export function getMaterialPaymentStatusBadgeClass(status?: string) {
+  if (status === "Payment Received") {
+    return cn(materialPaymentBadgeShape, "border-emerald-500/40 bg-emerald-500/20 text-emerald-300");
+  }
+  if (status === "Payment Pending (Onsite)") {
+    return cn(materialPaymentBadgeShape, "border-orange-500/40 bg-orange-500/20 text-orange-300");
+  }
+  return cn(materialPaymentBadgeShape, "border-slate-500/40 bg-slate-500/20 text-slate-300");
 }
 
 export function getMaterialPaymentBadgeClass(paid: boolean) {
@@ -231,7 +303,8 @@ export const materialStatusLabel: Record<string, string> = {
   PENDING: "Pending Service Head",
   PENDING_SERVICE_HEAD: "Pending Service Head",
   DENIED: "Denied",
-  AWAITING_ACCOUNTS: "Waiting Accounts",
+  AWAITING_ACCOUNTS: "Waiting Payment",
+  PAYMENT_PENDING_ONSITE: "Payment Pending (Onsite)",
   AWAITING_STOCK_CHECK: "Stock Check (Service Head)",
   AWAITING_STORE: "Waiting Store Manager",
   AWAITING_MATERIAL_RECEIVED: "Confirm Material Received",

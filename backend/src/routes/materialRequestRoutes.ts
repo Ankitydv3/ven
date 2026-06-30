@@ -7,6 +7,7 @@ import {
   materialRequestStatusSchema,
   materialServiceHeadSchema,
   materialPaymentConfirmSchema,
+  materialOnsitePaymentCompleteSchema,
 } from "../validation/materialRequestValidation";
 import {
   createMaterialRequestHandler,
@@ -16,6 +17,8 @@ import {
   updateMaterialRequestStatusHandler,
   serviceHeadReviewHandler,
   confirmMaterialPaymentHandler,
+  getMaterialPaymentDetailsHandler,
+  completeOnsiteMaterialPaymentHandler,
   getUserActivityHistoryHandler,
 } from "../controllers/materialRequestController";
 
@@ -26,6 +29,7 @@ router.use(authRequired);
 router.get("/stats", asyncHandler(materialRequestStatsHandler));
 router.get("/user-history", asyncHandler(getUserActivityHistoryHandler));
 router.get("/", asyncHandler(listMaterialRequestsHandler));
+router.get("/:id/payment-details", asyncHandler(getMaterialPaymentDetailsHandler));
 router.get("/:id", asyncHandler(readMaterialRequestHandler));
 router.post("/", validateRequest(materialRequestCreateSchema), asyncHandler(createMaterialRequestHandler));
 router.patch(
@@ -37,6 +41,11 @@ router.patch(
   "/:id/confirm-payment",
   validateRequest(materialPaymentConfirmSchema),
   asyncHandler(confirmMaterialPaymentHandler)
+);
+router.patch(
+  "/:id/complete-onsite-payment",
+  validateRequest(materialOnsitePaymentCompleteSchema),
+  asyncHandler(completeOnsiteMaterialPaymentHandler)
 );
 router.patch(
   "/:id/status",

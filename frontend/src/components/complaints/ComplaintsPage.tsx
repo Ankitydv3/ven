@@ -67,6 +67,7 @@
     type WorkflowStage,
   } from "@/lib/workflow";
   import { cn } from "@/lib/utils";
+import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests";
   import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
   import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
 
@@ -388,7 +389,7 @@
       [dateFilterActive, dateRange, teamFilter]
     );
 
-    const { data, isLoading, refetch } = useComplaints(listParams);
+    const { data, isLoading, isError, error, refetch } = useComplaints(listParams, ready);
     const { data: stats, isLoading: statsLoading } = useComplaintStats(statsParams);
 
     const items = data?.items ?? [];
@@ -809,33 +810,52 @@
                   </tr>
                 </THead>
                 <tbody>
-                  {isLoading
-                    ? Array.from({ length: 5 }).map((_, i) => (
-                        <TR key={i}>
-                          <TD colSpan={canManage ? 10 : 9}>
-                            <Skeleton className="h-10 rounded-lg bg-white/[0.04]" />
-                          </TD>
-                        </TR>
-                      ))
-                    : items.length === 0
-                      ? (
-                          <TR>
-                            <TD colSpan={canManage ? 10 : 9}>
-                              <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                                <p className="font-medium text-white">No complaints found</p>
-                                <p className="text-sm text-slate-400">
-                                  Try adjusting your search or filters.
-                                </p>
-                              </div>
-                            </TD>
-                          </TR>
-                        )
-                      : items.map((complaint, index) => {
+                  {isError ? (
+                    <TR>
+                      <TD colSpan={canManage ? 10 : 9}>
+                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                          <p className="font-medium text-rose-300">Failed to load complaints</p>
+                          <p className="text-sm text-slate-400">
+                            {getApiErrorMessage(error, "The request timed out or the server is unavailable.")}
+                          </p>
+                          <Button
+                            variant="outline"
+                            className="border-white/10"
+                            onClick={() => void refetch()}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Retry
+                          </Button>
+                        </div>
+                      </TD>
+                    </TR>
+                  ) : isLoading && !data ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TR key={i}>
+                        <TD colSpan={canManage ? 10 : 9}>
+                          <Skeleton className="h-10 rounded-lg bg-white/[0.04]" />
+                        </TD>
+                      </TR>
+                    ))
+                  ) : items.length === 0 ? (
+                    <TR>
+                      <TD colSpan={canManage ? 10 : 9}>
+                        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                          <p className="font-medium text-white">No complaints found</p>
+                          <p className="text-sm text-slate-400">
+                            Try adjusting your search or filters.
+                          </p>
+                        </div>
+                      </TD>
+                    </TR>
+                  ) : (
+                    items.map((complaint, index) => {
                           const rowStatus = getDisplayStatus(complaint);
                           const serial = (page - 1) * limit + index + 1;
                           const isPaid =
                             complaint.paymentStatus === "Paid" ||
                             complaint.paymentStatus === "Partially Paid";
+                          const materialPaymentLabel = complaint.materialPaymentStatus;
                           const canAssign = canManage && canAssignComplaint(complaint);
 
                           return (
@@ -868,16 +888,22 @@
                               </TD>
                               <TD className={cn("text-xs text-slate-400 max-w-[180px] whitespace-normal", wrapTextClass)}>{complaint.location}</TD>
                               <TD>
-                                <Badge
-                                  className={cn(
-                                    "rounded-full border-0 font-normal text-[10px]",
-                                    isPaid
-                                      ? "bg-emerald-500/15 text-emerald-400"
-                                      : "bg-rose-500/15 text-rose-400"
-                                  )}
-                                >
-                                  {isPaid ? "Paid" : "Unpaid"}
-                                </Badge>
+                                {materialPaymentLabel ? (
+                                  <Badge className={cn("rounded-full border-0 font-normal text-[10px]", getMaterialPaymentStatusBadgeClass(materialPaymentLabel))}>
+                                    {materialPaymentLabel}
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    className={cn(
+                                      "rounded-full border-0 font-normal text-[10px]",
+                                      isPaid
+                                        ? "bg-emerald-500/15 text-emerald-400"
+                                        : "bg-rose-500/15 text-rose-400"
+                                    )}
+                                  >
+                                    {isPaid ? "Paid" : "Unpaid"}
+                                  </Badge>
+                                )}
                               </TD>
                               <TD className={cn("max-w-[180px] text-xs text-slate-200 whitespace-normal", wrapTextClass)}>
                                 {complaint.complaintType === "Other" ? complaint.complaintDescription : (complaint.complaintType || complaint.title)}
@@ -982,7 +1008,8 @@
                               </TD>
                             </TR>
                           );
-                        })}
+                    })
+                  )}
                 </tbody>
               </TableElement>
             </div>

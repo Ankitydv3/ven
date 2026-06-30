@@ -8,6 +8,10 @@ export function useTaskCalendar(year: number, month: number, team?: string) {
   return useQuery({
     queryKey: taskKeys.calendar(year, month, team),
     queryFn: () => fetchTaskCalendar(year, month, team),
-    refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }

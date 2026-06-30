@@ -22,24 +22,30 @@ export function useComplaint(id: string) {
   });
 }
 
-export function useComplaints(params: {
-  q?: string;
-  status?: string;
-  displayStatus?: string;
-  page?: number;
-  limit?: number;
-  scope?: string;
-  team?: string;
-  startDate?: string;
-  endDate?: string;
-}) {
+export function useComplaints(
+  params: {
+    q?: string;
+    status?: string;
+    displayStatus?: string;
+    page?: number;
+    limit?: number;
+    scope?: string;
+    team?: string;
+    startDate?: string;
+    endDate?: string;
+  },
+  enabled = true
+) {
   return useQuery({
     queryKey: complaintKeys.list(params),
     queryFn: () => fetchComplaints(params),
-    refetchInterval: 30_000,
+    enabled,
+    placeholderData: (previous) => previous,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
-    refetchOnMount: "always",
-    staleTime: 0,
+    staleTime: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
 
@@ -51,6 +57,9 @@ export function useComplaintStats(params: {
   return useQuery({
     queryKey: [...complaintKeys.all, "stats", params] as const,
     queryFn: () => fetchComplaintStats(params),
-    staleTime: 0,
+    staleTime: 30_000,
+    placeholderData: (previous) => previous,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }

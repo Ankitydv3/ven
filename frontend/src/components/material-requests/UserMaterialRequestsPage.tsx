@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import {
-  useConfirmMaterialPayment,
   useCreateMaterialRequest,
   useMaterialRequests,
   useServiceHeadReviewMaterial,
@@ -27,6 +26,7 @@ import {
 import { MaterialRequestHistoryModal } from "@/components/shared/material-request-history-modal";
 import {
   getMaterialPaymentBadgeClass,
+  getMaterialPaymentStatusBadgeClass,
   getMaterialRequestRemarkLines,
   getMaterialStatusBadgeClass,
   materialStatusLabel,
@@ -34,6 +34,7 @@ import {
   isAccountantUser,
   type MaterialRequest,
 } from "@/services/material-requests";
+import { PaymentDetailsModal } from "@/components/material-requests/PaymentDetailsModal";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
@@ -77,15 +78,18 @@ function MaterialRequestActions({
   req,
   onDone,
   autoOpen = false,
+  role = "admin",
 }: {
   req: MaterialRequest;
   onDone: () => void;
   autoOpen?: boolean;
+  role?: "admin" | "team";
 }) {
+  const router = useRouter();
   const user = readUser();
   const serviceHeadMutation = useServiceHeadReviewMaterial();
-  const accountsMutation = useConfirmMaterialPayment();
   const [open, setOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [revisitDate, setRevisitDate] = useState("");
   const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
@@ -96,20 +100,33 @@ function MaterialRequestActions({
   const isFinalStep = req.status === "GRANTED_BY_STORE";
   const isInitialReview = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
   const isAwaitingAccounts = req.status === "AWAITING_ACCOUNTS";
+  const isOnsitePending = req.status === "PAYMENT_PENDING_ONSITE";
+  const isOnsiteAwaitingStockCheck =
+    req.status === "AWAITING_STOCK_CHECK" && req.paymentMode === "onsite";
 
   const isHead = isServiceHeadUser(user || undefined);
   const isAcc = isAccountantUser(user || undefined);
+  const isTeamView = role === "team";
 
-  const canServiceHead = isHead && (isInitialReview || isStockCheck || isMaterialReceived || isFinalStep || isAwaitingAccounts);
+  const canServiceHead = isHead && (isInitialReview || isStockCheck || isMaterialReceived || isFinalStep);
   const canAccounts = isAcc && isAwaitingAccounts;
+  const canCollectPayment = (canAccounts || (isHead && isAwaitingAccounts)) && isAwaitingAccounts;
+  const canTeamCollectOnsite = isTeamView && isOnsitePending;
+  const canViewPaymentDetails =
+    canCollectPayment ||
+    canTeamCollectOnsite ||
+    Boolean(req.materialPaymentStatus);
 
   useEffect(() => {
-    if (autoOpen && (canServiceHead || canAccounts)) {
+    if (autoOpen && canServiceHead) {
       setOpen(true);
     }
-  }, [autoOpen, canServiceHead, canAccounts]);
+    if (autoOpen && (canCollectPayment || canTeamCollectOnsite)) {
+      setPaymentOpen(true);
+    }
+  }, [autoOpen, canServiceHead, canCollectPayment, canTeamCollectOnsite]);
 
-  if (!canServiceHead && !canAccounts) {
+  if (!canServiceHead && !canCollectPayment && !canTeamCollectOnsite && !canViewPaymentDetails) {
     return <span className="text-xs text-slate-500">—</span>;
   }
 
@@ -137,44 +154,95 @@ function MaterialRequestActions({
       setRevisitTimeSlot("");
       setOpen(false);
       onDone();
+      if (decision === "APPROVED" && isInitialReview) {
+        setPaymentOpen(true);
+      }
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
   };
 
-  const handleConfirmPayment = async (paymentMode: "received" | "onsite") => {
-    try {
-      await accountsMutation.mutateAsync({ id: req._id, paymentMode });
-      toast.success("Payment confirmed — sent to Service Head for stock check");
-      setOpen(false);
-      onDone();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to confirm payment"));
-    }
-  };
+  const actionLabel = canCollectPayment
+    ? "Payment"
+    : canTeamCollectOnsite
+      ? "Collect"
+      : isStockCheck
+        ? "Stock Check"
+        : isMaterialReceived
+          ? "Received"
+          : isFinalStep
+            ? "Final"
+            : "Review";
 
-  const actionLabel = (canAccounts || (isHead && isAwaitingAccounts))
-    ? "Verify Payment"
-    : isStockCheck
-      ? "Stock Check"
-      : isMaterialReceived
-        ? "Material Received"
-        : isFinalStep
-          ? "Final Decision"
-          : "Review";
+  const dialogTitle = isOnsiteAwaitingStockCheck
+    ? `Stock Check · Onsite — ${req.requestId}`
+    : `${actionLabel} — ${req.requestId}`;
+
+  const actionBtnClass =
+    "h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[11px] font-medium leading-none";
+
+  const viewerRole = canTeamCollectOnsite
+    ? "team"
+    : isHead
+      ? "service_head"
+      : isAcc
+        ? "accountant"
+        : "admin";
 
   return (
     <>
-      <Button
-        size="sm"
-        className="h-7 rounded-lg bg-blue-600 text-[10px] hover:bg-blue-500"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-      >
-        {actionLabel}
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        {canServiceHead && (
+          <Button
+            size="sm"
+            title={isOnsiteAwaitingStockCheck ? "Onsite payment — complete stock check first" : undefined}
+            className={cn(
+              actionBtnClass,
+              "bg-blue-600 hover:bg-blue-500",
+              isOnsiteAwaitingStockCheck && "ring-1 ring-orange-400/70"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(true);
+            }}
+          >
+            {isInitialReview ? "Review" : actionLabel}
+          </Button>
+        )}
+
+        {(canCollectPayment || canTeamCollectOnsite) && (
+          <Button
+            size="sm"
+            className={cn(actionBtnClass, "bg-emerald-600 hover:bg-emerald-500")}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPaymentOpen(true);
+            }}
+          >
+            {canTeamCollectOnsite ? "Collect" : "Payment"}
+          </Button>
+        )}
+
+        {canTeamCollectOnsite && (req.taskId || req.complaintId) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={cn(
+              actionBtnClass,
+              "border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              const query = req.complaintId
+                ? `complaintId=${encodeURIComponent(req.complaintId)}`
+                : `q=${encodeURIComponent(req.taskId ?? "")}`;
+              router.push(`/team/my-tasks?${query}`);
+            }}
+          >
+            Task
+          </Button>
+        )}
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
@@ -182,13 +250,20 @@ function MaterialRequestActions({
           onClick={(e) => e.stopPropagation()}
         >
           <DialogHeader className="shrink-0">
-            <DialogTitle className="text-base">{actionLabel} — {req.requestId}</DialogTitle>
+            <DialogTitle className="text-base">{dialogTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2 pr-1">
             <p className="text-xs text-slate-400">
               {req.requestedBy} · {req.materialName} · {materialStatusLabel[req.status]}
             </p>
+
+            {isOnsiteAwaitingStockCheck && (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3 text-xs text-orange-100">
+                Onsite payment is scheduled. Complete stock check first — the assigned team will collect
+                payment after you approve.
+              </div>
+            )}
 
             <Textarea
               value={remarks}
@@ -322,27 +397,17 @@ function MaterialRequestActions({
               </div>
             )}
 
-            {(canAccounts || (isHead && isAwaitingAccounts)) && (
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
-                  disabled={accountsMutation.isPending}
-                  onClick={() => void handleConfirmPayment("received")}
-                >
-                  Payment Received
-                </Button>
-                <Button
-                  className="flex-1 bg-yellow-600 hover:bg-yellow-500"
-                  disabled={accountsMutation.isPending}
-                  onClick={() => void handleConfirmPayment("onsite")}
-                >
-                  Payment Onsite
-                </Button>
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      <PaymentDetailsModal
+        materialRequestId={req._id}
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        onCompleted={onDone}
+        viewerRole={viewerRole}
+      />
     </>
   );
 }
@@ -632,7 +697,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
               : panelClass
           )}
         >
-          {isLoading ? (
+          {isLoading && !data ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-white/40" />
             </div>
@@ -661,8 +726,14 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           <span className="rounded-none border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-300">
                             {req.department || "—"}
                           </span>
-                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
-                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          <span
+                            className={
+                              req.materialPaymentStatus
+                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
+                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
+                            }
+                          >
+                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
                           </span>
                         </div>
                         <p className="text-sm font-semibold text-white">{req.customerName || "—"}</p>
@@ -721,6 +792,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       </Button>
                       <MaterialRequestActions
                         req={req}
+                        role={role}
                         onDone={() => void refetch()}
                         autoOpen={actionTargetId === req._id}
                       />
@@ -742,8 +814,8 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       <TH className="w-[8%] px-3 py-2.5 text-[10px] font-bold text-slate-300">By</TH>
                       <TH className="w-[8%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Date</TH>
                       <TH className="w-[12%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Status</TH>
-                      <TH className="w-[17%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Remarks</TH>
-                      <TH className="w-[12%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Actions</TH>
+                      <TH className="w-[15%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Remarks</TH>
+                      <TH className="w-[14%] px-3 py-2.5 text-[10px] font-bold text-slate-300">Actions</TH>
                     </TR>
                   </THead>
                   <tbody>
@@ -765,8 +837,14 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           </p>
                         </TD>
                         <TD className="px-3 py-2.5 align-middle">
-                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
-                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          <span
+                            className={
+                              req.materialPaymentStatus
+                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
+                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
+                            }
+                          >
+                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
                           </span>
                         </TD>
                         <TD className="px-3 py-2.5 text-xs font-medium text-slate-100 break-words">{req.materialName}</TD>
@@ -786,7 +864,10 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           <MaterialRequestRemarks req={req} compact />
                         </TD>
                         <TD className="px-3 py-2.5 align-middle">
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div
+                            className="flex flex-wrap items-center justify-end gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Button
                               size="sm"
                               variant="ghost"
@@ -807,6 +888,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             </Button>
                             <MaterialRequestActions
                               req={req}
+                              role={role}
                               onDone={() => void refetch()}
                               autoOpen={actionTargetId === req._id}
                             />
@@ -875,8 +957,14 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           {req.customerId || req.orderId || req.complaintId || "—"}
                         </TD>
                         <TD className="px-2 py-2">
-                          <span className={getMaterialPaymentBadgeClass(Boolean(req.orderPaid))}>
-                            {req.orderPaid ? "Paid" : "Unpaid"}
+                          <span
+                            className={
+                              req.materialPaymentStatus
+                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
+                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
+                            }
+                          >
+                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
                           </span>
                         </TD>
                         <TD className="px-2 py-2 text-xs text-slate-100 break-words">{req.materialName}</TD>
