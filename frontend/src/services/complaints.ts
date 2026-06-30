@@ -19,6 +19,7 @@ export async function lookupOrders(params: { phone?: string; orderId?: string })
       deliveryDate: string;
       paid: boolean;
       status: string;
+      salesPerson?: string;
     }>;
   }>("/complaints/lookup-orders", { params });
   return data;

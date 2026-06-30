@@ -237,6 +237,7 @@ export async function createComplaint(req: Request, res: Response) {
   const timeSlot = payload.timeSlot?.trim() || "";
   const locationCoordinates = payload.locationCoordinates?.trim() || "";
   const assignedTeam = payload.assignedTeam?.trim() || "";
+  const salesPerson = payload.salesPerson?.trim() || "";
 
   const availabilityStr = [
     availableDate && `Date: ${availableDate}`,
@@ -269,6 +270,7 @@ const complaint = await Complaint.create({
   mobileNumber,
   email,
   orderId,
+  salesPerson,
   title,
   description,
   priority: payload.priority?.trim() || "Medium",

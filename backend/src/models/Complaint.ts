@@ -37,6 +37,7 @@ const complaintSchema = new Schema(
     mobileNumber: { type: String, required: true, index: true },
     email: { type: String, default: "" },
     orderId: { type: String, default: "", index: true },
+    salesPerson: { type: String, default: "" },
     title: { type: String, required: true },
     description: { type: String, required: true },
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },

@@ -54,6 +54,11 @@ const tabMeta: Record<PortalTab, { eyebrow: string; title: string; description: 
   },
   complaint: {
     eyebrow: "New request",
+<<<<<<< HEAD
+=======
+    title: "Raise a Complaint",
+
+>>>>>>> b30a355ca82e4f77d0af16f5f8f521b4b450a562
     description: "Raise a Complaint in 60 Seconds",
   },
 };
@@ -82,13 +87,21 @@ export function PortalScreen() {
       <div className="relative z-10 flex h-dvh w-full items-center justify-center px-4 py-6 lg:justify-end lg:px-16">
         <div
           className={cn(
+<<<<<<< HEAD
             "flex w-full max-w-[440px] flex-col overflow-hidden rounded-2xl border border-white/[0.09]",
+=======
+            "flex w-full max-w-[570px] flex-col overflow-hidden rounded-2xl border border-white/[0.09]",
+>>>>>>> b30a355ca82e4f77d0af16f5f8f521b4b450a562
             "bg-[#021D38]/90 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.75)] backdrop-blur-2xl sm:rounded-3xl"
           )}
           style={{ maxHeight: "calc(100dvh - 3rem)" }}
         >
           {/* Tab bar */}
+<<<<<<< HEAD
           <div className="flex shrink-0 flex-wrap gap-2 px-5 pt-5 sm:px-7 sm:pt-7">
+=======
+          <div className="flex shrink-0 flex-nowrap gap-1.5 px-5 pt-5 sm:gap-2 sm:px-7 sm:pt-7">
+>>>>>>> b30a355ca82e4f77d0af16f5f8f521b4b450a562
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -98,14 +111,14 @@ export function PortalScreen() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all",
+                    "inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-medium transition-all sm:h-10 sm:gap-2 sm:px-4 sm:text-sm",
                     isActive
                       ? "bg-[#185FA5] text-white shadow-[0_8px_24px_-8px_rgba(24,95,165,0.8)]"
                       : "border border-white/[0.08] bg-white/[0.03] text-white/55 hover:bg-white/[0.06] hover:text-white"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
+                  <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
@@ -142,13 +155,17 @@ export function PortalScreen() {
           </div>
 
           {/* Status indicator */}
+<<<<<<< HEAD
           <div className="flex shrink-0 items-center gap-2 px-5 py-3 text-[11px] text-white/25 sm:px-7">
+=======
+          {/* <div className="flex shrink-0 items-center gap-2 px-5 py-3 text-[11px] text-white/25 sm:px-7">
+>>>>>>> b30a355ca82e4f77d0af16f5f8f521b4b450a562
             <span
               className="block h-1.5 w-1.5 animate-pulse rounded-full"
               style={{ background: "#378ADD", boxShadow: "0 0 6px #378ADD" }}
             />
             System online
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

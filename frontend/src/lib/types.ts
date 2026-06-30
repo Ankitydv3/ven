@@ -254,6 +254,7 @@ export interface Complaint {
   mobileNumber: string;
   email: string;
   orderId?: string;
+  salesPerson?: string;
   title: string;
   description: string;
   priority: Priority;
