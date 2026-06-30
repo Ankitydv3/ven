@@ -44,6 +44,7 @@ import {
   ChevronRight,
   Eye,
   Play,
+  Loader2,
   Users, // Added
 } from "lucide-react";
 import { toast } from "sonner";
@@ -343,6 +344,7 @@ import type { Task } from "@/lib/task.types";
   }) {
     const queryClient = useQueryClient();
     const router = useRouter();
+    const [startingTaskId, setStartingTaskId] = useState<string | null>(null);
     const { data, isLoading } = useQuery<{ items: any[]; total: number; page: number; limit: number }>({
       queryKey: ["dashboard-details", type, filters],
       queryFn: () => {
@@ -439,20 +441,30 @@ import type { Task } from "@/lib/task.types";
                       <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         {role === "team" && type === "task" && item.status === "Pending" && (
                           <button
-                            onClick={async () => {
-                              try {
-                                await patchTaskStatus(item._id, "In Progress");
-                                toast.success("Task started");
-                                await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-                                await queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
-                                navigateToTask(router, role, item);
-                              } catch (err) {
-                                toast.error("Failed to Update Task");
-                              }
+                            onClick={() => {
+                              void (async () => {
+                                setStartingTaskId(item._id);
+                                try {
+                                  await patchTaskStatus(item._id, "In Progress");
+                                  toast.success("Task started");
+                                  void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                                  void queryClient.invalidateQueries({ queryKey: ["dashboard-details"] });
+                                  navigateToTask(router, role, item);
+                                } catch {
+                                  toast.error("Failed to Update Task");
+                                } finally {
+                                  setStartingTaskId(null);
+                                }
+                              })();
                             }}
-                            className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
+                            disabled={startingTaskId === item._id}
+                            className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all disabled:opacity-50"
                           >
-                            <Play className="h-3 w-3" />
+                            {startingTaskId === item._id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Play className="h-3 w-3" />
+                            )}
                             Update Task
                           </button>
                         )}
@@ -845,6 +857,7 @@ import type { Task } from "@/lib/task.types";
   function SummaryTables({ data, role }: { data: DashboardPageData; role: "admin" | "team" | "store" }) {
     const queryClient = useQueryClient();
     const router = useRouter();
+    const [startingTaskId, setStartingTaskId] = useState<string | null>(null);
     const user = readUser();
     const isFullAdmin = user?.role === "admin" || user?.role === "super_admin";
     const isSubAdmin = user?.role === "sub_admin";
@@ -859,13 +872,16 @@ import type { Task } from "@/lib/task.types";
     };
 
     const handleStartTask = async (task: Task) => {
+      setStartingTaskId(task._id);
       try {
         await patchTaskStatus(task._id, "In Progress");
         toast.success("Task started");
-        await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         navigateToTask(router, role, task);
-      } catch (err) {
+      } catch {
         toast.error("Failed to Update Task");
+      } finally {
+        setStartingTaskId(null);
       }
     };
 
@@ -949,9 +965,14 @@ import type { Task } from "@/lib/task.types";
                             {role === "team" && visit.status === "Pending" && (
                               <button
                                 onClick={() => void handleStartTask(visit)}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20"
+                                disabled={startingTaskId === visit._id}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50"
                               >
-                                <Play className="h-3 w-3" />
+                                {startingTaskId === visit._id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
                                 Start
                               </button>
                             )}

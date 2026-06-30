@@ -31,13 +31,10 @@ export function usePatchTaskStatus() {
       patchTaskStatus(id, status, { notes, photoUrl, materialName, quantity, unit, revisitDate }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-      void queryClient.refetchQueries({ queryKey: taskKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      void queryClient.refetchQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["alerts"] });
       void queryClient.invalidateQueries({ queryKey: ["reports"] });
       void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
-      void queryClient.refetchQueries({ queryKey: complaintKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["material-requests"] });
     },
   });

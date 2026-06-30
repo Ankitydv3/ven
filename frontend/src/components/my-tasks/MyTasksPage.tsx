@@ -326,7 +326,6 @@ function TaskDetailPanel({
         onTaskUpdated(result.task);
       }
       toast.success("Task started");
-      await onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to Update Task"));
     }
@@ -398,7 +397,7 @@ function TaskDetailPanel({
       if (completedStatus === "Completed") {
         openFeedback(feedbackTargetFromTask(result.task ?? task));
       }
-      await onRefresh();
+      void onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));
     }
@@ -428,7 +427,7 @@ function TaskDetailPanel({
       setForceUpdateForm(true);
       setNextStatus("Completed");
       toast.success("Payment received — you can now complete the task");
-      await onRefresh();
+      void onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to record payment"));
     }

@@ -98,6 +98,11 @@ export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
     throw new ApiError(403, "You do not have permission to update task status");
   }
 
+  const taskDoc = await Task.findById(existing._id);
+  if (!taskDoc) {
+    throw new ApiError(404, "Task not found");
+  }
+
   const task = await patchTaskStatusById(req.params.id as string, req.body.status, {
     id: req.user?.id ?? "",
     role: req.user?.role ?? "",
@@ -109,7 +114,7 @@ export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
     quantity: req.body.quantity,
     unit: req.body.unit,
     revisitDate: req.body.revisitDate,
-  });
+  }, taskDoc);
   res.json({ message: "Task status updated", task });
 }
 

@@ -893,20 +893,30 @@ export async function patchTaskStatusById(
     quantity?: number;
     unit?: string;
     revisitDate?: Date;
-  }
+  },
+  loadedTask?: InstanceType<typeof Task> | null
 ) {
-  const found = await findTaskByLookup(id);
-  if (!found || !("_id" in found)) {
-    throw new ApiError(404, "Task not found");
-  }
-  const task = await Task.findById(found._id);
+  let task = loadedTask ?? null;
   if (!task) {
-    throw new ApiError(404, "Task not found");
+    const found = await findTaskByLookup(id);
+    if (!found || !("_id" in found)) {
+      throw new ApiError(404, "Task not found");
+    }
+    task = await Task.findById(found._id);
+    if (!task) {
+      throw new ApiError(404, "Task not found");
+    }
   }
 
   if (task.isLocked && status !== "Pending") {
     throw new ApiError(400, "Task is locked. Admin must reopen before changes.");
   }
+
+  const needsPaymentCheck =
+    Boolean(task.complaintId) && (status === "Completed" || isTeamRole(actor.role));
+  const pendingOnsite = needsPaymentCheck
+    ? await getPendingOnsiteMaterialPayment(task.complaintId)
+    : null;
 
   if (isAdminRole(actor.role)) {
     if (["In Progress", "Completed", "Need Re-visit", "Need Material"].includes(status)) {
@@ -919,7 +929,6 @@ export async function patchTaskStatusById(
   }
 
   if (isTeamRole(actor.role)) {
-    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
     const fromInProgress = task.status === "In Progress";
     const fromNeedMaterialOnsite = task.status === "Need Material" && Boolean(pendingOnsite);
     const progressStatuses: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
@@ -953,14 +962,11 @@ export async function patchTaskStatusById(
     }
   }
 
-  if (status === "Completed") {
-    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
-    if (pendingOnsite) {
-      throw new ApiError(
-        400,
-        `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
-      );
-    }
+  if (status === "Completed" && pendingOnsite) {
+    throw new ApiError(
+      400,
+      `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
+    );
   }
 
   const allowReopen = isAdminRole(actor.role) && status === "Pending" && task.status === "Completed";
