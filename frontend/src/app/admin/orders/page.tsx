@@ -1,13 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { DashboardRouteLoading } from "@/components/layout/dashboard-route-loading";
-
-const OrdersPage = dynamic(
-  () => import("@/components/orders/OrdersPage").then((mod) => mod.OrdersPage),
-  { loading: () => <DashboardRouteLoading /> }
-);
+import { LazyOrdersPage } from "@/lib/lazy-pages";
 
 export default function AdminOrdersPage() {
-  return <OrdersPage role="admin" />;
+  return <LazyOrdersPage role="admin" />;
 }

@@ -166,8 +166,6 @@ export function UsersPage({ role = "admin" }: UsersPageProps) {
     }
   };
 
-  if (!ready) return null;
-
   return (
     <DashboardShell
       role={role}

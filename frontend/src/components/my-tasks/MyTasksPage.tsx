@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Filter,
@@ -23,8 +22,7 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import { useComplaints } from "@/hooks/useComplaints";
-import { isMyTasksQueueComplaint, MY_TASKS_SCOPE, sortMyTasksQueueComplaints } from "@/lib/active-complaints";
-import { prefetchMyTasksList } from "@/lib/prefetch-dashboard-routes";
+import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
 import type { Complaint } from "@/lib/types";
 import { getComplaintWorkflowStage, workflowStageBadgeClass } from "@/lib/workflow";
 import { usePatchTaskStatus } from "@/hooks/usePatchTaskStatus";
@@ -40,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Task, TaskPriority, TaskStatus } from "@/lib/task.types";
+import type { Task, TaskStatus } from "@/lib/task.types";
 import {
   formatDueDate,
   panelClass,
@@ -49,9 +47,7 @@ import {
 } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { wrapTextClass } from "@/lib/responsive-text";
-import { getApiErrorMessage, warmBackendConnection } from "@/lib/api";
-import { compressImageFile } from "@/lib/compress-image";
-import { resolveAvatarUrl } from "@/lib/avatar";
+import { getApiErrorMessage } from "@/lib/api";
 import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
@@ -85,62 +81,45 @@ function formatDateTime(dateStr?: string) {
   });
 }
 
-function stubTaskFromComplaint(complaint: Complaint): Task {
-  const dueDate =
-    complaint.taskScheduleDueDate ??
-    complaint.assignedDate ??
-    complaint.createdAt ??
-    new Date().toISOString();
-  const priority = (complaint.priority as TaskPriority | undefined) ?? "Medium";
-  const status =
-    (complaint.taskScheduleStatus as TaskStatus | undefined) ??
-    (complaint.workflowStage === "In Progress" ? "In Progress" : undefined) ??
-    "Pending";
-  const createdAt =
-    complaint.taskCreatedAt ?? complaint.assignedDate ?? complaint.createdAt ?? undefined;
-
-  return {
-    _id: complaint.taskObjectId ?? "",
-    taskId: complaint.taskId ?? "",
-    complaintId: complaint.complaintId,
-    title: complaint.title,
-    description: complaint.description ?? complaint.complaintDescription ?? "",
-    priority,
-    status,
-    assignedTeamName: complaint.assignedTeam,
-    assignedUserName: complaint.assignedUserName,
-    createdBy: complaint.taskCreatedBy ?? complaint.assignedBy ?? "Admin",
-    createdAt,
-    dueDate: typeof dueDate === "string" ? dueDate : new Date(dueDate).toISOString(),
-    history: (complaint.taskHistoryPreview ?? []).map((entry) => ({
-      action: entry.action,
-      by: entry.by,
-      role: entry.role,
-      status: entry.status,
-      remarks: entry.remarks,
-      createdAt: entry.createdAt,
-    })),
-    complaint: {
-      complaintId: complaint.complaintId,
-      clientName: complaint.clientName,
-      mobileNumber: complaint.mobileNumber ?? "",
-      email: complaint.email,
-      title: complaint.title,
-      description: complaint.description ?? complaint.complaintDescription ?? "",
-      priority: complaint.priority ?? "Medium",
-      location: complaint.location ?? "",
-      assignedBy: complaint.assignedBy,
-      assignedDate: complaint.assignedDate,
-    },
-  };
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read photo"));
+    reader.readAsDataURL(file);
+  });
 }
 
-/** Backend accepts Mongo id or human-readable taskId (e.g. TSK-2026-0027). */
-function getTaskMutationId(task: Task): string {
-  if (task.taskId?.startsWith("TSK-")) return task.taskId;
-  if (task.taskId && !task.taskId.startsWith("CMP-")) return task.taskId;
-  if (task._id && /^[a-fA-F0-9]{24}$/.test(task._id)) return task._id;
-  return task.taskId || task.complaintId || task._id;
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load photo"));
+    image.src = src;
+  });
+}
+
+async function compressTaskPhoto(file: File) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImage(source);
+  const maxDimension = 1280;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return source;
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
 function StatCard({
@@ -171,12 +150,10 @@ function ComplaintListCard({
   complaint,
   selected,
   onSelect,
-  onIntent,
 }: {
   complaint: Complaint;
   selected: boolean;
   onSelect: () => void;
-  onIntent?: () => void;
 }) {
   const stage = complaint.workflowStage ?? getComplaintWorkflowStage(complaint);
   const title =
@@ -187,11 +164,6 @@ function ComplaintListCard({
   return (
     <button
       type="button"
-      onPointerEnter={() => onIntent?.()}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        onIntent?.();
-      }}
       onClick={onSelect}
       className={cn(
         "w-full rounded-xl border p-4 text-left transition-all",
@@ -288,24 +260,21 @@ function TaskDetailPanel({
   complaint,
   canUpdate,
   onRefresh,
-  onTaskUpdated,
 }: {
   task: Task;
   complaint?: Complaint | null;
   canUpdate: boolean;
   onRefresh: () => void | Promise<void>;
-  onTaskUpdated: (task: Task) => void;
 }) {
   const patchMutation = usePatchTaskStatus();
   const completeOnsiteMutation = useCompleteOnsiteMaterialPayment();
   const { openFeedback } = useFeedbackPrompt();
-  const user = readUser();
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [nextStatus, setNextStatus] = useState<TaskStatus | "">("");
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<string>("");
-  const [compressingPhoto, setCompressingPhoto] = useState(false);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
   const [materialName, setMaterialName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
@@ -319,6 +288,7 @@ function TaskDetailPanel({
     setNextStatus("");
     setPhotoPreview("");
     setPhotoFile("");
+    setPhotoProcessing(false);
     setMaterialName("");
     setQuantity("");
     setUnit("");
@@ -374,60 +344,34 @@ function TaskDetailPanel({
     return entries;
   }, [task]);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("Photo must be under 8MB");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Photo must be under 5MB");
       return;
     }
-    void (async () => {
-      setCompressingPhoto(true);
-      try {
-        const compressed = await compressImageFile(file);
-        setPhotoPreview(compressed);
-        setPhotoFile(compressed);
-      } catch {
-        toast.error("Could not process photo. Try another image.");
-      } finally {
-        setCompressingPhoto(false);
-        e.target.value = "";
-      }
-    })();
+    setPhotoProcessing(true);
+    try {
+      const result = await compressTaskPhoto(file);
+      setPhotoPreview(result);
+      setPhotoFile(result);
+    } catch {
+      toast.error("Failed to process photo");
+      e.target.value = "";
+    } finally {
+      setPhotoProcessing(false);
+    }
   };
 
-  const handleStart = () => {
-    const previousTask = task;
-    const startedAt = new Date().toISOString();
-    const optimisticTask: Task = {
-      ...task,
-      status: "In Progress",
-      history: [
-        {
-          action: "Task Started",
-          by: user?.name ?? "You",
-          role: user?.role ?? "team",
-          status: "In Progress",
-          createdAt: startedAt,
-        },
-        ...(task.history ?? []),
-      ],
-    };
-    onTaskUpdated(optimisticTask);
-    toast.success("Task started");
-
-    patchMutation.mutate(
-      { id: getTaskMutationId(task), status: "In Progress" },
-      {
-        onSuccess: (result) => {
-          if (result.task) onTaskUpdated(result.task);
-        },
-        onError: (error) => {
-          onTaskUpdated(previousTask);
-          toast.error(getApiErrorMessage(error, "Failed to Update Task"));
-        },
-      }
-    );
+  const handleStart = async () => {
+    try {
+      await patchMutation.mutateAsync({ id: task._id, status: "In Progress" });
+      toast.success("Task started");
+      onRefresh();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to Update Task"));
+    }
   };
 
   const handleUpdateStatus = async () => {
@@ -447,6 +391,11 @@ function TaskDetailPanel({
       return;
     }
 
+    if (photoProcessing) {
+      toast.error("Please wait for the photo to finish processing");
+      return;
+    }
+
     // Photo is mandatory for ALL status updates (Completed, Need Material, Need Re-visit)
     if (!photoFile) {
       toast.error(`Photo is required to mark task as ${nextStatus}`);
@@ -459,8 +408,8 @@ function TaskDetailPanel({
     }
     const completedStatus = nextStatus;
     try {
-      const result = await patchMutation.mutateAsync({
-        id: getTaskMutationId(task),
+      await patchMutation.mutateAsync({
+        id: task._id,
         status: nextStatus,
         notes: notes.trim() || undefined,
         photoUrl: photoFile || undefined,
@@ -473,9 +422,6 @@ function TaskDetailPanel({
           : {}),
         ...(nextStatus === "Need Re-visit" ? { revisitDate } : {}),
       });
-      if (result.task) {
-        onTaskUpdated(result.task);
-      }
       const message =
         nextStatus === "Need Re-visit"
           ? `Re-visit scheduled for ${revisitDate}`
@@ -487,6 +433,7 @@ function TaskDetailPanel({
       setNextStatus("");
       setPhotoPreview("");
       setPhotoFile("");
+      setPhotoProcessing(false);
       setMaterialName("");
       setQuantity("");
       setUnit("");
@@ -494,8 +441,9 @@ function TaskDetailPanel({
       setRevisitTimeSlot("");
       setForceUpdateForm(false);
       if (completedStatus === "Completed") {
-        openFeedback(feedbackTargetFromTask(result.task ?? task));
+        openFeedback(feedbackTargetFromTask(task));
       }
+      onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));
     }
@@ -525,7 +473,7 @@ function TaskDetailPanel({
       setForceUpdateForm(true);
       setNextStatus("Completed");
       toast.success("Payment received — you can now complete the task");
-      void onRefresh();
+      await onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to record payment"));
     }
@@ -580,9 +528,14 @@ function TaskDetailPanel({
             <Button
               size="sm"
               onClick={handleStart}
+              disabled={patchMutation.isPending}
               className="rounded-full bg-blue-600 hover:bg-blue-500"
             >
-              <Play className="mr-1 h-3.5 w-3.5" />
+              {patchMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-1 h-3.5 w-3.5" />
+              )}
               Update Task
             </Button>
           )}
@@ -808,8 +761,14 @@ function TaskDetailPanel({
                     Add Photo {nextStatus ? "*" : ""}
                   </label>
                   <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] p-6 transition hover:border-blue-500/40 hover:bg-white/[0.06]">
-                    <Upload className="mb-2 h-6 w-6 text-slate-400" />
-                    <span className="text-xs text-slate-400">JPG, PNG up to 5MB</span>
+                    {photoProcessing ? (
+                      <Loader2 className="mb-2 h-6 w-6 animate-spin text-slate-400" />
+                    ) : (
+                      <Upload className="mb-2 h-6 w-6 text-slate-400" />
+                    )}
+                    <span className="text-xs text-slate-400">
+                      {photoProcessing ? "Processing photo..." : "JPG, PNG up to 5MB"}
+                    </span>
                     <input
                       type="file"
                       accept="image/jpeg,image/png"
@@ -829,6 +788,7 @@ function TaskDetailPanel({
                         onClick={() => {
                           setPhotoPreview("");
                           setPhotoFile("");
+                          setPhotoProcessing(false);
                         }}
                         className="absolute -right-2 -top-2 rounded-full bg-red-500/90 p-1 text-white hover:bg-red-500"
                         aria-label="Remove photo"
@@ -839,11 +799,11 @@ function TaskDetailPanel({
                   )}
                 </div>
                 <Button
-                  onClick={() => void handleUpdateStatus()}
-                  disabled={patchMutation.isPending || compressingPhoto || !nextStatus}
+                  onClick={handleUpdateStatus}
+                  disabled={patchMutation.isPending || photoProcessing || !nextStatus}
                   className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-500"
                 >
-                  {patchMutation.isPending || compressingPhoto ? (
+                  {patchMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     submitButtonLabel
@@ -889,9 +849,9 @@ function TaskDetailPanel({
                     {entry.remarks && (
                       <p className="mt-1 text-xs text-slate-500">{entry.remarks}</p>
                     )}
-                    {"photoUrl" in entry && entry.photoUrl && resolveAvatarUrl(entry.photoUrl as string) && (
+                    {"photoUrl" in entry && entry.photoUrl && (
                       <img
-                        src={resolveAvatarUrl(entry.photoUrl as string)!}
+                        src={entry.photoUrl as string}
                         alt="Timeline attachment"
                         className="mt-2 max-h-24 rounded-lg border border-white/10 object-cover"
                       />
@@ -921,12 +881,10 @@ function TaskDetailPanel({
 }
 
 export function MyTasksPage({ role }: { role: "admin" | "team" }) {
-  const { ready, user: sessionUser } = useSession(role);
+  const { ready } = useSession(role);
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const user = sessionUser ?? readUser();
-  const canUpdate =
-    role === "team" && canUpdateScheduleProgress(user?.role ?? "team");
+  const user = readUser();
+  const canUpdate = canUpdateScheduleProgress(user?.role);
 
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [appliedSearch, setAppliedSearch] = useState(searchParams.get("q") ?? "");
@@ -937,47 +895,21 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const urlLoadedRef = useRef<string | null>(null);
-  const autoSelectedRef = useRef(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const limit = 10;
-  const listParams = useMemo(
-    () => ({
-      q: appliedSearch || undefined,
-      displayStatus: statusFilter !== "All" ? statusFilter : undefined,
-      scope: MY_TASKS_SCOPE,
-      page,
-      limit,
-    }),
-    [appliedSearch, statusFilter, page, limit]
-  );
+  const limit = 5;
 
-  const { data, isLoading, refetch } = useComplaints(listParams, true, {
-    staleTime: 60_000,
-    refetchOnMount: false,
+  const { data, isLoading, refetch } = useComplaints({
+    q: appliedSearch || undefined,
+    displayStatus: statusFilter !== "All" ? statusFilter : undefined,
+    scope: ACTIVE_COMPLAINT_SCOPE,
+    page,
+    limit,
   });
 
   const complaints = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
-
-  const queueComplaints = useMemo(() => {
-    return complaints
-      .map((complaint) => {
-        if (complaint.complaintId !== selectedComplaintId || !selectedTask) {
-          return complaint;
-        }
-        return {
-          ...complaint,
-          taskScheduleStatus: selectedTask.status,
-          workflowStage:
-            selectedTask.status === "In Progress" ? "In Progress" : complaint.workflowStage,
-          status: selectedTask.status === "In Progress" ? "In Progress" : complaint.status,
-        };
-      })
-      .filter(isMyTasksQueueComplaint)
-      .sort(sortMyTasksQueueComplaints);
-  }, [complaints, selectedComplaintId, selectedTask]);
 
   const stats = useMemo(() => {
     const inProgress = complaints.filter(
@@ -994,103 +926,69 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     return { total, inProgress, pending, revisit };
   }, [complaints, total]);
 
-  const selectComplaint = useCallback((complaint: Complaint) => {
+  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
     setSelectedComplaintId(complaint.complaintId);
     setSelectedComplaint(complaint);
-    setSelectedTask(stubTaskFromComplaint(complaint));
+    setLoadingDetail(true);
+    try {
+      const lookupId = complaint.taskId ?? complaint.complaintId;
+      const detail = await fetchTask(lookupId);
+      setSelectedTask(detail);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to load complaint work details"));
+      setSelectedTask(null);
+    } finally {
+      setLoadingDetail(false);
+    }
   }, []);
 
   useEffect(() => {
-    warmBackendConnection();
-    void prefetchMyTasksList(queryClient);
-  }, [queryClient]);
-
-  useEffect(() => {
     const q = searchParams.get("q");
+    const complaintId = searchParams.get("complaintId") ?? searchParams.get("id");
     if (q) {
       setSearch(q);
       setAppliedSearch(q);
     }
-  }, [searchParams]);
-
-  const urlComplaintId = searchParams.get("complaintId") ?? searchParams.get("id");
-
-  useEffect(() => {
-    if (!urlComplaintId || complaints.length === 0) return;
-    if (urlLoadedRef.current === urlComplaintId) return;
-    const target = complaints.find(
-      (c) => c.complaintId === urlComplaintId || c._id === urlComplaintId
-    );
-    if (!target) return;
-    urlLoadedRef.current = urlComplaintId;
-    selectComplaint(target);
-  }, [urlComplaintId, complaints, selectComplaint]);
+    if (complaintId && complaints.length > 0) {
+      const target = complaints.find(
+        (c) => c.complaintId === complaintId || c._id === complaintId
+      );
+      if (target) {
+        void loadComplaintWorkDetail(target);
+      }
+    }
+  }, [searchParams, complaints, loadComplaintWorkDetail]);
 
   useEffect(() => {
-    if (autoSelectedRef.current || urlComplaintId) return;
-    if (queueComplaints.length === 0) return;
-    autoSelectedRef.current = true;
-    selectComplaint(queueComplaints[0]);
-  }, [queueComplaints, urlComplaintId, selectComplaint]);
+    if (
+      complaints.length > 0 &&
+      !selectedComplaintId &&
+      !searchParams.get("id") &&
+      !searchParams.get("complaintId")
+    ) {
+      void loadComplaintWorkDetail(complaints[0]);
+    }
+  }, [complaints, selectedComplaintId, searchParams, loadComplaintWorkDetail]);
 
   const handleSearch = () => {
     setAppliedSearch(search.trim());
     setPage(1);
   };
 
-  const handleSelectComplaint = selectComplaint;
-
-  const showListLoading = isLoading && complaints.length === 0;
-
-  const handleTaskUpdated = useCallback((task: Task) => {
-    setSelectedTask(task);
-    setSelectedComplaint((prev) => {
-      if (!prev || prev.complaintId !== task.complaintId) return prev;
-      return {
-        ...prev,
-        taskScheduleStatus: task.status,
-        workflowStage: task.status === "In Progress" ? "In Progress" : prev.workflowStage,
-        status: task.status === "In Progress" ? "In Progress" : prev.status,
-      };
-    });
-  }, []);
+  const handleSelectComplaint = (complaint: Complaint) => {
+    void loadComplaintWorkDetail(complaint);
+  };
 
   const handleRefreshDetail = useCallback(async () => {
-    if (!selectedComplaintId) return;
-
-    const lookupId =
-      selectedComplaint?.taskId ?? selectedTask?.taskId ?? selectedComplaintId;
-
-    try {
-      const detail = await fetchTask(lookupId);
-      setSelectedTask(detail);
-    } catch {
-      // Keep the last known task state if a background refresh fails.
-    }
-
     const { data } = await refetch();
-    const items = data?.items ?? [];
+    const items = data?.items ?? complaints;
+    if (!selectedComplaintId) return;
     const updated = items.find((c) => c.complaintId === selectedComplaintId);
     if (updated) {
       setSelectedComplaint(updated);
-      if (updated.taskId && updated.taskId !== lookupId) {
-        try {
-          const detail = await fetchTask(updated.taskId);
-          setSelectedTask(detail);
-        } catch {
-          // Ignore secondary refresh failures.
-        }
-      }
+      await loadComplaintWorkDetail(updated);
     }
-  }, [refetch, selectedComplaintId, selectedComplaint, selectedTask]);
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
-  }
+  }, [refetch, complaints, selectedComplaintId, loadComplaintWorkDetail]);
 
   return (
     <DashboardShell
@@ -1183,34 +1081,27 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
         <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
           <div className={cn(panelClass, "flex flex-col p-4")}>
             <h3 className="mb-3 text-sm font-semibold text-white">Assigned Complaints</h3>
-            {showListLoading ? (
+            {isLoading ? (
               <div className="flex flex-1 items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40" />
               </div>
-            ) : queueComplaints.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-400">
-                {selectedTask
-                  ? "No more pending complaints in queue"
-                  : "No active complaints assigned to you"}
-              </p>
+            ) : complaints.length === 0 ? (
+              <p className="py-12 text-center text-sm text-slate-400">No active complaints assigned to you</p>
             ) : (
               <div className="space-y-3">
-                {queueComplaints.map((complaint) => (
+                {complaints.map((complaint) => (
                   <ComplaintListCard
                     key={complaint._id}
                     complaint={complaint}
                     selected={selectedComplaintId === complaint.complaintId}
-                    onIntent={() => selectComplaint(complaint)}
-                    onSelect={() => selectComplaint(complaint)}
+                    onSelect={() => handleSelectComplaint(complaint)}
                   />
                 ))}
               </div>
             )}
             <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-400">
               <span>
-                {queueComplaints.length > 0
-                  ? `Showing ${queueComplaints.length} pending complaint${queueComplaints.length === 1 ? "" : "s"}`
-                  : "Queue empty"}
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} complaints
               </span>
               <div className="flex gap-1">
                 <Button
@@ -1236,13 +1127,16 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
           </div>
 
           <div className={cn(panelClass, "min-h-[600px] p-5")}>
-            {selectedComplaint && selectedTask ? (
+            {loadingDetail ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+              </div>
+            ) : selectedTask ? (
               <TaskDetailPanel
                 task={selectedTask}
                 complaint={selectedComplaint}
-                canUpdate={canUpdate && Boolean(selectedTask.taskId?.startsWith("TSK-"))}
+                canUpdate={canUpdate}
                 onRefresh={handleRefreshDetail}
-                onTaskUpdated={handleTaskUpdated}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">

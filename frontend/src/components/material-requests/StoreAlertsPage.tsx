@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
-import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell,
   Package,
@@ -18,7 +17,6 @@ import {
   CheckCircle2,
   Clock,
   Hourglass,
-  AlertTriangle,
   ChevronRight,
   MoreHorizontal,
   Globe,
@@ -139,7 +137,6 @@ function SectionShell({
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-slate-600">{subtitle}</p>
           </div>
         </div>
         <div className="mt-3 relative flex-1">
@@ -246,7 +243,7 @@ export function StoreAlertsPage() {
     );
   }, [requests, requestSearch]);
 
-  const handleUpdateStatus = async (id: string, decision: "WAIT" | "GRANT", availability: "AVAILABLE" | "OUT_OF_STOCK") => {
+  const handleUpdateStatus = async (id: string, decision: "WAIT" | "DECLINE" | "GRANT", availability: "AVAILABLE" | "OUT_OF_STOCK") => {
     try {
       await updateMutation.mutateAsync({
         id,
@@ -263,14 +260,6 @@ export function StoreAlertsPage() {
       toast.error("Failed to update request");
     }
   };
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
-  }
 
   return (
     <DashboardShell
@@ -387,12 +376,13 @@ export function StoreAlertsPage() {
                 onClick={() => setSelectedRequest(req)}
               >
                 <div className="flex items-start gap-3">
-                  <MaterialRequestImageThumb
-                    id={req._id}
-                    hasImage={req.hasImage}
-                    imageUrl={req.imageUrl}
-                    alt={req.materialName}
-                  />
+                  {req.imageUrl ? (
+                    <img src={req.imageUrl} alt={req.materialName} className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 ring-1 ring-blue-500/20">
+                      <Package className="h-5 w-5 text-blue-400" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-white">{req.materialName}</p>
@@ -435,7 +425,7 @@ export function StoreAlertsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus(req._id, "WAIT", "OUT_OF_STOCK"); }}>
                               <Clock className="mr-2 h-4 w-4 text-amber-400" />
-                              Out of Stock: Wait
+                              Not Available: Wait
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -474,16 +464,9 @@ export function StoreAlertsPage() {
           </div>
 
           <div className="space-y-5 p-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
-            {(selectedRequest?.hasImage || selectedRequest?.imageUrl) && (
+            {selectedRequest?.imageUrl && (
               <div className="rounded-xl overflow-hidden border border-white/10">
-                <MaterialRequestImageThumb
-                  id={selectedRequest._id}
-                  hasImage={selectedRequest.hasImage ?? Boolean(selectedRequest.imageUrl)}
-                  imageUrl={selectedRequest.imageUrl}
-                  alt={selectedRequest.materialName}
-                  loadImmediately
-                  detail
-                />
+                <img src={selectedRequest.imageUrl} alt="Material" className="w-full h-auto object-contain bg-black/20 max-h-64" />
               </div>
             )}
 
@@ -534,7 +517,7 @@ export function StoreAlertsPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => selectedRequest && handleUpdateStatus(selectedRequest._id, "WAIT", "OUT_OF_STOCK")}>
                     <Hourglass className="mr-2 h-4 w-4 text-orange-400" />
-                    Out of Stock: Wait
+                    Not Available: Wait
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

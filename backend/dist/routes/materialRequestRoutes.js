@@ -12,7 +12,6 @@ router.get("/stats", (0, asyncHandler_1.asyncHandler)(materialRequestController_
 router.get("/user-history", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.getUserActivityHistoryHandler));
 router.get("/", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.listMaterialRequestsHandler));
 router.get("/:id/payment-details", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.getMaterialPaymentDetailsHandler));
-router.get("/:id/image", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.readMaterialRequestImageHandler));
 router.get("/:id", (0, asyncHandler_1.asyncHandler)(materialRequestController_1.readMaterialRequestHandler));
 router.post("/", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialRequestCreateSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.createMaterialRequestHandler));
 router.patch("/:id/service-head", (0, validateRequest_1.validateRequest)(materialRequestValidation_1.materialServiceHeadSchema), (0, asyncHandler_1.asyncHandler)(materialRequestController_1.serviceHeadReviewHandler));

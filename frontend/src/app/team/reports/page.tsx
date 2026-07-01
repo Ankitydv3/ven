@@ -1,5 +1,5 @@
-import { ReportsPage } from "@/components/reports/ReportsPage";
+import { LazyReportsPage } from "@/lib/lazy-pages";
 
 export default function TeamReportsPage() {
-  return <ReportsPage role="team" />;
+  return <LazyReportsPage role="team" />;
 }

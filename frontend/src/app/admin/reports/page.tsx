@@ -1,10 +1,5 @@
-import { ReportsPage } from "@/components/reports/ReportsPage";
-
-export const metadata = {
-  title: "Reports",
-  description: "Performance overview of all service teams with analytics and feedback insights.",
-};
+import { LazyReportsPage } from "@/lib/lazy-pages";
 
 export default function AdminReportsPage() {
-  return <ReportsPage />;
+  return <LazyReportsPage role="admin" />;
 }

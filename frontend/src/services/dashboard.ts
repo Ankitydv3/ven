@@ -35,7 +35,24 @@ export async function fetchPendingActions(limit = 10) {
   return data;
 }
 
-const DASHBOARD_TIMEOUT_MS = 20_000;
+const DASHBOARD_TIMEOUT_MS = 45_000;
+const SITE_VISITS_TIMEOUT_MS = 12_000;
+
+async function fetchTodaysSiteVisits(
+  params: Record<string, string | number | boolean>,
+  requestConfig: { timeout: number }
+) {
+  try {
+    const { data } = await api.get<{ items: Task[] }>("/tasks", {
+      params,
+      ...requestConfig,
+      timeout: SITE_VISITS_TIMEOUT_MS,
+    });
+    return data.items ?? [];
+  } catch {
+    return [] as Task[];
+  }
+}
 
 export async function fetchDashboardPage(
   portalRole: "admin" | "team" | "store" = "admin",
@@ -49,22 +66,31 @@ export async function fetchDashboardPage(
         ? { upcoming: true, limit: 15, sortBy: "dueDate", sortOrder: "asc" as const }
         : { upcoming: true, limit: 20, sortBy: "dueDate", sortOrder: "asc" as const };
 
-  const siteVisitRequest = siteVisitParams
-    ? api
-        .get<{ items: Task[] }>("/tasks", { params: siteVisitParams, ...requestConfig })
-        .then((response) => response.data.items ?? [])
-    : Promise.resolve([] as Task[]);
+  const [dashboardResult, resolvedReasonsResult, pendingActionsResult, siteVisitsResult] =
+    await Promise.allSettled([
+      api.get<DashboardMainPayload>("/dashboard", requestConfig).then((response) => response.data),
+      api
+        .get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons", requestConfig)
+        .then((response) => response.data.resolvedReasons ?? []),
+      api
+        .get<{ items: DashboardPendingAction[] }>("/dashboard/pending-actions", requestConfig)
+        .then((response) => response.data.items ?? []),
+      siteVisitParams
+        ? fetchTodaysSiteVisits(siteVisitParams, requestConfig)
+        : Promise.resolve([] as Task[]),
+    ]);
 
-  const [dashboardMain, resolvedReasons, pendingActions, todaysSiteVisits] = await Promise.all([
-    api.get<DashboardMainPayload>("/dashboard", requestConfig).then((response) => response.data),
-    api
-      .get<{ resolvedReasons: DashboardReasonPoint[] }>("/dashboard/resolved-reasons", requestConfig)
-      .then((response) => response.data.resolvedReasons ?? []),
-    api
-      .get<{ items: DashboardPendingAction[] }>("/dashboard/pending-actions", requestConfig)
-      .then((response) => response.data.items ?? []),
-    siteVisitRequest,
-  ]);
+  if (dashboardResult.status === "rejected") {
+    throw dashboardResult.reason;
+  }
+
+  const dashboardMain = dashboardResult.value;
+  const resolvedReasons =
+    resolvedReasonsResult.status === "fulfilled" ? resolvedReasonsResult.value : [];
+  const pendingActions =
+    pendingActionsResult.status === "fulfilled" ? pendingActionsResult.value : [];
+  const todaysSiteVisits =
+    siteVisitsResult.status === "fulfilled" ? siteVisitsResult.value : [];
 
   const taskStats: DashboardTaskSummary = {
     totalTasks: dashboardMain.totalTasks ?? 0,

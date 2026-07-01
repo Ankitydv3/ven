@@ -52,7 +52,7 @@ export function ScheduleTaskStatusChart({ stats, isLoading }: ScheduleTaskStatus
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    background: "#020a17",
+                    background: "#080808",
                     border: "1px solid rgba(255,255,255,0.08)",
                     borderRadius: 12,
                     color: "#fff",

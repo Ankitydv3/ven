@@ -1,5 +1,5 @@
-import { AlertsPage } from "@/components/alerts/AlertsPage";
+import { LazyAlertsPage } from "@/lib/lazy-pages";
 
 export default function TeamAlertsPage() {
-  return <AlertsPage role="team" />;
+  return <LazyAlertsPage role="team" />;
 }

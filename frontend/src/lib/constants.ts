@@ -1,4 +1,4 @@
-export const APP_BG = "#020a17";
+export const APP_BG = "#080808";
 
 export const complaintStatuses = [
   "All",

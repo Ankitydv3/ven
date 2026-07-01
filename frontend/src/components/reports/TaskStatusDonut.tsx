@@ -50,7 +50,7 @@ export const TaskStatusDonut = memo(function TaskStatusDonut({ data, total }: Ta
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#020a17",
+                    backgroundColor: "#080808",
                     border: "1px solid rgba(148,163,184,0.2)",
                     borderRadius: "10px",
                     color: "#fff",

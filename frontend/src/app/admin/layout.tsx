@@ -1,5 +1,14 @@
-import { DashboardPortalLayout } from "@/components/layout/dashboard-portal-layout";
+"use client";
+
+import { usePathname } from "next/navigation";
+import { PortalDashboardLayout } from "@/components/layout/portal-dashboard-layout";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardPortalLayout role="admin">{children}</DashboardPortalLayout>;
+  const pathname = usePathname();
+
+  if (pathname === "/admin/login") {
+    return children;
+  }
+
+  return <PortalDashboardLayout role="admin">{children}</PortalDashboardLayout>;
 }

@@ -1,5 +1,5 @@
-import { CustomerPage } from "@/components/customers/customer-page";
+import { LazyCustomerPage } from "@/lib/lazy-pages";
 
 export default function CustomersPage() {
-  return <CustomerPage />;
+  return <LazyCustomerPage />;
 }

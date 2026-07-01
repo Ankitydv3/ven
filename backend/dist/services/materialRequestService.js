@@ -41,13 +41,8 @@ const STATUS_MESSAGES = {
     AWAITING_FINAL_GRANT: "Store released material. Service Head must confirm receipt and reschedule.",
     WAITING: "Material request is waiting for stock availability.",
     OUT_OF_STOCK: "Requested material is currently out of stock.",
-    GRANTED_BY_STORE: "Store granted material. Service Head must confirm receipt.",
     GRANTED: "Material granted. Team can resume work.",
 };
-/** Status updates must not load embedded photos — each image can be several MB. */
-async function findMaterialRequestForMutation(id) {
-    return MaterialRequest_1.default.findById(id).select("-imageUrl");
-}
 async function createMaterialAlert(type, request, message, options) {
     await MaterialAlert_1.default.create({
         type,
@@ -86,9 +81,11 @@ async function notifyServiceHeadsForStockCheck(request) {
     const message = request.paymentMode === "onsite"
         ? `Onsite payment scheduled for ${request.requestId}. Complete stock check — team will collect payment after approval.`
         : STATUS_MESSAGES.AWAITING_STOCK_CHECK;
-    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_service_head_pending", request, message, {
-        userId: head._id,
-    })));
+    for (const head of serviceHeads) {
+        await createMaterialAlert("material_service_head_pending", request, message, {
+            userId: head._id,
+        });
+    }
 }
 async function notifyServiceHeads(request) {
     const serviceHeads = await User_1.default.find({
@@ -100,37 +97,7 @@ async function notifyServiceHeads(request) {
         deletedAt: null,
     }).select("_id");
     const message = `${request.requestedBy} requested ${request.quantity} ${request.unit} of ${request.materialName}. Awaiting Service Head approval.`;
-    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_service_head_pending", request, message, {
-        userId: head._id,
-    })));
-}
-async function notifyServiceHeadsForStoreGrant(request) {
-    const serviceHeads = await User_1.default.find({
-        $or: [
-            { role: { $in: ["super_admin", "admin"] } },
-            { role: "sub_admin", subAdminType: "plant_head" },
-        ],
-        status: "active",
-        deletedAt: null,
-    }).select("_id");
-    const message = `Store granted ${request.quantity} ${request.unit} of ${request.materialName} (${request.requestId}). Confirm whether material was received.`;
-    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_awaiting_final_grant", request, message, {
-        userId: head._id,
-    })));
-}
-async function notifyStoreManagersMaterialNotReceived(request) {
-    const storeManagers = await User_1.default.find({
-        role: "store_manager",
-        status: "active",
-        deletedAt: null,
-    }).select("_id");
-    const message = `Material not received for ${request.requestId} (${request.materialName}). Please verify and re-release.`;
-    for (const sm of storeManagers) {
-        await createMaterialAlert("material_not_received", request, message, {
-            userId: sm._id,
-            targetRole: "store_manager",
-        });
-    }
+    await Promise.all(serviceHeads.map((head) => createMaterialAlert("material_service_head_pending", request, message, { userId: head._id })));
 }
 async function notifyAccountants(request, paymentId) {
     const accountants = await User_1.default.find({
@@ -143,11 +110,14 @@ async function notifyAccountants(request, paymentId) {
         deletedAt: null,
     }).select("_id");
     const message = `Payment ${paymentId} pending for material request ${request.requestId}. Please confirm receipt.`;
-    for (const accountant of accountants) {
-        await createMaterialAlert("material_awaiting_accounts", request, message, {
-            userId: accountant._id,
-        });
-    }
+    await Promise.all(accountants.map((accountant) => createMaterialAlert("material_awaiting_accounts", request, message, {
+        userId: accountant._id,
+    })));
+}
+function runMaterialSideEffect(label, work) {
+    void work.catch((error) => {
+        console.error(`Failed to ${label}`, error);
+    });
 }
 async function notifyStoreManagers(request) {
     const storeManagers = await User_1.default.find({
@@ -350,7 +320,9 @@ async function createMaterialRequest(payload) {
             },
         ],
     });
-    await notifyServiceHeads(request);
+    void notifyServiceHeads(request).catch((error) => {
+        console.error("Failed to notify service heads for material request", error);
+    });
     return request.toObject();
 }
 async function listMaterialRequests(options) {
@@ -384,7 +356,7 @@ async function listMaterialRequests(options) {
     }
     const skip = (options.page - 1) * options.limit;
     const queryTimeoutMs = 20_000;
-    const [rawItems, total] = await Promise.all([
+    const [items, total] = await Promise.all([
         MaterialRequest_1.default.find(filter)
             .select("-imageUrl -history")
             .sort({ createdAt: -1 })
@@ -394,19 +366,6 @@ async function listMaterialRequests(options) {
             .maxTimeMS(queryTimeoutMs),
         MaterialRequest_1.default.countDocuments(filter).maxTimeMS(queryTimeoutMs),
     ]);
-    const idsWithImage = rawItems.length > 0
-        ? new Set((await MaterialRequest_1.default.find({
-            _id: { $in: rawItems.map((item) => item._id) },
-            imageUrl: { $exists: true, $nin: [null, ""] },
-        })
-            .select("_id")
-            .lean()
-            .maxTimeMS(queryTimeoutMs)).map((row) => String(row._id)))
-        : new Set();
-    const items = rawItems.map((item) => ({
-        ...item,
-        hasImage: idsWithImage.has(String(item._id)),
-    }));
     const complaintIds = [
         ...new Set(items.map((item) => item.complaintId).filter(Boolean)),
     ];
@@ -495,11 +454,11 @@ async function getMaterialRequestById(id) {
     }
     return request;
 }
-async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisitDate, revisitTimeSlot, stockDecision, paymentRequired, paymentAction) {
+async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisitDate, revisitTimeSlot, stockDecision) {
     if (!(0, teamScope_1.isServiceHead)(actor)) {
         throw new ApiError_1.ApiError(403, "Only Service Head can approve or deny material requests");
     }
-    const request = await findMaterialRequestForMutation(id);
+    const request = await MaterialRequest_1.default.findById(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -507,19 +466,17 @@ async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisi
     // Service Head confirms material received from store → reschedule
     if (materialReceivedStatuses.includes(request.status)) {
         if (decision === "DENIED") {
-            request.status = "AWAITING_STORE";
-            request.serviceHeadRemarks = serviceHeadRemarks ?? "";
+            request.status = "DENIED";
             request.history.push({
-                action: "Service Head — Material Not Received — Sent back to Store",
+                action: "Service Head Denied — Material Not Accepted",
                 by: actor.name,
                 role: actor.role,
-                status: "AWAITING_STORE",
+                status: "DENIED",
                 remarks: serviceHeadRemarks ?? "",
                 createdAt: new Date(),
             });
             await request.save();
-            await addTaskHistory(request.taskId ?? undefined, "Material not received — sent back to Store Manager", actor.name, actor.role);
-            await notifyStoreManagersMaterialNotReceived(request);
+            await addTaskHistory(request.taskId ?? undefined, "Service Head Denied Material Receipt", actor.name, actor.role);
             return request.toObject();
         }
         if (!revisitDate) {
@@ -528,28 +485,41 @@ async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisi
         await finalizeMaterialGrantWithReschedule(request, actor, revisitDate, revisitTimeSlot, "Material Received & Task Rescheduled", serviceHeadRemarks);
         return request.toObject();
     }
-    // Service Head confirms receipt after Store Manager grants & forwards
+    // Service Head Final Decision after Store Manager Grants
     if (request.status === "GRANTED_BY_STORE") {
         if (decision === "DENIED") {
-            request.status = "AWAITING_STORE";
-            request.serviceHeadRemarks = serviceHeadRemarks ?? "";
+            request.status = "REJECTED";
             request.history.push({
-                action: "Service Head — Material Not Received — Sent back to Store",
+                action: "Service Head Rejected Final Decision",
                 by: actor.name,
                 role: actor.role,
-                status: "AWAITING_STORE",
+                status: "REJECTED",
                 remarks: serviceHeadRemarks ?? "",
                 createdAt: new Date(),
             });
             await request.save();
-            await addTaskHistory(request.taskId ?? undefined, "Material not received — sent back to Store Manager", actor.name, actor.role);
-            await notifyStoreManagersMaterialNotReceived(request);
+            await addTaskHistory(request.taskId ?? undefined, "Service Head Rejected Material", actor.name, actor.role);
             return request.toObject();
         }
-        if (!revisitDate) {
-            throw new ApiError_1.ApiError(400, "Revisit date is required to confirm material received and reschedule");
+        if (decision === "COMPLETED") {
+            request.status = "COMPLETED";
+            request.history.push({
+                action: "Service Head Marked as Completed",
+                by: actor.name,
+                role: actor.role,
+                status: "COMPLETED",
+                remarks: serviceHeadRemarks ?? "",
+                createdAt: new Date(),
+            });
+            await request.save();
+            await addTaskHistory(request.taskId ?? undefined, "Material Request Completed", actor.name, actor.role);
+            return request.toObject();
         }
-        await finalizeMaterialGrantWithReschedule(request, actor, revisitDate, revisitTimeSlot, "Material Received & Task Rescheduled", serviceHeadRemarks);
+        // Default Approved
+        if (!revisitDate) {
+            throw new ApiError_1.ApiError(400, "Revisit date is required for final approval and rescheduling");
+        }
+        await finalizeMaterialGrantWithReschedule(request, actor, revisitDate, revisitTimeSlot, "Service Head Final Approval", serviceHeadRemarks);
         return request.toObject();
     }
     // Service Head stock check after accounts approval
@@ -657,87 +627,27 @@ async function serviceHeadReview(id, decision, actor, serviceHeadRemarks, revisi
     }
     request.serviceHeadRemarks = serviceHeadRemarks ?? "";
     request.orderId = order.orderId;
-    if (paymentRequired === undefined) {
-        throw new ApiError_1.ApiError(400, "Please select whether payment is required");
-    }
-    request.paymentRequired = paymentRequired;
-    if (!paymentRequired) {
-        if (!stockDecision) {
-            throw new ApiError_1.ApiError(400, "Please choose Available on Stock or Transfer to Stock");
-        }
-        if (stockDecision === "STOCK_AVAILABLE") {
-            if (!revisitDate) {
-                throw new ApiError_1.ApiError(400, "Revisit date is required when stock is available");
-            }
-            await finalizeMaterialGrantWithReschedule(request, actor, revisitDate, revisitTimeSlot, "Service Head Approved — No Payment — Stock Available — Task Rescheduled", serviceHeadRemarks);
-            return request.toObject();
-        }
-        request.status = "AWAITING_STORE";
-        request.history.push({
-            action: "Service Head Approved — No Payment — Transferred to Store",
-            by: actor.name,
-            role: actor.role,
-            status: "AWAITING_STORE",
-            remarks: serviceHeadRemarks ?? "",
-            createdAt: new Date(),
-        });
-        await request.save();
-        await addTaskHistory(request.taskId ?? undefined, "Transferred to Store", actor.name, actor.role);
-        await notifyStoreManagers(request);
-        if (request.requestedById) {
-            await createMaterialAlert("material_awaiting_store", request, STATUS_MESSAGES.AWAITING_STORE, {
-                userId: request.requestedById,
-            });
-        }
-        return request.toObject();
-    }
-    if (!paymentAction) {
-        throw new ApiError_1.ApiError(400, "Please select Received or Onsite payment");
-    }
-    request.paymentMode = paymentAction;
-    if (paymentAction === "onsite") {
-        request.status = "AWAITING_STOCK_CHECK";
-        request.history.push({
-            action: "Service Head Approved — Payment Onsite — Awaiting Stock Check",
-            by: actor.name,
-            role: actor.role,
-            status: "AWAITING_STOCK_CHECK",
-            remarks: serviceHeadRemarks ?? "",
-            createdAt: new Date(),
-        });
-        await request.save();
-        await addTaskHistory(request.taskId ?? undefined, "Payment Onsite — Stock Check Required", actor.name, actor.role);
-        return request.toObject();
-    }
-    if (!stockDecision) {
-        throw new ApiError_1.ApiError(400, "Please choose Available on Stock or Transfer to Stock");
-    }
-    request.paymentVerifiedAt = new Date();
-    request.paymentVerifiedBy = actor.name;
-    request.paymentVerifiedByRole = actor.role;
-    if (stockDecision === "STOCK_AVAILABLE") {
-        if (!revisitDate) {
-            throw new ApiError_1.ApiError(400, "Revisit date is required when stock is available");
-        }
-        await finalizeMaterialGrantWithReschedule(request, actor, revisitDate, revisitTimeSlot, "Service Head Approved — Payment Received — Stock Available — Task Rescheduled", serviceHeadRemarks);
-        return request.toObject();
-    }
-    request.status = "AWAITING_STORE";
+    const paymentId = await (0, materialPaymentService_1.createDraftMaterialPayment)(request, complaint, order);
+    request.paymentId = paymentId;
+    request.status = "AWAITING_ACCOUNTS";
     request.history.push({
-        action: "Service Head Approved — Payment Received — Transferred to Store",
+        action: "Service Head Approved — Awaiting Payment",
         by: actor.name,
         role: actor.role,
-        status: "AWAITING_STORE",
+        status: "AWAITING_ACCOUNTS",
         remarks: serviceHeadRemarks ?? "",
         createdAt: new Date(),
     });
     await request.save();
-    await addTaskHistory(request.taskId ?? undefined, "Payment Received — Transferred to Store", actor.name, actor.role);
-    await notifyStoreManagers(request);
+    runMaterialSideEffect("record material approval task history", Promise.all([
+        addTaskHistory(request.taskId ?? undefined, "Service Head Approved", actor.name, actor.role),
+        addTaskHistory(request.taskId ?? undefined, "Awaiting payment confirmation", "System", "system"),
+    ]));
+    runMaterialSideEffect("notify accountants for material approval", notifyAccountants(request, paymentId));
     if (request.requestedById) {
-        await createMaterialAlert("material_awaiting_store", request, STATUS_MESSAGES.AWAITING_STORE, {
+        runMaterialSideEffect("notify requester for material approval", createMaterialAlert("material_awaiting_accounts", request, STATUS_MESSAGES.AWAITING_ACCOUNTS, {
             userId: request.requestedById,
-        });
+        }));
     }
     return request.toObject();
 }
@@ -746,7 +656,7 @@ async function confirmMaterialPayment(id, actor, paymentMode = "received", remar
     if (!isVerifier) {
         throw new ApiError_1.ApiError(403, "Only Accounts or Service Head can confirm material payments");
     }
-    const request = await findMaterialRequestForMutation(id);
+    const request = await MaterialRequest_1.default.findById(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -778,7 +688,7 @@ async function confirmMaterialPayment(id, actor, paymentMode = "received", remar
     return result.request;
 }
 async function completeOnsiteMaterialPayment(id, actor, remarks) {
-    const request = await findMaterialRequestForMutation(id);
+    const request = await MaterialRequest_1.default.findById(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -843,7 +753,7 @@ async function completeOnsiteMaterialPayment(id, actor, remarks) {
     return result.request;
 }
 async function updateMaterialRequestStatus(id, decision, availability, actor, storeManagerRemarks, revisitDate, revisitTimeSlot) {
-    const request = await findMaterialRequestForMutation(id);
+    const request = await MaterialRequest_1.default.findById(id);
     if (!request) {
         throw new ApiError_1.ApiError(404, "Material request not found");
     }
@@ -892,12 +802,8 @@ async function updateMaterialRequestStatus(id, decision, availability, actor, st
     });
     await request.save();
     await addTaskHistory(request.taskId ?? undefined, actionLabel, actor.name, actor.role);
-    if (nextStatus === "GRANTED_BY_STORE") {
-        await notifyServiceHeadsForStoreGrant(request);
-    }
-    else {
-        await notifyServiceHeads(request);
-    }
+    // Notify Service Head for all Store Manager decisions
+    await notifyServiceHeads(request);
     if (request.requestedById) {
         let alertType = "material_waiting";
         if (nextStatus === "DECLINED_BY_STORE")
@@ -984,16 +890,13 @@ async function getUserActivityHistory(userId, q) {
         throw new ApiError_1.ApiError(404, "User not found");
     }
     const materialRequests = await MaterialRequest_1.default.find({ requestedById: userObjectId })
-        .select("-imageUrl")
         .sort({ createdAt: -1 })
         .lean();
     const complaintIds = [
         ...new Set(materialRequests.map((r) => r.complaintId).filter(Boolean)),
     ];
     const tasks = complaintIds.length
-        ? await Task_1.default.find({ complaintId: { $in: complaintIds } })
-            .select("-history")
-            .lean()
+        ? await Task_1.default.find({ complaintId: { $in: complaintIds } }).lean()
         : [];
     const allComplaintIds = [
         ...new Set([
@@ -1040,6 +943,7 @@ async function getUserActivityHistory(userId, q) {
                 status: h.status,
                 remarks: h.remarks ?? undefined,
                 createdAt: h.createdAt,
+                imageUrl: r.imageUrl,
                 paid: Boolean(r.paymentId),
             });
         }
@@ -1209,7 +1113,7 @@ function materialStatusLabel(status) {
         AWAITING_STORE: "Store release required",
         AWAITING_STOCK_CHECK: "Stock check required",
         AWAITING_FINAL_GRANT: "Confirm material received",
-        GRANTED_BY_STORE: "Confirm material received",
+        GRANTED_BY_STORE: "Final approval required",
     };
     return labels[status] ?? "Action required";
 }

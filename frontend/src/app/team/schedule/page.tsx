@@ -1,5 +1,5 @@
-import { SchedulePage } from "@/components/schedule/SchedulePage";
+import { LazySchedulePage } from "@/lib/lazy-pages";
 
 export default function TeamSchedulePage() {
-  return <SchedulePage role="team" />;
+  return <LazySchedulePage role="team" />;
 }

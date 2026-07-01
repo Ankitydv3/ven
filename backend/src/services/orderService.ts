@@ -179,7 +179,7 @@ export async function getOrders(options: OrderListOptions) {
   const sort: Record<string, 1 | -1> = { [options.sortBy]: options.sortOrder };
 
   const [items, total] = await Promise.all([
-    Order.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(20_000),
+    Order.find(filter).sort(sort).skip(skip).limit(options.limit).lean({ virtuals: true }).maxTimeMS(20_000),
     Order.countDocuments(filter).maxTimeMS(20_000),
   ]);
 

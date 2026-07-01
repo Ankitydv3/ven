@@ -36,10 +36,6 @@ export default function NewOrderPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  if (!ready) {
-    return null;
-  }
-
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.customerName.trim()) newErrors.customerName = "Customer name is required";

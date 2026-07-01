@@ -16,7 +16,6 @@ import {
   todayDateKey,
 } from "../utils/dateKey";
 import { supersedeComplaintTasks, activeTaskQuery } from "./complaintAssignmentService";
-import { persistInlineTaskPhoto } from "../utils/taskPhotoStorage";
 
 export type TaskStatus =
   | "Pending"
@@ -30,30 +29,8 @@ export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
 const BLOCKED_COMPLAINT_TASK_STATUSES: TaskStatus[] = ["Completed"];
 const QUERY_TIMEOUT_MS = 20_000;
-/** List endpoints must not load task history — entries can embed large photo payloads. */
-const TASK_LIST_PROJECTION = "-history";
-const TASK_DETAIL_COMPLAINT_SELECT =
-  "complaintId clientName contactPerson mobileNumber email title description location assignedBy assignedDate priority";
-const MAX_TASK_HISTORY_ENTRIES = 25;
-const MAX_INLINE_HISTORY_PHOTO_CHARS = 512;
 let lastOverdueRunAt = 0;
 const OVERDUE_DEBOUNCE_MS = 60_000;
-
-function sanitizeTaskHistoryForApi<T extends Record<string, unknown>>(task: T): T {
-  const history = Array.isArray(task.history) ? task.history : [];
-  return {
-    ...task,
-    history: history.slice(-MAX_TASK_HISTORY_ENTRIES).map((entry) => {
-      if (!entry || typeof entry !== "object") return entry;
-      const row = entry as Record<string, unknown>;
-      const photoUrl = typeof row.photoUrl === "string" ? row.photoUrl : "";
-      if (photoUrl.length > MAX_INLINE_HISTORY_PHOTO_CHARS) {
-        return { ...row, photoUrl: "" };
-      }
-      return row;
-    }),
-  };
-}
 
 async function getPendingOnsiteMaterialPayment(complaintId?: string | null) {
   if (!complaintId) return null;
@@ -190,7 +167,14 @@ async function applyCurrentComplaintTeamScope(
     return;
   }
 
-  const teamComplaintIds = await Complaint.find({ assignedTeam: teamName }).distinct("complaintId");
+  // Team list reads already filter by assignedTeamName; the complaint cross-check is expensive.
+  if (scopeFilter && Object.keys(scopeFilter).length === 1) {
+    return;
+  }
+
+  const teamComplaintIds = await Complaint.distinct("complaintId", { assignedTeam: teamName }).maxTimeMS(
+    QUERY_TIMEOUT_MS
+  );
   mergeScopeFilter(filter, {
     $or: [
       { complaintId: { $in: teamComplaintIds } },
@@ -336,13 +320,19 @@ export async function applyOverdueUpdates(force = false) {
     }))
   );
 
-  for (const task of overdueTasks) {
-    await createTaskAlert(
-      "task_overdue",
-      task as InstanceType<typeof Task>,
-      `Task ${task.taskId} is overdue (due ${task.dueDateKey})`
-    );
-  }
+  await Promise.all(
+    overdueTasks.map((task) =>
+      createTaskAlert(
+        "task_overdue",
+        task as InstanceType<typeof Task>,
+        `Task ${task.taskId} is overdue (due ${task.dueDateKey})`
+      )
+    )
+  );
+}
+
+function scheduleOverdueUpdates() {
+  void applyOverdueUpdates().catch(() => undefined);
 }
 
 export async function createTask(payload: TaskPayload) {
@@ -406,8 +396,88 @@ async function createTaskInternal(
   return task.toObject();
 }
 
+function isSimpleTeamScope(scopeFilter?: Record<string, unknown>) {
+  return (
+    scopeFilter &&
+    Object.keys(scopeFilter).length === 1 &&
+    typeof scopeFilter.assignedTeamName === "string" &&
+    scopeFilter.assignedTeamName &&
+    scopeFilter.assignedTeamName !== "__none__"
+  );
+}
+
+function buildUpcomingTeamFilter(teamName: string) {
+  return {
+    assignedTeamName: teamName,
+    status: { $in: ["Pending", "In Progress", "Overdue", "Need Re-visit", "Need Material"] },
+  };
+}
+
+async function enrichTaskItems<T extends { complaintId?: string | null; createdAt?: Date | string }>(
+  rawItems: T[]
+) {
+  const items = dedupeActiveTasksByComplaint(rawItems);
+
+  const complaintIds = items
+    .map((t) => t.complaintId)
+    .filter((id): id is string => Boolean(id));
+
+  let complaintMap: Record<string, Record<string, unknown>> = {};
+  if (complaintIds.length > 0) {
+    const complaints = await Complaint.find({ complaintId: { $in: complaintIds } })
+      .select("complaintId clientName mobileNumber location status assignedTeam title")
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS);
+    complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
+  }
+
+  return items.map((task) => ({
+    ...task,
+    complaint: task.complaintId ? complaintMap[task.complaintId] ?? null : null,
+  }));
+}
+
+export async function getUpcomingTeamTasks(
+  teamName: string,
+  options: { page: number; limit: number; sortOrder: 1 | -1 }
+) {
+  const skip = (options.page - 1) * options.limit;
+  const items = await Task.find({
+    assignedTeamName: teamName,
+    status: { $in: ["Pending", "In Progress", "Overdue", "Need Re-visit", "Need Material"] },
+  })
+    .sort({ dueDateKey: options.sortOrder })
+    .skip(skip)
+    .limit(options.limit)
+    .select("taskId complaintId title description status priority dueDate dueDateKey assignedTeamName assignedUserName")
+    .lean()
+    .maxTimeMS(5_000);
+
+  return { items, total: items.length };
+}
+
 export async function getTasks(options: TaskListOptions) {
-  await applyOverdueUpdates();
+  if (
+    options.upcoming &&
+    !options.q &&
+    isSimpleTeamScope(options.scopeFilter)
+  ) {
+    const teamName = options.scopeFilter!.assignedTeamName as string;
+    const skip = (options.page - 1) * options.limit;
+    const sortField = options.sortBy === "dueDate" ? "dueDateKey" : options.sortBy;
+    const sort: Record<string, 1 | -1> = { [sortField]: options.sortOrder };
+    const rawItems = await Task.find(buildUpcomingTeamFilter(teamName))
+      .sort(sort)
+      .skip(skip)
+      .limit(options.limit)
+      .lean()
+      .maxTimeMS(QUERY_TIMEOUT_MS);
+
+    const items = await enrichTaskItems(rawItems);
+    return { items, total: items.length };
+  }
+
+  scheduleOverdueUpdates();
 
   const filter: Record<string, unknown> = {};
 
@@ -494,77 +564,37 @@ export async function getTasks(options: TaskListOptions) {
 
   const skip = (options.page - 1) * options.limit;
   const sort: Record<string, 1 | -1> = { [options.sortBy]: options.sortOrder };
+  const skipTotalCount = options.upcoming === true;
 
   const [rawItems, total] = await Promise.all([
-    Task.find(filter)
-      .select(TASK_LIST_PROJECTION)
-      .sort(sort)
-      .skip(skip)
-      .limit(options.limit)
-      .lean()
-      .maxTimeMS(QUERY_TIMEOUT_MS),
-    Task.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
+    Task.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+    skipTotalCount
+      ? Promise.resolve(0)
+      : Task.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
   ]);
 
-  const items = dedupeActiveTasksByComplaint(rawItems);
+  const items = await enrichTaskItems(rawItems);
 
-  const complaintIds = items
-    .map((t) => t.complaintId)
-    .filter((id): id is string => Boolean(id));
-
-  let complaintMap: Record<string, Record<string, unknown>> = {};
-  if (complaintIds.length > 0) {
-    const complaints = await Complaint.find({ complaintId: { $in: complaintIds } })
-      .select("complaintId clientName mobileNumber location status assignedTeam title")
-      .lean()
-      .maxTimeMS(QUERY_TIMEOUT_MS);
-    complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
-  }
-
-  const enrichedItems = items.map((task) => ({
-    ...task,
-    complaint: task.complaintId ? complaintMap[task.complaintId] ?? null : null,
-  }));
-
-  return { items: enrichedItems, total };
+  return { items, total: skipTotalCount ? items.length : total };
 }
 
 export async function findTaskByLookup(id: string, options?: { lean?: boolean }) {
+  scheduleOverdueUpdates();
   const useLean = options?.lean ?? false;
 
-  if (id.startsWith("CMP-")) {
-    const byComplaint = Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 });
-    const task = useLean
-      ? await byComplaint.lean().maxTimeMS(QUERY_TIMEOUT_MS)
-      : await byComplaint.maxTimeMS(QUERY_TIMEOUT_MS);
-    return task ?? null;
-  }
-
   if (Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)) {
-    const byId = useLean
-      ? await Task.findById(id).lean().maxTimeMS(QUERY_TIMEOUT_MS)
-      : await Task.findById(id).maxTimeMS(QUERY_TIMEOUT_MS);
+    const byId = useLean ? await Task.findById(id).lean() : await Task.findById(id);
     if (byId) return byId;
-
-    // Legacy clients may send a complaint Mongo _id instead of the task _id.
-    const complaint = await Complaint.findById(id).select("complaintId").lean().maxTimeMS(QUERY_TIMEOUT_MS);
-    if (complaint?.complaintId) {
-      const byComplaintId = Task.findOne(activeTaskQuery(complaint.complaintId)).sort({ createdAt: -1 });
-      const task = useLean
-        ? await byComplaintId.lean().maxTimeMS(QUERY_TIMEOUT_MS)
-        : await byComplaintId.maxTimeMS(QUERY_TIMEOUT_MS);
-      if (task) return task;
-    }
   }
 
   let task = useLean
-    ? await Task.findOne({ ...activeTaskQuery(), taskId: id }).lean().maxTimeMS(QUERY_TIMEOUT_MS)
-    : await Task.findOne({ ...activeTaskQuery(), taskId: id }).maxTimeMS(QUERY_TIMEOUT_MS);
+    ? await Task.findOne({ ...activeTaskQuery(), taskId: id }).lean()
+    : await Task.findOne({ ...activeTaskQuery(), taskId: id });
   if (task) return task;
 
   task = useLean
-    ? await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).lean().maxTimeMS(QUERY_TIMEOUT_MS)
-    : await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).maxTimeMS(QUERY_TIMEOUT_MS);
+    ? await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 }).lean()
+    : await Task.findOne(activeTaskQuery(id)).sort({ createdAt: -1 });
   return task ?? null;
 }
 
@@ -574,24 +604,16 @@ export async function getTaskById(id: string) {
     throw new ApiError(404, "Task not found");
   }
 
-  const trimmedTask =
-    Array.isArray(task.history) && task.history.length > MAX_TASK_HISTORY_ENTRIES
-      ? { ...task, history: task.history.slice(-MAX_TASK_HISTORY_ENTRIES) }
-      : task;
-
   let complaint = null;
   if (task.complaintId) {
-    complaint = await Complaint.findOne({ complaintId: task.complaintId })
-      .select(TASK_DETAIL_COMPLAINT_SELECT)
-      .lean()
-      .maxTimeMS(QUERY_TIMEOUT_MS);
+    complaint = await Complaint.findOne({ complaintId: task.complaintId }).lean();
   }
 
-  return sanitizeTaskHistoryForApi({ ...trimmedTask, complaint });
+  return { ...task, complaint };
 }
 
 export async function getCalendarTaskCounts(options: CalendarOptions) {
-  await applyOverdueUpdates();
+  scheduleOverdueUpdates();
 
   const monthPrefix = `${options.year}-${String(options.month).padStart(2, "0")}`;
   const monthStartKey = `${monthPrefix}-01`;
@@ -650,7 +672,7 @@ export async function getTaskStats(
   scopeFilter?: Record<string, unknown>,
   team?: string
 ) {
-  await applyOverdueUpdates();
+  scheduleOverdueUpdates();
 
   const baseFilter: Record<string, unknown> = { status: { $ne: "Cancelled" } };
 
@@ -941,31 +963,20 @@ export async function patchTaskStatusById(
     quantity?: number;
     unit?: string;
     revisitDate?: Date;
-  },
-  loadedTask?: InstanceType<typeof Task> | null
+  }
 ) {
-  let task = loadedTask ?? null;
+  const found = await findTaskByLookup(id);
+  if (!found || !("_id" in found)) {
+    throw new ApiError(404, "Task not found");
+  }
+  const task = await Task.findById(found._id);
   if (!task) {
-    const found = await findTaskByLookup(id);
-    if (!found || !("_id" in found)) {
-      throw new ApiError(404, "Task not found");
-    }
-    task = await Task.findById(found._id);
-    if (!task) {
-      throw new ApiError(404, "Task not found");
-    }
+    throw new ApiError(404, "Task not found");
   }
 
   if (task.isLocked && status !== "Pending") {
     throw new ApiError(400, "Task is locked. Admin must reopen before changes.");
   }
-
-  const needsPaymentCheck =
-    Boolean(task.complaintId) &&
-    (status === "Completed" || task.status === "Need Material");
-  const pendingOnsite = needsPaymentCheck
-    ? await getPendingOnsiteMaterialPayment(task.complaintId)
-    : null;
 
   if (isAdminRole(actor.role)) {
     if (["In Progress", "Completed", "Need Re-visit", "Need Material"].includes(status)) {
@@ -978,6 +989,7 @@ export async function patchTaskStatusById(
   }
 
   if (isTeamRole(actor.role)) {
+    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
     const fromInProgress = task.status === "In Progress";
     const fromNeedMaterialOnsite = task.status === "Need Material" && Boolean(pendingOnsite);
     const progressStatuses: TaskStatus[] = ["Completed", "Need Re-visit", "Need Material"];
@@ -1011,17 +1023,18 @@ export async function patchTaskStatusById(
     }
   }
 
-  if (status === "Completed" && pendingOnsite) {
-    throw new ApiError(
-      400,
-      `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
-    );
+  if (status === "Completed") {
+    const pendingOnsite = await getPendingOnsiteMaterialPayment(task.complaintId);
+    if (pendingOnsite) {
+      throw new ApiError(
+        400,
+        `Collect onsite payment (₹${pendingOnsite.amount.toLocaleString("en-IN")}) before completing this task`
+      );
+    }
   }
 
   const allowReopen = isAdminRole(actor.role) && status === "Pending" && task.status === "Completed";
   await applyStatusChange(task, status, { allowReopen });
-
-  const storedPhotoUrl = options?.photoUrl ? persistInlineTaskPhoto(options.photoUrl) : "";
 
   const historyStatus = status;
 
@@ -1042,7 +1055,7 @@ export async function patchTaskStatusById(
     role: actor.role,
     status: historyStatus,
     remarks: options?.notes ?? "",
-    photoUrl: storedPhotoUrl,
+    photoUrl: options?.photoUrl ?? "",
     createdAt: new Date(),
   });
 
@@ -1085,7 +1098,7 @@ export async function patchTaskStatusById(
       quantity: options.quantity,
       unit: options.unit?.trim() || "—",
       remarks: options.notes ?? `Material needed for task ${task.taskId}`,
-      imageUrl: storedPhotoUrl,
+      imageUrl: options?.photoUrl ?? "",
       taskId: task.taskId,
       complaintId: task.complaintId ?? undefined,
       requestedBy: actor.name ?? "User",
@@ -1103,11 +1116,11 @@ export async function patchTaskStatusById(
       assignedUserName: task.assignedUserName,
       assignedTeamName: task.assignedTeamName,
     }, {
-      photoUrl: storedPhotoUrl,
+      photoUrl: options?.photoUrl,
     });
   }
 
-  return sanitizeTaskHistoryForApi(task.toObject() as Record<string, unknown>);
+  return task.toObject();
 }
 
 export async function reopenTaskById(id: string, actor: { name: string }) {

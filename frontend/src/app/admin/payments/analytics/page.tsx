@@ -1,5 +1,4 @@
-// app/admin/payments/analytics/page.tsx
-import { PaymentAnalytics } from "@/components/payments/PaymentAnalytics";
+import { LazyPaymentAnalytics } from "@/lib/lazy-pages";
 
 export const metadata = {
   title: "Payment Analytics",
@@ -7,5 +6,5 @@ export const metadata = {
 };
 
 export default function PaymentAnalyticsPage() {
-  return <PaymentAnalytics />;
+  return <LazyPaymentAnalytics />;
 }

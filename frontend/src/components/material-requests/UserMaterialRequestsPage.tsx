@@ -10,9 +10,7 @@ import {
   useCreateMaterialRequest,
   useMaterialRequests,
   useServiceHeadReviewMaterial,
-  materialRequestKeys,
 } from "@/hooks/useMaterialRequests";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +35,6 @@ import {
   type MaterialRequest,
 } from "@/services/material-requests";
 import { PaymentDetailsModal } from "@/components/material-requests/PaymentDetailsModal";
-import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
 import { panelClass } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api";
@@ -77,6 +74,34 @@ function MaterialRequestRemarks({
   );
 }
 
+function formatPaymentAmount(amount?: number) {
+  if (typeof amount !== "number") return null;
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function MaterialPaymentSummary({ req }: { req: MaterialRequest }) {
+  const paidAmount = formatPaymentAmount(req.paidAmount);
+
+  return (
+    <div className="space-y-1">
+      <span
+        className={
+          req.materialPaymentStatus
+            ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
+            : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
+        }
+      >
+        {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
+      </span>
+      {paidAmount && (
+        <p className="text-[10px] font-semibold text-emerald-300">
+          Total: {paidAmount}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function MaterialRequestActions({
   req,
   onDone,
@@ -96,26 +121,11 @@ function MaterialRequestActions({
   const [remarks, setRemarks] = useState("");
   const [revisitDate, setRevisitDate] = useState("");
   const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
-  const [paymentRequired, setPaymentRequired] = useState<boolean | null>(null);
-  const [paymentAction, setPaymentAction] = useState<"received" | "onsite" | null>(null);
-  const [stockChoice, setStockChoice] = useState<"STOCK_AVAILABLE" | "OUT_OF_STOCK" | null>(null);
-  const [receiptChoice, setReceiptChoice] = useState<"received" | "not_received" | null>(null);
-
-  const resetReviewForm = () => {
-    setRemarks("");
-    setRevisitDate("");
-    setRevisitTimeSlot("");
-    setPaymentRequired(null);
-    setPaymentAction(null);
-    setStockChoice(null);
-    setReceiptChoice(null);
-  };
 
   const isMaterialReceived =
     req.status === "AWAITING_MATERIAL_RECEIVED" || req.status === "AWAITING_FINAL_GRANT";
   const isStockCheck = req.status === "AWAITING_STOCK_CHECK";
   const isFinalStep = req.status === "GRANTED_BY_STORE";
-  const isConfirmReceipt = isMaterialReceived || isFinalStep;
   const isInitialReview = req.status === "PENDING" || req.status === "PENDING_SERVICE_HEAD";
   const isAwaitingAccounts = req.status === "AWAITING_ACCOUNTS";
   const isOnsitePending = req.status === "PAYMENT_PENDING_ONSITE";
@@ -126,7 +136,7 @@ function MaterialRequestActions({
   const isAcc = isAccountantUser(user || undefined);
   const isTeamView = role === "team";
 
-  const canServiceHead = isHead && (isInitialReview || isStockCheck || isConfirmReceipt);
+  const canServiceHead = isHead && (isInitialReview || isStockCheck || isMaterialReceived || isFinalStep);
   const canAccounts = isAcc && isAwaitingAccounts;
   const canCollectPayment = (canAccounts || (isHead && isAwaitingAccounts)) && isAwaitingAccounts;
   const canTeamCollectOnsite = isTeamView && isOnsitePending;
@@ -150,48 +160,11 @@ function MaterialRequestActions({
 
   const handleServiceHead = async (
     decision: "APPROVED" | "DENIED" | "COMPLETED",
-    options?: {
-      stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK";
-      paymentRequired?: boolean;
-      paymentAction?: "received" | "onsite";
-    }
+    stockDecision?: "STOCK_AVAILABLE" | "OUT_OF_STOCK"
   ) => {
-    const stockDecision = options?.stockDecision;
-    if (
-      decision === "APPROVED" &&
-      (isConfirmReceipt || isStockCheck) &&
-      stockDecision !== "OUT_OF_STOCK" &&
-      !revisitDate
-    ) {
+    if (decision === "APPROVED" && (isMaterialReceived || isStockCheck || isFinalStep) && stockDecision !== "OUT_OF_STOCK" && !revisitDate) {
       toast.error("Please select a revisit date");
       return;
-    }
-
-    if (decision === "APPROVED" && isInitialReview) {
-      if (options?.paymentRequired === undefined && paymentRequired === null) {
-        toast.error("Please select whether payment is required");
-        return;
-      }
-      const required = options?.paymentRequired ?? paymentRequired;
-      const action = options?.paymentAction ?? paymentAction;
-      const stock = options?.stockDecision ?? stockChoice;
-
-      if (required && !action) {
-        toast.error("Please select Received or Onsite");
-        return;
-      }
-      if (required && action === "received" && !stock) {
-        toast.error("Please choose Available on Stock or Transfer to Stock");
-        return;
-      }
-      if (!required && !stock) {
-        toast.error("Please choose Available on Stock or Transfer to Stock");
-        return;
-      }
-      if (stock === "STOCK_AVAILABLE" && !revisitDate) {
-        toast.error("Please select a revisit date");
-        return;
-      }
     }
 
     try {
@@ -201,19 +174,17 @@ function MaterialRequestActions({
         serviceHeadRemarks: remarks.trim() || undefined,
         revisitDate: revisitDate || undefined,
         revisitTimeSlot: revisitTimeSlot || undefined,
-        stockDecision: options?.stockDecision ?? stockChoice ?? undefined,
-        paymentRequired: options?.paymentRequired ?? paymentRequired ?? undefined,
-        paymentAction: options?.paymentAction ?? paymentAction ?? undefined,
+        stockDecision,
       });
-      toast.success(
-        decision === "APPROVED"
-          ? "Updated successfully"
-          : isConfirmReceipt
-            ? "Store manager notified — material not received"
-            : "Request denied"
-      );
-      resetReviewForm();
+      toast.success(decision === "APPROVED" ? "Updated successfully" : "Request denied");
+      setRemarks("");
+      setRevisitDate("");
+      setRevisitTimeSlot("");
       setOpen(false);
+      onDone();
+      if (decision === "APPROVED" && isInitialReview) {
+        setPaymentOpen(true);
+      }
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
@@ -223,11 +194,13 @@ function MaterialRequestActions({
     ? "Payment"
     : canTeamCollectOnsite
       ? "Collect"
-      : isConfirmReceipt
-        ? "Confirm Receipt"
-        : isStockCheck
-          ? "Stock Check"
-          : "Review";
+      : isStockCheck
+        ? "Stock Check"
+        : isMaterialReceived
+          ? "Received"
+          : isFinalStep
+            ? "Final"
+            : "Review";
 
   const dialogTitle = isOnsiteAwaitingStockCheck
     ? `Stock Check · Onsite — ${req.requestId}`
@@ -278,6 +251,23 @@ function MaterialRequestActions({
           </Button>
         )}
 
+        {canViewPaymentDetails && !canCollectPayment && !canTeamCollectOnsite && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={cn(
+              actionBtnClass,
+              "border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPaymentOpen(true);
+            }}
+          >
+            Payment History
+          </Button>
+        )}
+
         {canTeamCollectOnsite && (req.taskId || req.complaintId) && (
           <Button
             size="sm"
@@ -299,13 +289,7 @@ function MaterialRequestActions({
         )}
       </div>
 
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) resetReviewForm();
-        }}
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           className="flex max-h-[90vh] max-w-md flex-col overflow-hidden rounded-2xl border-white/10 bg-app text-white"
           onClick={(e) => e.stopPropagation()}
@@ -329,11 +313,11 @@ function MaterialRequestActions({
             <Textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Remarks (optional)"
+              placeholder={isFinalStep ? "Final instructions / remarks" : "Remarks (optional)"}
               className="min-h-[60px] rounded-lg border-white/10 bg-white/5 text-xs text-white"
             />
 
-            {(isStockCheck || (isConfirmReceipt && receiptChoice === "received") || stockChoice === "STOCK_AVAILABLE") && (
+            {(isStockCheck || isMaterialReceived || isFinalStep) && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-slate-500">Revisit Date *</Label>
@@ -362,138 +346,22 @@ function MaterialRequestActions({
             )}
 
             {canServiceHead && isInitialReview && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase text-slate-500">Payment Required?</Label>
-                  <div className="flex gap-4">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                      <input
-                        type="radio"
-                        name={`payment-required-${req._id}`}
-                        checked={paymentRequired === true}
-                        onChange={() => {
-                          setPaymentRequired(true);
-                          setPaymentAction(null);
-                          setStockChoice(null);
-                        }}
-                        className="accent-emerald-500"
-                      />
-                      Yes
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                      <input
-                        type="radio"
-                        name={`payment-required-${req._id}`}
-                        checked={paymentRequired === false}
-                        onChange={() => {
-                          setPaymentRequired(false);
-                          setPaymentAction(null);
-                          setStockChoice(null);
-                        }}
-                        className="accent-emerald-500"
-                      />
-                      No
-                    </label>
-                  </div>
-                </div>
-
-                {paymentRequired === true && (
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase text-slate-500">Payment Method</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className={cn(
-                          "flex-1",
-                          paymentAction === "received"
-                            ? "bg-emerald-600 ring-2 ring-white/20"
-                            : "bg-emerald-600/80 hover:bg-emerald-500"
-                        )}
-                        onClick={() => {
-                          setPaymentAction("received");
-                          setStockChoice(null);
-                        }}
-                      >
-                        Received
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className={cn(
-                          "flex-1",
-                          paymentAction === "onsite"
-                            ? "bg-orange-600 ring-2 ring-white/20"
-                            : "bg-orange-600/80 hover:bg-orange-500"
-                        )}
-                        disabled={serviceHeadMutation.isPending}
-                        onClick={() =>
-                          void handleServiceHead("APPROVED", {
-                            paymentRequired: true,
-                            paymentAction: "onsite",
-                          })
-                        }
-                      >
-                        Onsite
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {(paymentRequired === false ||
-                  (paymentRequired === true && paymentAction === "received")) && (
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase text-slate-500">Stock Action</Label>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        className={cn(
-                          "w-full",
-                          stockChoice === "STOCK_AVAILABLE"
-                            ? "bg-emerald-600 ring-2 ring-white/20"
-                            : "bg-emerald-600 hover:bg-emerald-500"
-                        )}
-                        onClick={() => setStockChoice("STOCK_AVAILABLE")}
-                      >
-                        Available on Stock
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "w-full border-orange-500/30 text-orange-300",
-                          stockChoice === "OUT_OF_STOCK" && "ring-2 ring-orange-400/40"
-                        )}
-                        disabled={serviceHeadMutation.isPending}
-                        onClick={() =>
-                          void handleServiceHead("APPROVED", {
-                            paymentRequired: paymentRequired ?? false,
-                            paymentAction: paymentRequired ? "received" : undefined,
-                            stockDecision: "OUT_OF_STOCK",
-                          })
-                        }
-                      >
-                        Transfer to Store
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {stockChoice === "STOCK_AVAILABLE" && paymentRequired !== null && (
-                  <Button
-                    className="w-full bg-blue-600 hover:bg-blue-500"
-                    disabled={serviceHeadMutation.isPending}
-                    onClick={() =>
-                      void handleServiceHead("APPROVED", {
-                        paymentRequired: paymentRequired ?? false,
-                        paymentAction: paymentRequired ? paymentAction ?? undefined : undefined,
-                        stockDecision: "STOCK_AVAILABLE",
-                      })
-                    }
-                  >
-                    Confirm & Reschedule
-                  </Button>
-                )}
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED")}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/30 text-red-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("DENIED")}
+                >
+                  Deny
+                </Button>
               </div>
             )}
 
@@ -502,9 +370,7 @@ function MaterialRequestActions({
                 <Button
                   className="w-full bg-emerald-600 hover:bg-emerald-500"
                   disabled={serviceHeadMutation.isPending}
-                  onClick={() =>
-                    void handleServiceHead("APPROVED", { stockDecision: "STOCK_AVAILABLE" })
-                  }
+                  onClick={() => void handleServiceHead("APPROVED", "STOCK_AVAILABLE")}
                 >
                   Available on Stock & Reschedule
                 </Button>
@@ -512,92 +378,59 @@ function MaterialRequestActions({
                   variant="outline"
                   className="w-full border-orange-500/30 text-orange-300"
                   disabled={serviceHeadMutation.isPending}
-                  onClick={() =>
-                    void handleServiceHead("APPROVED", { stockDecision: "OUT_OF_STOCK" })
-                  }
+                  onClick={() => void handleServiceHead("APPROVED", "OUT_OF_STOCK")}
                 >
-                  Transfer to Stock
+                  Sent to Store
                 </Button>
               </div>
             )}
 
-            {canServiceHead && isConfirmReceipt && (
-              <div className="space-y-4">
-                <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-100">
-                  Store manager granted and forwarded {req.quantity} {req.unit} of {req.materialName}.
-                  Confirm whether the material was received.
-                </div>
+            {canServiceHead && isMaterialReceived && (
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("APPROVED")}
+                >
+                  Material Received & Reschedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/30 text-red-300"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("DENIED")}
+                >
+                  Deny
+                </Button>
+              </div>
+            )}
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase text-slate-500">Material received?</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      className={cn(
-                        "flex-1",
-                        receiptChoice === "received"
-                          ? "bg-emerald-600 ring-2 ring-white/20"
-                          : "bg-emerald-600/80 hover:bg-emerald-500"
-                      )}
-                      onClick={() => setReceiptChoice("received")}
-                    >
-                      Received
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className={cn(
-                        "flex-1",
-                        receiptChoice === "not_received"
-                          ? "bg-red-600 ring-2 ring-white/20"
-                          : "bg-red-600/80 hover:bg-red-500"
-                      )}
-                      onClick={() => setReceiptChoice("not_received")}
-                    >
-                      Not Received
-                    </Button>
-                  </div>
-                </div>
-
-                {receiptChoice === "received" && (
-                  <p className="text-xs text-emerald-300">
-                    Material received — select a revisit date to reschedule the task.
-                  </p>
-                )}
-
-                {receiptChoice === "not_received" && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-red-300">
-                      Material not received. The store manager will be notified to verify and re-release.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="w-full border-red-500/30 text-red-300"
-                      disabled={serviceHeadMutation.isPending}
-                      onClick={() => void handleServiceHead("DENIED")}
-                    >
-                      Confirm — Not Received
-                    </Button>
-                  </div>
-                )}
-
-                {receiptChoice === "received" && (
+            {canServiceHead && isFinalStep && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
                   <Button
-                    className="w-full bg-emerald-600 hover:bg-emerald-500"
-                    disabled={serviceHeadMutation.isPending || !revisitDate}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500"
+                    disabled={serviceHeadMutation.isPending}
                     onClick={() => void handleServiceHead("APPROVED")}
                   >
-                    {serviceHeadMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Confirming…
-                      </>
-                    ) : (
-                      "Confirm Received & Reschedule"
-                    )}
+                    Approve & Reschedule
                   </Button>
-                )}
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-red-500/30 text-red-300"
+                    disabled={serviceHeadMutation.isPending}
+                    onClick={() => void handleServiceHead("DENIED")}
+                  >
+                    Reject
+                  </Button>
+                </div>
+                <Button
+                  className="w-full bg-slate-600 hover:bg-slate-500"
+                  disabled={serviceHeadMutation.isPending}
+                  onClick={() => void handleServiceHead("COMPLETED")}
+                >
+                  Mark as Completed
+                </Button>
               </div>
             )}
 
@@ -620,7 +453,6 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const isAdminView = role === "admin";
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { ready } = useSession(role);
   const user = readUser();
   const {
@@ -628,13 +460,10 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
     isLoading,
     isError,
     error,
+    refetch,
   } = useMaterialRequests({
     limit: isAdminView ? 100 : 50,
   });
-
-  const refreshRequests = () => {
-    void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
-  };
 
   const requests: MaterialRequest[] = Array.isArray(data) ? data : data?.items ?? [];
 
@@ -715,7 +544,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
         imageUrl: "",
       });
       setImagePreview("");
-      void refreshRequests();
+      void refetch();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to submit request"));
     }
@@ -763,14 +592,6 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
     XLSX.writeFile(workbook, `material-requests-${Date.now()}.xlsx`);
     toast.success("Exported to Excel successfully");
   };
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
-  }
 
   return (
     <DashboardShell
@@ -912,7 +733,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           ) : isError ? (
             <div className="py-16 text-center">
               <p className="text-red-400">{getApiErrorMessage(error, "Failed to load requests")}</p>
-              <Button variant="outline" className="mt-3" onClick={() => void refreshRequests()}>
+              <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
                 Retry
               </Button>
             </div>
@@ -934,15 +755,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           <span className="rounded-none border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-300">
                             {req.department || "—"}
                           </span>
-                          <span
-                            className={
-                              req.materialPaymentStatus
-                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
-                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
-                            }
-                          >
-                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
-                          </span>
+                          <MaterialPaymentSummary req={req} />
                         </div>
                         <p className="text-sm font-semibold text-white">{req.customerName || "—"}</p>
                         <p className="font-mono text-[10px] text-blue-300/90">
@@ -1001,7 +814,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       <MaterialRequestActions
                         req={req}
                         role={role}
-                        onDone={() => void refreshRequests()}
+                        onDone={() => void refetch()}
                         autoOpen={actionTargetId === req._id}
                       />
                     </div>
@@ -1045,15 +858,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           </p>
                         </TD>
                         <TD className="px-3 py-2.5 align-middle">
-                          <span
-                            className={
-                              req.materialPaymentStatus
-                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
-                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
-                            }
-                          >
-                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
-                          </span>
+                          <MaterialPaymentSummary req={req} />
                         </TD>
                         <TD className="px-3 py-2.5 text-xs font-medium text-slate-100 break-words">{req.materialName}</TD>
                         <TD className="px-3 py-2.5 text-xs text-slate-200 break-words">
@@ -1097,7 +902,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             <MaterialRequestActions
                               req={req}
                               role={role}
-                              onDone={() => void refreshRequests()}
+                              onDone={() => void refetch()}
                               autoOpen={actionTargetId === req._id}
                             />
                           </div>
@@ -1134,12 +939,15 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       onClick={() => setHistoryTarget(req)}
                     >
                         <TD className="px-2 py-2">
-                          <MaterialRequestImageThumb
-                            id={req._id}
-                            hasImage={req.hasImage}
-                            imageUrl={req.imageUrl}
-                            alt={req.materialName}
-                          />
+                          {req.imageUrl ? (
+                            <img
+                              src={req.imageUrl}
+                              alt={req.materialName}
+                              className="h-10 w-10 rounded-none border border-white/10 object-cover sm:h-12 sm:w-12"
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-500">—</span>
+                          )}
                         </TD>
                         <TD className="px-2 py-2 font-mono text-xs">
                           <button
@@ -1162,15 +970,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                           {req.customerId || req.orderId || req.complaintId || "—"}
                         </TD>
                         <TD className="px-2 py-2">
-                          <span
-                            className={
-                              req.materialPaymentStatus
-                                ? getMaterialPaymentStatusBadgeClass(req.materialPaymentStatus)
-                                : getMaterialPaymentBadgeClass(Boolean(req.orderPaid))
-                            }
-                          >
-                            {req.materialPaymentStatus || (req.orderPaid ? "Paid" : "Unpaid")}
-                          </span>
+                          <MaterialPaymentSummary req={req} />
                         </TD>
                         <TD className="px-2 py-2 text-xs text-slate-100 break-words">{req.materialName}</TD>
                         <TD className="px-2 py-2 text-xs text-slate-200">

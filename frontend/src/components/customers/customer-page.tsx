@@ -134,10 +134,6 @@ export function CustomerPage({ role = "team" }: CustomerPageProps) {
     document.getElementById("add-customer-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  if (!ready) {
-    return null;
-  }
-
   const showEmptyState = !isLoading && customers.length === 0;
 
   return (

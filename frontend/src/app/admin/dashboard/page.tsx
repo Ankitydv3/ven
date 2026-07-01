@@ -1,7 +1,7 @@
 "use client";
 
-import { DashboardPage } from "@/components/dashboard/DashboardPage";
+import { LazyDashboardPage } from "@/lib/lazy-pages";
 
 export default function AdminDashboardPage() {
-  return <DashboardPage role="admin" />;
+  return <LazyDashboardPage role="admin" />;
 }

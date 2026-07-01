@@ -11,4 +11,4 @@ export const brand = {
   800: "#021D38",
 } as const;
 
-export const APP_BG = "#020a17";
+export const APP_BG = "#080808";

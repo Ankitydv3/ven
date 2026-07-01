@@ -539,7 +539,6 @@ function SectionShell({
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-slate-600">{subtitle}</p>
           </div>
         </div>
 

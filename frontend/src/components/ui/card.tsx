@@ -89,11 +89,10 @@ export function CardContent({ className, children }: { className?: string; child
   return <div className={cn("space-y-4", className)}>{children}</div>;
 }
 
-export function SectionHeading({ title, description }: { title: string; description?: string }) {
+export function SectionHeading({ title }: { title: string; description?: string }) {
   return (
     <div className="mb-5 pl-1.5">
       <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h3>
-      {description ? <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p> : null}
     </div>
   );
 }

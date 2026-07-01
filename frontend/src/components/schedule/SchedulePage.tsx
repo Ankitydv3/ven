@@ -54,11 +54,12 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
 
   const teamParam = teamFilter !== "all" ? teamFilter : undefined;
 
-  const { data: stats, isLoading: statsLoading } = useTaskStats(teamParam);
+  const { data: stats, isLoading: statsLoading } = useTaskStats(teamParam, { enabled: ready });
   const { data: calendarData, isLoading: calendarLoading } = useTaskCalendar(
     calendarYear,
     calendarMonth,
-    teamParam
+    teamParam,
+    { enabled: ready }
   );
   const { data: tasksData, isLoading: tasksLoading, isFetching: tasksFetching } = useTasks({
     ...(taskView === "upcoming"
@@ -68,7 +69,7 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
     limit: 50,
     sortBy: "dueDate",
     sortOrder: "asc",
-  });
+  }, { enabled: ready });
 
   const { data: assignableUsers = [] } = useQuery({
     queryKey: ["users", "assignable"],
@@ -99,8 +100,6 @@ export function SchedulePage({ role = "admin" }: { role?: "admin" | "team" }) {
     setSelectedDate(date);
     setTaskView("date");
   };
-
-  if (!ready) return null;
 
   return (
     <DashboardShell

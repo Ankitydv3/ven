@@ -18,6 +18,10 @@ const MaterialRequest_1 = __importDefault(require("../models/MaterialRequest"));
 const materialRequestService_1 = require("../services/materialRequestService");
 const teamScope_1 = require("../utils/teamScope");
 const ApiError_1 = require("../utils/ApiError");
+function compactMaterialRequest(request) {
+    const { imageUrl: _imageUrl, history: _history, ...compact } = request;
+    return compact;
+}
 async function createMaterialRequestHandler(req, res) {
     if ((0, teamScope_1.isAdminRole)(req.user?.role)) {
         throw new ApiError_1.ApiError(403, "Admins cannot create material requests");
@@ -85,7 +89,7 @@ async function serviceHeadReviewHandler(req, res) {
         message: req.body.decision === "APPROVED"
             ? "Material request approved"
             : "Material request denied",
-        request,
+        request: compactMaterialRequest(request),
     });
 }
 async function confirmMaterialPaymentHandler(req, res) {

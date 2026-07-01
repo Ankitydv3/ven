@@ -15,7 +15,7 @@ export const taskKeys = {
   detail: (id: string) => [...taskKeys.details(), id] as const,
 };
 
-export function useTasks(filters: TaskFilters) {
+export function useTasks(filters: TaskFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: taskKeys.list(filters),
     queryFn: () => fetchTasks(filters),
@@ -24,5 +24,6 @@ export function useTasks(filters: TaskFilters) {
     staleTime: 120_000,
     retry: 1,
     retryDelay: 2_000,
+    enabled: options?.enabled ?? true,
   });
 }

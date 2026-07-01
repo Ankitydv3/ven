@@ -17,6 +17,11 @@ import {
 import { isAdminRole, isAccountant, isServiceHead } from "../utils/teamScope";
 import { ApiError } from "../utils/ApiError";
 
+function compactMaterialRequest<T extends Record<string, unknown>>(request: T) {
+  const { imageUrl: _imageUrl, history: _history, ...compact } = request;
+  return compact;
+}
+
 export async function createMaterialRequestHandler(req: AuthRequest, res: Response) {
   if (isAdminRole(req.user?.role)) {
     throw new ApiError(403, "Admins cannot create material requests");
@@ -110,7 +115,7 @@ export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) 
       req.body.decision === "APPROVED"
         ? "Material request approved"
         : "Material request denied",
-    request,
+    request: compactMaterialRequest(request as Record<string, unknown>),
   });
 }
 

@@ -41,14 +41,7 @@ const tabs: { id: PortalTab; label: string; icon: typeof LogIn }[] = [
   { id: "complaint", label: "Complaint", icon: FilePlus },
 ];
 
-const tabMeta: Record<
-  PortalTab,
-  {
-    eyebrow: string;
-    title: string;
-    description: string;
-  }
-> = {
+const tabMeta: Record<PortalTab, { eyebrow: string; title: string; description: string }> = {
   login: {
     eyebrow: "Portal access",
     title: "Sign in",
@@ -62,6 +55,7 @@ const tabMeta: Record<
   complaint: {
     eyebrow: "New request",
     title: "Raise a Complaint",
+
     description: "Raise a Complaint in 60 Seconds",
   },
 };
@@ -71,36 +65,22 @@ function parseTab(value: string | null): PortalTab {
   return "login";
 }
 
-function tabToSearchParam(tab: PortalTab) {
-  return tab === "login" ? null : tab;
-}
-
 export function PortalScreen() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<PortalTab>(() => parseTab(searchParams.get("tab")));
+  const [activeTab, setActiveTab] = useState<PortalTab>("login");
 
   useEffect(() => {
     setActiveTab(parseTab(searchParams.get("tab")));
   }, [searchParams]);
 
-  const handleTabChange = (tab: PortalTab) => {
-    setActiveTab(tab);
-    const next = new URL(window.location.href);
-    const param = tabToSearchParam(tab);
-    if (param) {
-      next.searchParams.set("tab", param);
-    } else {
-      next.searchParams.delete("tab");
-    }
-    window.history.replaceState({}, "", `${next.pathname}${next.search}${next.hash}`);
-  };
-
   const meta = tabMeta[activeTab];
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#020a17]">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#080808]">
+      {/* Full-screen background image */}
       <PortalImagePanel />
 
+      {/* Card wrapper — centers on mobile, right-aligned on desktop */}
       <div className="relative z-10 flex h-dvh w-full items-center justify-center px-4 py-6 lg:justify-end lg:px-16">
         <div
           className={cn(
@@ -109,17 +89,16 @@ export function PortalScreen() {
           )}
           style={{ maxHeight: "calc(100dvh - 3rem)" }}
         >
-          {/* Tabs */}
+          {/* Tab bar */}
           <div className="flex shrink-0 flex-nowrap gap-1.5 px-5 pt-5 sm:gap-2 sm:px-7 sm:pt-7">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => handleTabChange(tab.id)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-medium transition-all sm:h-10 sm:gap-2 sm:px-4 sm:text-sm",
                     isActive
@@ -142,16 +121,12 @@ export function PortalScreen() {
             >
               {meta.eyebrow}
             </p>
-
             <h1
               className="mb-1 text-xl font-light leading-tight tracking-tight text-white sm:text-2xl md:text-3xl"
-              style={{
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-              }}
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
             >
               {meta.title}
             </h1>
-
             <p className="text-xs font-light leading-relaxed text-white/50 sm:text-sm">
               {meta.description}
             </p>
@@ -159,17 +134,23 @@ export function PortalScreen() {
 
           <div className="mx-5 shrink-0 border-t border-white/[0.06] sm:mx-7" />
 
-          {/* Content */}
+          {/* Scrollable form area */}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-7 sm:py-5">
             {activeTab === "login" && <LoginFields />}
             {activeTab === "track" && <TrackPanel />}
             {activeTab === "complaint" && (
-              <ComplaintRegistrationForm
-                variant="portal"
-                source="WEBSITE"
-              />
+              <ComplaintRegistrationForm variant="portal" source="WEBSITE" />
             )}
           </div>
+
+          {/* Status indicator */}
+          {/* <div className="flex shrink-0 items-center gap-2 px-5 py-3 text-[11px] text-white/25 sm:px-7">
+            <span
+              className="block h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ background: "#378ADD", boxShadow: "0 0 6px #378ADD" }}
+            />
+            System online
+          </div> */}
         </div>
       </div>
     </div>

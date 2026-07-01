@@ -70,8 +70,12 @@ function getServerReady() {
   return false;
 }
 
+export function useSessionUser() {
+  return useSyncExternalStore(subscribeToSession, getClientUser, getServerUser);
+}
+
 export function useSession(portal?: "admin" | "team" | "store") {
-  const user = useSyncExternalStore(subscribeToSession, getClientUser, getServerUser);
+  const user = useSessionUser();
   const ready = useSyncExternalStore(subscribeToReady, getClientReady, getServerReady);
 
   useEffect(() => {

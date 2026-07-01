@@ -35,6 +35,26 @@ function parseListQuery(query) {
 }
 async function listTasks(req, res) {
     const parsed = parseListQuery(req.query);
+    const teamName = req.user?.team ?? req.user?.teamName;
+    if (parsed.upcoming &&
+        !parsed.q &&
+        (req.user?.role === "team" || req.user?.role === "team_lead") &&
+        teamName &&
+        teamName !== "__none__") {
+        const result = await (0, taskService_1.getUpcomingTeamTasks)(teamName, {
+            page: parsed.page,
+            limit: parsed.limit,
+            sortOrder: parsed.sortOrder,
+        });
+        res.json({
+            items: result.items,
+            total: result.total,
+            page: parsed.page,
+            limit: parsed.limit,
+            scoped: true,
+        });
+        return;
+    }
     const dashboardScope = (0, dashboardScope_1.dashboardTaskScopeFilter)(req.user);
     const teamScope = (0, teamScope_1.taskVisibilityFilter)(req.user);
     const scopeFilter = Object.keys(dashboardScope).length > 0

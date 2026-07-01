@@ -1,5 +1,5 @@
-import { ClientHistoryPage } from "@/components/history/ClientHistoryPage";
+import { LazyClientHistoryPage } from "@/lib/lazy-pages";
 
 export default function AdminHistoryPage() {
-  return <ClientHistoryPage role="admin" />;
+  return <LazyClientHistoryPage role="admin" />;
 }

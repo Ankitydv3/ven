@@ -13,13 +13,20 @@ interface UserAvatarProps {
 }
 
 export function UserAvatar({ name, avatarUrl, className, textClassName }: UserAvatarProps) {
-  const [imageError, setImageError] = useState(false);
   const resolvedUrl = resolveAvatarUrl(avatarUrl);
-  const showImage = Boolean(resolvedUrl) && !imageError;
+  const [mounted, setMounted] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const showImage = mounted && Boolean(resolvedUrl) && !imageError;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setImageError(false);
   }, [avatarUrl]);
+
+  const displayName = mounted ? name : "User";
 
   if (showImage) {
     return (
@@ -37,12 +44,12 @@ export function UserAvatar({ name, avatarUrl, className, textClassName }: UserAv
     <span
       className={cn(
         "flex items-center justify-center font-semibold",
-        getAvatarColor(name),
+        getAvatarColor(displayName),
         className,
         textClassName
       )}
     >
-      {getUserInitials(name)}
+      {getUserInitials(displayName)}
     </span>
   );
 }

@@ -9,6 +9,7 @@ exports.createComplaintAssignmentTask = createComplaintAssignmentTask;
 exports.backfillDueDateKeys = backfillDueDateKeys;
 exports.applyOverdueUpdates = applyOverdueUpdates;
 exports.createTask = createTask;
+exports.getUpcomingTeamTasks = getUpcomingTeamTasks;
 exports.getTasks = getTasks;
 exports.findTaskByLookup = findTaskByLookup;
 exports.getTaskById = getTaskById;
@@ -39,8 +40,6 @@ const dateKey_1 = require("../utils/dateKey");
 const complaintAssignmentService_1 = require("./complaintAssignmentService");
 const BLOCKED_COMPLAINT_TASK_STATUSES = ["Completed"];
 const QUERY_TIMEOUT_MS = 20_000;
-/** List endpoints must not load task history — entries can embed large photo payloads. */
-const TASK_LIST_PROJECTION = "-history";
 let lastOverdueRunAt = 0;
 const OVERDUE_DEBOUNCE_MS = 60_000;
 async function getPendingOnsiteMaterialPayment(complaintId) {
@@ -122,7 +121,11 @@ async function applyCurrentComplaintTeamScope(filter, scopeFilter) {
     if (typeof teamName !== "string" || !teamName || teamName === "__none__") {
         return;
     }
-    const teamComplaintIds = await Complaint_1.default.find({ assignedTeam: teamName }).distinct("complaintId");
+    // Team list reads already filter by assignedTeamName; the complaint cross-check is expensive.
+    if (scopeFilter && Object.keys(scopeFilter).length === 1) {
+        return;
+    }
+    const teamComplaintIds = await Complaint_1.default.distinct("complaintId", { assignedTeam: teamName }).maxTimeMS(QUERY_TIMEOUT_MS);
     mergeScopeFilter(filter, {
         $or: [
             { complaintId: { $in: teamComplaintIds } },
@@ -235,9 +238,10 @@ async function applyOverdueUpdates(force = false) {
             update: { $set: { status: "Overdue" } },
         },
     })));
-    for (const task of overdueTasks) {
-        await createTaskAlert("task_overdue", task, `Task ${task.taskId} is overdue (due ${task.dueDateKey})`);
-    }
+    await Promise.all(overdueTasks.map((task) => createTaskAlert("task_overdue", task, `Task ${task.taskId} is overdue (due ${task.dueDateKey})`)));
+}
+function scheduleOverdueUpdates() {
+    void applyOverdueUpdates().catch(() => undefined);
 }
 async function createTask(payload) {
     return createTaskInternal(payload, { skipComplaintEligibilityCheck: false });
@@ -287,8 +291,69 @@ async function createTaskInternal(payload, options) {
     await createTaskAlert("task_assigned", task, `Task ${task.taskId} assigned to ${task.assignedUserName || task.assignedTeamName} (${task.assignedTeamName})`);
     return task.toObject();
 }
+function isSimpleTeamScope(scopeFilter) {
+    return (scopeFilter &&
+        Object.keys(scopeFilter).length === 1 &&
+        typeof scopeFilter.assignedTeamName === "string" &&
+        scopeFilter.assignedTeamName &&
+        scopeFilter.assignedTeamName !== "__none__");
+}
+function buildUpcomingTeamFilter(teamName) {
+    return {
+        assignedTeamName: teamName,
+        status: { $in: ["Pending", "In Progress", "Overdue", "Need Re-visit", "Need Material"] },
+    };
+}
+async function enrichTaskItems(rawItems) {
+    const items = dedupeActiveTasksByComplaint(rawItems);
+    const complaintIds = items
+        .map((t) => t.complaintId)
+        .filter((id) => Boolean(id));
+    let complaintMap = {};
+    if (complaintIds.length > 0) {
+        const complaints = await Complaint_1.default.find({ complaintId: { $in: complaintIds } })
+            .select("complaintId clientName mobileNumber location status assignedTeam title")
+            .lean()
+            .maxTimeMS(QUERY_TIMEOUT_MS);
+        complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
+    }
+    return items.map((task) => ({
+        ...task,
+        complaint: task.complaintId ? complaintMap[task.complaintId] ?? null : null,
+    }));
+}
+async function getUpcomingTeamTasks(teamName, options) {
+    const skip = (options.page - 1) * options.limit;
+    const items = await Task_1.default.find({
+        assignedTeamName: teamName,
+        status: { $in: ["Pending", "In Progress", "Overdue", "Need Re-visit", "Need Material"] },
+    })
+        .sort({ dueDateKey: options.sortOrder })
+        .skip(skip)
+        .limit(options.limit)
+        .select("taskId complaintId title description status priority dueDate dueDateKey assignedTeamName assignedUserName")
+        .lean()
+        .maxTimeMS(5_000);
+    return { items, total: items.length };
+}
 async function getTasks(options) {
-    await applyOverdueUpdates();
+    if (options.upcoming &&
+        !options.q &&
+        isSimpleTeamScope(options.scopeFilter)) {
+        const teamName = options.scopeFilter.assignedTeamName;
+        const skip = (options.page - 1) * options.limit;
+        const sortField = options.sortBy === "dueDate" ? "dueDateKey" : options.sortBy;
+        const sort = { [sortField]: options.sortOrder };
+        const rawItems = await Task_1.default.find(buildUpcomingTeamFilter(teamName))
+            .sort(sort)
+            .skip(skip)
+            .limit(options.limit)
+            .lean()
+            .maxTimeMS(QUERY_TIMEOUT_MS);
+        const items = await enrichTaskItems(rawItems);
+        return { items, total: items.length };
+    }
+    scheduleOverdueUpdates();
     const filter = {};
     if (options.q) {
         const matchingComplaints = await Complaint_1.default.find({
@@ -367,36 +432,18 @@ async function getTasks(options) {
     }
     const skip = (options.page - 1) * options.limit;
     const sort = { [options.sortBy]: options.sortOrder };
+    const skipTotalCount = options.upcoming === true;
     const [rawItems, total] = await Promise.all([
-        Task_1.default.find(filter)
-            .select(TASK_LIST_PROJECTION)
-            .sort(sort)
-            .skip(skip)
-            .limit(options.limit)
-            .lean()
-            .maxTimeMS(QUERY_TIMEOUT_MS),
-        Task_1.default.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
+        Task_1.default.find(filter).sort(sort).skip(skip).limit(options.limit).lean().maxTimeMS(QUERY_TIMEOUT_MS),
+        skipTotalCount
+            ? Promise.resolve(0)
+            : Task_1.default.countDocuments(filter).maxTimeMS(QUERY_TIMEOUT_MS),
     ]);
-    const items = dedupeActiveTasksByComplaint(rawItems);
-    const complaintIds = items
-        .map((t) => t.complaintId)
-        .filter((id) => Boolean(id));
-    let complaintMap = {};
-    if (complaintIds.length > 0) {
-        const complaints = await Complaint_1.default.find({ complaintId: { $in: complaintIds } })
-            .select("complaintId clientName mobileNumber location status assignedTeam title")
-            .lean()
-            .maxTimeMS(QUERY_TIMEOUT_MS);
-        complaintMap = Object.fromEntries(complaints.map((c) => [c.complaintId, c]));
-    }
-    const enrichedItems = items.map((task) => ({
-        ...task,
-        complaint: task.complaintId ? complaintMap[task.complaintId] ?? null : null,
-    }));
-    return { items: enrichedItems, total };
+    const items = await enrichTaskItems(rawItems);
+    return { items, total: skipTotalCount ? items.length : total };
 }
 async function findTaskByLookup(id, options) {
-    await applyOverdueUpdates();
+    scheduleOverdueUpdates();
     const useLean = options?.lean ?? false;
     if (mongoose_1.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)) {
         const byId = useLean ? await Task_1.default.findById(id).lean() : await Task_1.default.findById(id);
@@ -425,7 +472,7 @@ async function getTaskById(id) {
     return { ...task, complaint };
 }
 async function getCalendarTaskCounts(options) {
-    await applyOverdueUpdates();
+    scheduleOverdueUpdates();
     const monthPrefix = `${options.year}-${String(options.month).padStart(2, "0")}`;
     const monthStartKey = `${monthPrefix}-01`;
     const monthEndKey = `${monthPrefix}-31`;
@@ -474,7 +521,7 @@ async function getCalendarTaskCounts(options) {
     });
 }
 async function getTaskStats(scopeFilter, team) {
-    await applyOverdueUpdates();
+    scheduleOverdueUpdates();
     const baseFilter = { status: { $ne: "Cancelled" } };
     if (scopeFilter && Object.keys(scopeFilter).length > 0) {
         Object.assign(baseFilter, scopeFilter);

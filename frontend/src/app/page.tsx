@@ -4,7 +4,7 @@ const PortalScreen = dynamic(
   () => import("@/components/portal/portal-screen").then((mod) => mod.PortalScreen),
   {
     loading: () => (
-      <div className="flex min-h-screen items-center justify-center bg-[#020a17] text-sm text-white/60">
+      <div className="flex min-h-screen items-center justify-center bg-[#080808] text-sm text-white/60">
         Loading portal…
       </div>
     ),

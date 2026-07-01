@@ -17,6 +17,12 @@ import { createComplaint, lookupOrders } from "@/services/complaints";
 import type { Complaint } from "@/lib/types";
 import { complaintIssueTypes } from "@/lib/constants";
 import { phoneInputProps, sanitizePhoneDigits, blockNonDigitPhoneKeys } from "@/lib/phone";
+import {
+  blockNonCoordinateKeys,
+  coordinateInputProps,
+  isValidCoordinatePair,
+  sanitizeCoordinateInput,
+} from "@/lib/coordinates";
 import { portalInputClass, portalLabelClass, portalTextareaClass, portalSelectClass, portalDateClass, portalSectionClass, portalFieldClass } from "@/lib/portal-styles";
 import { cn } from "@/lib/utils";
 import { readUser } from "@/lib/storage";
@@ -44,7 +50,12 @@ const schema = z.object({
   availability: z.string().optional(),
   timeSlot: z.string().optional(),
   assignedTeam: z.string().optional(),
-  locationCoordinates: z.string().optional(),
+  locationCoordinates: z.union([
+    z.literal(""),
+    z.string().refine((value) => isValidCoordinatePair(value), {
+      message: "Enter valid coordinates (e.g. 28.6139, 77.2090)",
+    }),
+  ]).optional(),
   salesPerson: z.string().optional(),
 });
 
@@ -55,7 +66,7 @@ const T = {
   teal900: "#2F6B63",
   teal700: "#4F9B8C",
   teal400: "#7BE3CF",
-  navy950: "#020a17",
+  navy950: "#080808",
   navy900: "#021D38",
   navy800: "#042C53",
   navy700: "#0C447C",
@@ -282,7 +293,7 @@ export function ComplaintRegistrationForm({
   const onSubmit = form.handleSubmit(
     (values) => {
       if (!selectedOrderId) {
-        toast.error("Please verify your details and select an order");
+        toast.error("Please verify your phone number and select an order");
         scrollToFirstError();
         return;
       }
@@ -312,7 +323,7 @@ export function ComplaintRegistrationForm({
           
           const response = await createComplaint(formData);
           setSubmittedComplaint(response.complaint);
-          await onSuccess?.(response.complaint);
+          onSuccess?.(response.complaint);
           toast.success("Complaint submitted successfully!");
           form.reset(defaultValues);
           setPicture(null);
@@ -485,8 +496,9 @@ export function ComplaintRegistrationForm({
             <FieldLabel className={pLabelCls}>Sales person name</FieldLabel>
             <Input
               {...form.register("salesPerson")}
-              placeholder="Optional"
+              placeholder="From order"
               className={pInputCls}
+              readOnly={Boolean(selectedOrderId)}
             />
             <FieldError message={form.formState.errors.salesPerson?.message} />
           </FieldWrap>
@@ -705,40 +717,45 @@ export function ComplaintRegistrationForm({
   }
 
   // ── Default (non-portal) UI ─────────────────────────────────────────────────
+  const dFieldCls = "space-y-1 sm:space-y-1.5 min-w-0";
+  const dLabelCls = "text-[11px] sm:text-sm font-medium leading-tight";
   const dInputCls = cn(
-    "h-11 w-full rounded-xl border px-3.5 text-[14px]",
+    "h-10 sm:h-11 w-full min-w-0 rounded-lg sm:rounded-xl border px-2.5 sm:px-3.5 text-[12px] sm:text-[14px]",
     "bg-[#F7FAFD] dark:bg-app border-[#185FA5]/20 focus:border-[#185FA5] focus:ring-[#185FA5]/10"
   );
   const dSelectCls = cn(dInputCls, "cursor-pointer");
   const dTextareaCls = cn(dInputCls, "h-auto py-3 resize-none");
+  const dAddressCls = cn(
+    dInputCls,
+    "!min-h-10 sm:!min-h-11 !h-10 sm:!h-11 !max-h-10 sm:!max-h-11 py-1.5 sm:py-2 resize-none overflow-y-auto overflow-x-hidden leading-snug"
+  );
 
   return (
     <form
-      className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 max-w-5xl mx-auto"
+      className="grid grid-cols-2 gap-x-2 gap-y-2 sm:gap-3 max-w-5xl mx-auto"
       onSubmit={onSubmit}
     >
       {/* Lookup section */}
-      <div className="space-y-4 md:col-span-2 rounded-xl border border-[#185FA5]/20 bg-[#185FA5]/5 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex shrink-0 flex-col space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Search By</span>
-            <div className="flex w-fit rounded-xl bg-white/5 p-1 ring-1 ring-[#185FA5]/20">
-              <button type="button" onClick={() => { setLookupType("orderId"); resetLookup(); }}
-                className={cn("rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px]",
-                  lookupType === "orderId" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
-                Order ID
-              </button>
-              <button type="button" onClick={() => { setLookupType("phone"); resetLookup(); }}
-                className={cn("rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px]",
-                  lookupType === "phone" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
-                Phone
-              </button>
-            </div>
+      <div className="space-y-2 col-span-2 rounded-xl border border-[#185FA5]/20 bg-[#185FA5]/5 p-2.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Search By</span>
+
+        <div className="flex flex-row items-center gap-2">
+          <div className="flex w-fit shrink-0 rounded-lg sm:rounded-xl bg-white/5 p-0.5 sm:p-1 ring-1 ring-[#185FA5]/20">
+            <button type="button" onClick={() => { setLookupType("phone"); resetLookup(); }}
+              className={cn("rounded-md sm:rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all min-h-[32px] sm:min-h-[36px]",
+                lookupType === "phone" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
+              Phone
+            </button>
+            <button type="button" onClick={() => { setLookupType("orderId"); resetLookup(); }}
+              className={cn("rounded-md sm:rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all min-h-[32px] sm:min-h-[36px]",
+                lookupType === "orderId" ? "bg-[#185FA5] text-white shadow-sm" : "text-slate-400 hover:text-slate-200")}>
+              Order ID
+            </button>
           </div>
 
-          <div className="relative w-full min-w-0 flex-1 space-y-2">
-            <Label className="text-sm font-medium">
-              {lookupType === "phone" ? "Enter Mobile Number *" : "Enter Order ID *"}
+          <div className="relative min-w-0 flex-1">
+            <Label className="sr-only">
+              {lookupType === "phone" ? "Enter Mobile Number" : "Enter Order ID"}
             </Label>
             <div className="relative">
               {lookupType === "phone" ? (
@@ -748,17 +765,22 @@ export function ComplaintRegistrationForm({
                   onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                   onPaste={(e) => { e.preventDefault(); const pasted = sanitizePhoneDigits(e.clipboardData.getData("text")); form.setValue("mobileNumber", pasted, { shouldValidate: true, shouldDirty: true }); resetLookup(); }}
                   onBlur={() => { if (sanitizePhoneDigits(mobileNumber).length === 10 && !lookupDone) void handleLookup("phone"); }}
-                  placeholder="e.g. 9876543210" className={cn(dInputCls, "pr-10")} />
+                  placeholder="Mobile no. *" className={cn(dInputCls, "pr-9 sm:pr-10")} />
               ) : (
-                <Input value={orderIdQuery}
+                <Input
+                  value={orderIdQuery}
                   onChange={(e) => { setOrderIdQuery(e.target.value); resetLookup(); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleLookup("orderId"); setShowSuggestions(false); } }}
-                  onBlur={() => { if (orderIdQuery.trim() && !lookupDone) void handleLookup("orderId"); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); void handleLookup("orderId"); setShowSuggestions(false); }
+                  }}
                   onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                  placeholder="e.g. ORD-2024-001" className={cn(dInputCls, "pr-10")} />
+                  onBlur={() => { if (orderIdQuery.trim() && !lookupDone) void handleLookup("orderId"); }}
+                  placeholder="Order ID *"
+                  className={cn(dInputCls, "pr-9 sm:pr-10")}
+                />
               )}
               <button type="button"
-                disabled={lookupLoading || (lookupType === "phone" && sanitizePhoneDigits(mobileNumber).length !== 10) || (lookupType === "orderId" && !orderIdQuery.trim())}
+                disabled={lookupLoading || (lookupType === "phone" ? sanitizePhoneDigits(mobileNumber).length !== 10 : !orderIdQuery.trim())}
                 onClick={() => void handleLookup(lookupType)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#378ADD] transition-colors hover:text-[#85B7EB] disabled:opacity-30">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -785,7 +807,7 @@ export function ComplaintRegistrationForm({
           </div>
         </div>
 
-        <p className="text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="text-[10px] sm:text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
           {lookupType === "phone"
             ? "We verify your phone against existing orders before you can register a complaint."
             : "Search for your order directly using the Order ID."}
@@ -802,12 +824,12 @@ export function ComplaintRegistrationForm({
         {matchedOrders.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#85B7EB]">Select your order</p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
               {matchedOrders.map((order) => {
                 const selected = selectedOrderId === order.orderId;
                 return (
                   <button key={order.orderId} type="button" onClick={() => applyOrderSelection(order)}
-                    className={cn("rounded-xl border p-3.5 text-left transition min-h-[44px]",
+                    className={cn("rounded-lg sm:rounded-xl border p-2 sm:p-3.5 text-left transition min-h-[40px] sm:min-h-[44px]",
                       selected ? "border-emerald-500/50 bg-emerald-500/10" : "border-white/10 bg-white/[0.03] hover:border-[#378ADD]/40")}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -827,37 +849,42 @@ export function ComplaintRegistrationForm({
       </div>
 
       {/* Name */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Name *</Label>
-        <Input {...form.register("name")} placeholder="Filled from order after verification" className={dInputCls} readOnly={Boolean(selectedOrderId)} />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Name *</Label>
+        <Input {...form.register("name")} placeholder="From order" className={dInputCls} readOnly={Boolean(selectedOrderId)} />
         <FieldError message={form.formState.errors.name?.message} />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Order ID *</Label>
-        <Input {...form.register("orderId")} placeholder="Select an order above" className={dInputCls} readOnly />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Order ID *</Label>
+        <Input {...form.register("orderId")} placeholder="Select order" className={dInputCls} readOnly />
         <FieldError message={form.formState.errors.orderId?.message} />
       </div>
 
       {/* Email */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Email ID</Label>
-        <Input {...form.register("email")} type="email" placeholder="Enter email address" className={dInputCls} />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Email ID</Label>
+        <Input {...form.register("email")} type="email" placeholder="Email" className={dInputCls} />
         <FieldError message={form.formState.errors.email?.message} />
       </div>
 
       {/* Sales person name */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Sales Person Name</Label>
-        <Input {...form.register("salesPerson")} placeholder="Optional" className={dInputCls} />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Sales Person</Label>
+        <Input
+          {...form.register("salesPerson")}
+          placeholder="From order"
+          className={dInputCls}
+          readOnly={Boolean(selectedOrderId)}
+        />
         <FieldError message={form.formState.errors.salesPerson?.message} />
       </div>
 
       {/* Complaint type */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Complaint Type *</Label>
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Complaint Type *</Label>
         <select {...form.register("complaintType")} className={dSelectCls}>
-          <option value="" disabled>Select complaint type</option>
+          <option value="" disabled>Select type</option>
           {complaintIssueTypes.map((issue) => (
             <option key={issue} value={issue} style={{ backgroundColor: "#0a121e", color: "#ffffff" }}>{issue}</option>
           ))}
@@ -874,30 +901,44 @@ export function ComplaintRegistrationForm({
       --- END COMPLAINT DESCRIPTION --- */}
 
       {/* Address */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Address *</Label>
-        <Textarea {...form.register("address")} placeholder="Enter complete address" rows={1} className={dTextareaCls} />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Address *</Label>
+        <Textarea {...form.register("address")} placeholder="Complete address" rows={1} className={dAddressCls} />
         <FieldError message={form.formState.errors.address?.message} />
       </div>
 
       {/* Location */}
-      <div className="space-y-1.5 md:col-span-2">
-        <Label className="text-sm font-medium">Location Coordinates (Optional)</Label>
+      <div className={cn(dFieldCls, "col-span-2")}>
+        <Label className={dLabelCls}>Location Coordinates</Label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <Input {...form.register("locationCoordinates")} placeholder="e.g. 28.6139, 77.2090" className={cn(dInputCls, "pl-10")} />
+          <MapPin className="absolute left-2.5 sm:left-3 top-1/2 h-3.5 sm:h-4 w-3.5 sm:w-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            {...coordinateInputProps}
+            value={form.watch("locationCoordinates") ?? ""}
+            onChange={(e) => {
+              const next = sanitizeCoordinateInput(e.target.value);
+              form.setValue("locationCoordinates", next, { shouldDirty: true });
+            }}
+            onKeyDown={blockNonCoordinateKeys}
+            onPaste={(e) => {
+              e.preventDefault();
+              const pasted = sanitizeCoordinateInput(e.clipboardData.getData("text"));
+              form.setValue("locationCoordinates", pasted, { shouldDirty: true });
+            }}
+            placeholder="28.6139, 77.2090"
+            className={cn(dInputCls, "pl-8 sm:pl-10")}
+          />
         </div>
-        <p className="text-[10px] italic text-slate-500">Manual coordinates or pasted from Maps.</p>
         <FieldError message={form.formState.errors.locationCoordinates?.message} />
       </div>
 
       {/* Picture */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Upload Picture</Label>
-        <Input type="file" accept="image/*" className={dInputCls} onChange={(e) => handlePictureFile(e.target.files?.[0] ?? null)} />
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Upload Picture</Label>
+        <Input type="file" accept="image/*" className={cn(dInputCls, "text-[11px] sm:text-[12px]")} onChange={(e) => handlePictureFile(e.target.files?.[0] ?? null)} />
         {picturePreview && (
-          <div className="relative mt-2 inline-block">
-            <img src={picturePreview} alt="Complaint preview" className="max-h-32 rounded-lg border border-white/10 object-cover" />
+          <div className="relative mt-1.5 inline-block">
+            <img src={picturePreview} alt="Complaint preview" className="max-h-20 sm:max-h-32 rounded-lg border border-white/10 object-cover" />
             <button type="button" onClick={() => handlePictureFile(null)} className="absolute -right-2 -top-2 rounded-full bg-red-500/90 p-1 text-white hover:bg-red-500" aria-label="Remove picture">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -913,19 +954,19 @@ export function ComplaintRegistrationForm({
       --- END PRODUCTION SHEET --- */}
 
       {/* Date */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Preferred Available Date</Label>
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Available Date</Label>
         <Input {...form.register("availableDate")} type="date" min={new Date().toISOString().split("T")[0]} className={dInputCls} />
         <FieldError message={form.formState.errors.availableDate?.message} />
       </div>
 
       {/* Time slot */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Available Time Slot</Label>
+      <div className={dFieldCls}>
+        <Label className={dLabelCls}>Time Slot</Label>
         <div className="relative">
-          <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <select {...form.register("timeSlot")} className={cn(dSelectCls, "pl-10")}>
-            <option value="" disabled>Select a time slot</option>
+          <Clock className="pointer-events-none absolute left-2.5 sm:left-3 top-1/2 h-3.5 sm:h-4 w-3.5 sm:w-4 -translate-y-1/2 text-slate-500" />
+          <select {...form.register("timeSlot")} className={cn(dSelectCls, "pl-8 sm:pl-10 text-[11px] sm:text-[14px]")}>
+            <option value="" disabled>Select slot</option>
             {timeSlots.map((slot) => (
               <option key={slot} value={slot} style={{ backgroundColor: "#0a121e" }}>{slot}</option>
             ))}
@@ -942,27 +983,26 @@ export function ComplaintRegistrationForm({
       </div>
       --- END AVAILABILITY NOTES --- */}
 
-      {/* Assign to Team - Only visible to admins */}
+      {/* Assign to Team - Only visible to admins (sits beside time slot) */}
       {isAdmin && (
-        <div className="space-y-1.5 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 md:col-span-2">
-          <Label className="text-sm font-medium">Assign to Team Directly (Optional)</Label>
-          <select {...form.register("assignedTeam")} className={dSelectCls}>
-            <option value="">Select a team to assign</option>
+        <div className={dFieldCls}>
+          <Label className={dLabelCls}>Assign Team</Label>
+          <select {...form.register("assignedTeam")} className={cn(dSelectCls, "text-[11px] sm:text-[14px]")}>
+            <option value="">Select team</option>
             {teams.map((team) => (
               <option key={team._id} value={team.teamName} style={{ backgroundColor: "#0a121e" }}>
                 {team.teamName}
               </option>
             ))}
           </select>
-          <p className="text-[11px] font-medium text-blue-500/70">This will immediately create a task for the selected team.</p>
         </div>
       )}
 
       {/* Submit */}
-      <div className="md:col-span-2 pt-4">
+      <div className="col-span-2 pt-0.5">
         <Button type="submit" disabled={pending || form.formState.isSubmitting || !selectedOrderId}
           className={cn(
-            "h-12 min-h-[48px] w-full rounded-xl border-none text-[15px] font-semibold text-white transition-all",
+            "h-10 sm:h-11 min-h-[40px] sm:min-h-[44px] w-full rounded-lg sm:rounded-xl border-none text-[13px] sm:text-[14px] font-semibold text-white transition-all",
             selectedOrderId 
               ? "bg-[#185FA5] hover:bg-[#0C447C] hover:scale-[1.02] active:scale-[0.98]"
               : "bg-gray-400 cursor-not-allowed"
@@ -970,13 +1010,13 @@ export function ComplaintRegistrationForm({
           {pending || form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</> : "Submit Complaint"}
         </Button>
         {!selectedOrderId && (
-          <p className="mt-2 text-center text-[12px] text-slate-500">Verify your order above to enable submission</p>
+          <p className="mt-1.5 text-center text-[10px] sm:text-[12px] text-slate-500">Verify order above to submit</p>
         )}
       </div>
 
       {/* Success */}
       {submittedComplaint && (
-        <div className="md:col-span-2 mt-2 rounded-xl border border-[#185FA5]/20 bg-[#E6F1FB] p-4 dark:bg-[#0C447C]/15">
+        <div className="col-span-2 mt-1.5 rounded-xl border border-[#185FA5]/20 bg-[#E6F1FB] p-3 sm:p-4 dark:bg-[#0C447C]/15">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[#0C447C] dark:text-[#85B7EB]">Submitted successfully</p>
           <p className="font-serif text-2xl font-medium text-[#042C53] dark:text-white">{submittedComplaint.complaintId}</p>
           <p className="mt-1 text-[12px] text-[#185FA5] dark:text-[#85B7EB]">

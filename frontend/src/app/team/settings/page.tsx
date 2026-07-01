@@ -1,4 +1,4 @@
-import { SettingsPage } from "@/components/settings/SettingsPage";
+import { LazySettingsPage } from "@/lib/lazy-pages";
 
 export const metadata = {
   title: "Settings",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function TeamSettingsPage() {
-  return <SettingsPage role="team" />;
+  return <LazySettingsPage role="team" />;
 }

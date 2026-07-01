@@ -1,4 +1,4 @@
-import { UsersPage } from "@/components/users/UsersPage";
+import { LazyUsersPage } from "@/lib/lazy-pages";
 
 export const metadata = {
   title: "User Management",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function AdminUsersPage() {
-  return <UsersPage role="admin" />;
+  return <LazyUsersPage role="admin" />;
 }

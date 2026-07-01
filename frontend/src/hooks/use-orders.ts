@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Order, OrderFilters } from "@/lib/types";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { OrderFilters, OrderListResponse } from "@/lib/types";
 import {
   createOrder,
   deleteOrder,
@@ -12,7 +12,7 @@ import {
   type OrderPayload
 } from "@/services/orders";
 
-export const orderKeys = {
+const orderKeys = {
   all: ["orders"] as const,
   lists: () => [...orderKeys.all, "list"] as const,
   list: (filters: OrderFilters) => [...orderKeys.lists(), filters] as const,
@@ -20,13 +20,18 @@ export const orderKeys = {
   detail: (id: string) => [...orderKeys.details(), id] as const
 };
 
-export function useOrders(filters: OrderFilters, enabled = true) {
+async function refreshOrderLists(queryClient: QueryClient) {
+  await queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+  await queryClient.refetchQueries({ queryKey: orderKeys.lists() });
+}
+
+export function useOrders(filters: OrderFilters) {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => fetchOrders(filters),
-    enabled,
     placeholderData: (previous) => previous,
     staleTime: 30_000,
+    refetchOnMount: true,
     retry: 1,
     retryDelay: 2_000,
   });
@@ -45,11 +50,21 @@ export function useCreateOrder() {
 
   return useMutation({
     mutationFn: (payload: OrderPayload) => createOrder(payload),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    onSuccess: async (data) => {
+      queryClient.setQueriesData<OrderListResponse>({ queryKey: orderKeys.lists() }, (current) =>
+        current
+          ? {
+              ...current,
+              items: [data.order, ...current.items.filter((order) => order._id !== data.order._id)],
+              total: current.total + 1,
+            }
+          : current
+      );
+
+      await refreshOrderLists(queryClient);
       void queryClient.invalidateQueries({ queryKey: ["payments"] });
       void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
-    }
+    },
   });
 }
 
@@ -59,12 +74,12 @@ export function useUpdateOrder() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<OrderPayload> }) =>
       updateOrder(id, payload),
-    onSuccess: (data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    onSuccess: async (_data, variables) => {
+      await refreshOrderLists(queryClient);
       void queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.id) });
       void queryClient.invalidateQueries({ queryKey: ["payments"] });
       void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
-    }
+    },
   });
 }
 
@@ -73,9 +88,9 @@ export function useDeleteOrder() {
 
   return useMutation({
     mutationFn: (id: string) => deleteOrder(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-    }
+    onSuccess: async () => {
+      await refreshOrderLists(queryClient);
+    },
   });
 }
 
@@ -84,10 +99,10 @@ export function useImportOrders() {
 
   return useMutation({
     mutationFn: (orders: OrderPayload[]) => importOrders(orders),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    onSuccess: async () => {
+      await refreshOrderLists(queryClient);
       void queryClient.invalidateQueries({ queryKey: ["payments"] });
       void queryClient.invalidateQueries({ queryKey: ["payment-stats"] });
-    }
+    },
   });
 }

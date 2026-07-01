@@ -26,10 +26,6 @@ export default function TeamAnalyticsPage() {
     enabled: ready,
   });
 
-  if (!ready) {
-    return null;
-  }
-
   return (
     <DashboardShell
       role="team"

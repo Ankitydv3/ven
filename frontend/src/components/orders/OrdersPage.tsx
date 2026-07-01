@@ -26,9 +26,9 @@ import { useSession } from "@/hooks/use-session";
 import { fetchOrders } from "@/services/orders";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableElement, TD, TH, THead, TR } from "@/components/ui/table";
+import { TableElement, TD, TH, THead, TR } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -58,6 +58,40 @@ import type { Order, OrderFilters } from "@/lib/types";
 import { readUser } from "@/lib/storage";
 import { canManageOrders } from "@/lib/permissions";
 import { downloadOrderImportTemplate, parseOrdersFromFile } from "@/lib/order-import";
+
+function materialTypeBadgeClass(materialType: Order["materialType"]) {
+  return materialType === "Aluminium"
+    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25"
+    : "bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25";
+}
+
+function getOrderPaymentStatus(order: Pick<Order, "paymentStatus" | "unpaidServiceAvailable" | "deliveryDate">): Order["paymentStatus"] {
+  if (order.paymentStatus) return order.paymentStatus;
+  if (typeof order.unpaidServiceAvailable === "boolean") {
+    return order.unpaidServiceAvailable ? "Unpaid" : "Paid";
+  }
+
+  const delivery = new Date(order.deliveryDate);
+  const expiry = new Date(delivery);
+  expiry.setFullYear(expiry.getFullYear() + 1);
+  return new Date() > expiry ? "Paid" : "Unpaid";
+}
+
+function paymentStatusBadgeClass(paymentStatus: Order["paymentStatus"]) {
+  return paymentStatus === "Paid"
+    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25"
+    : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25";
+}
+
+const orderTableHeaders = [
+  { key: "orderId", label: "Order ID", className: "w-[11%]" },
+  { key: "customer", label: "Customer Name", className: "w-[14%]" },
+  { key: "address", label: "Address", className: "w-[24%]" },
+  { key: "material", label: "Material Type", className: "w-[11%]" },
+  { key: "handover", label: "Handover Date", className: "w-[11%]" },
+  { key: "service", label: "Service Type", className: "w-[12%]" },
+  { key: "actions", label: "Actions", className: "w-[10%] text-right" },
+] as const;
 
 export function OrdersPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
@@ -237,11 +271,6 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
 
   // ============================================================
   // END OF HOOKS - Now we can do conditional returns
-
-  // Check if session is ready
-  if (!ready) {
-    return null;
-  }
 
   const handleExportCSV = async () => {
     if (!exportFromDate || !exportToDate) {
@@ -446,75 +475,23 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
       title="Orders Management"
       subtitle="Track material types, client orders, service availability, and workflow lifecycles."
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Search and Filters */}
         <Card className="border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app shadow-none">
-          <CardHeader className="border-b border-slate-100 dark:border-white/[0.06] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium tracking-wide text-[#378ADD] mb-1">dashboard overview</p>
-              <CardTitle className="font-serif text-xl font-medium text-[#04342C] dark:text-white">
-                Orders List
-              </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-white/50">
-                {canManage
-                  ? "Filter and manage registered client orders."
-                  : "Filter and view all registered client orders."}
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canManage && (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-                    className="hidden"
-                    onChange={handleImportFile}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={downloadOrderImportTemplate}
-                    className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
-                  >
-                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Template
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleImportClick}
-                    disabled={isImporting || importOrdersMutation.isPending}
-                    className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
-                  >
-                    {isImporting || importOrdersMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="mr-2 h-4 w-4" />
-                    )}
-                    Import Excel
-                  </Button>
-                  <Button
-                    onClick={() => setExportDialogOpen(true)}
-                    variant="outline"
-                    className="border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
-                  >
-                    <Download className="mr-2 h-4 w-4" /> Export
-                  </Button>
-                  <Button
-                    onClick={() => router.push("/admin/orders/new")}
-                    className="bg-[#185FA5] hover:bg-[#378ADD] text-white"
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Add Order
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+          <CardContent className="p-3">
+            {canManage && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+            )}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Search bar */}
-                <div className="relative">
+                <div className="relative min-w-[180px] flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
                   <Input
                     value={search}
@@ -538,11 +515,10 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                 </div>
 
                 {/* Material Type */}
-                <div className="relative">
-                  <select
+                <select
                     value={materialType}
                     onChange={(e) => setMaterialType(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                    className="min-w-[130px] rounded-lg border border-slate-200 dark:border-white/[0.08]
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
@@ -552,14 +528,12 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     <option value="Aluminium">Aluminium</option>
                     <option value="uPVC">uPVC</option>
                   </select>
-                </div>
 
                 {/* Payment status */}
-                <div className="relative">
-                  <select
+                <select
                     value={paymentStatus}
                     onChange={(e) => setPaymentStatus(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                    className="min-w-[130px] rounded-lg border border-slate-200 dark:border-white/[0.08]
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
@@ -569,14 +543,12 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     <option value="Paid">Paid Only</option>
                     <option value="Unpaid">Unpaid Only</option>
                   </select>
-                </div>
 
                 {/* Order Status */}
-                <div className="relative">
-                  <select
+                <select
                     value={orderStatus}
                     onChange={(e) => setOrderStatus(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08]
+                    className="min-w-[130px] rounded-lg border border-slate-200 dark:border-white/[0.08]
                                bg-white dark:bg-app
                                py-2 px-3 text-sm
                                text-slate-900 dark:text-white
@@ -587,16 +559,60 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     <option value="In Progress">In Progress</option>
                     <option value="Completed">Completed</option>
                   </select>
-                </div>
 
                 {/* Search button */}
                 <Button
                   onClick={handleSearchTrigger}
                   type="button"
-                  className="bg-[#185FA5] hover:bg-[#378ADD] text-white border-none w-full"
+                  size="sm"
+                  className="bg-[#185FA5] hover:bg-[#378ADD] text-white border-none shrink-0"
                 >
-                  <Search className="h-4 w-4 mr-2" /> Search
+                  <Search className="h-4 w-4 mr-1.5" /> Search
                 </Button>
+
+                {canManage && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadOrderImportTemplate}
+                      className="shrink-0 border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleImportClick}
+                      disabled={isImporting || importOrdersMutation.isPending}
+                      className="shrink-0 border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      {isImporting || importOrdersMutation.isPending ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="mr-1.5 h-4 w-4" />
+                      )}
+                      Import Excel
+                    </Button>
+                    <Button
+                      onClick={() => setExportDialogOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    >
+                      <Download className="mr-1.5 h-4 w-4" /> Export
+                    </Button>
+                    <Button
+                      onClick={() => router.push("/admin/orders/new")}
+                      size="sm"
+                      className="shrink-0 bg-[#185FA5] hover:bg-[#378ADD] text-white"
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" /> Add Order
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* Active filters display */}
@@ -678,34 +694,39 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
         </Card>
 
         {/* Table - Desktop View */}
-        <div className="hidden rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-app overflow-hidden md:block">
-          <Table>
-            <TableElement>
-                  <THead>
+        <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/[0.08] dark:bg-app md:block">
+          <div className="overflow-x-auto">
+            <TableElement className="w-full table-fixed text-sm">
+              <THead className="bg-slate-50/80 dark:bg-white/[0.03]">
                 <tr className="border-b border-slate-100 dark:border-white/[0.06]">
-                  <TH className="w-[10%]">Order ID</TH>
-                  <TH className="w-[15%]">Customer Name</TH>
-                  {/* <TH className="w-[10%]">Sales Person</TH> */}
-                  <TH className="w-[20%]">Address</TH>
-                  <TH className="w-[10%]">Material Type</TH>
-                  <TH className="w-[12%]">Handover Date</TH>
-                  <TH className="w-[13%]">Service Type</TH>
-                  <TH className="text-right w-[10%]">Actions</TH>
+                  {orderTableHeaders.map((header) => (
+                    <TH
+                      key={header.key}
+                      className={cn(
+                        "px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500",
+                        header.className
+                      )}
+                    >
+                      {header.label}
+                    </TH>
+                  ))}
                 </tr>
               </THead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06]">
                 {isLoading && !data ? (
                   Array.from({ length: 4 }).map((_, idx) => (
-                    <TR key={idx}>
-                      <TD colSpan={8}>
-                        <Skeleton className="h-10 rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
-                      </TD>
+                    <TR key={idx} className="border-0 hover:bg-transparent">
+                      {orderTableHeaders.map((header) => (
+                        <TD key={header.key} className="px-4 py-3">
+                          <Skeleton className="h-8 rounded-md bg-slate-100 dark:bg-white/[0.04]" />
+                        </TD>
+                      ))}
                     </TR>
                   ))
                 ) : items.length === 0 ? (
-                  <TR>
-                    <TD colSpan={8}>
-                      <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                  <TR className="border-0 hover:bg-transparent">
+                    <TD colSpan={orderTableHeaders.length} className="px-4 py-12">
+                      <div className="flex flex-col items-center justify-center gap-2 text-center">
                         <p className="font-serif text-base font-medium text-[#04342C] dark:text-white">
                           No orders found
                         </p>
@@ -726,15 +747,18 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                     </TD>
                   </TR>
                 ) : (
-                  items.map((order) => (
+                  items.map((order) => {
+                    const serviceStatus = getOrderPaymentStatus(order);
+
+                    return (
                     <TR
                       key={order._id}
-                      className="border-b border-slate-100 dark:border-white/[0.06] cursor-pointer transition-colors hover:bg-slate-50/50 dark:hover:bg-white/[0.04]"
+                      className="cursor-pointer border-0 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
                       onClick={() => setViewTarget(order)}
                     >
-                      {/* Order ID */}
-                      <TD className="font-medium text-[#04342C] dark:text-white">
+                      <TD className="px-4 py-3 font-mono text-sm font-semibold text-[#185FA5] dark:text-[#85B7EB]">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setViewTarget(order);
@@ -745,66 +769,53 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                         </button>
                       </TD>
 
-                      {/* Customer Details */}
-                      <TD>
-                        <div className="flex flex-col text-left">
-                          <span className="font-semibold text-slate-900 dark:text-white">
+                      <TD className="px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900 dark:text-white">
                             {order.customerName}
-                          </span>
-                          <span className="text-xs text-slate-400 dark:text-slate-400">
+                          </p>
+                          <p className="truncate text-xs text-slate-400 dark:text-slate-500">
                             {order.phone}
-                          </span>
+                          </p>
                         </div>
                       </TD>
 
-                      {/* Sales Person */}
-                      {/* <TD className="text-slate-700 dark:text-white/70 text-sm">
-                        {order.salesPerson || "—"}
-                      </TD> */}
-
-                      {/* Address */}
-                      <TD className={cn("text-sm text-slate-700 dark:text-white/70 max-w-[220px] whitespace-normal", wrapTextClass)}>
+                      <TD className={cn("px-4 py-3 text-sm text-slate-600 dark:text-white/70 whitespace-normal", wrapTextClass)}>
                         {order.address}, {order.city}, {order.state} {order.pincode}
                       </TD>
 
-                      {/* Material Type */}
-                      <TD>
+                      <TD className="px-4 py-3">
                         <Badge
-                          className={`rounded-md border-0 font-medium px-3 py-1 ${
-                            order.materialType === "Aluminium"
-                              ? "bg-blue-900/40 text-blue-400"
-                              : "bg-purple-900/40 text-purple-400"
-                          }`}
+                          className={cn(
+                            "rounded-md border-0 px-2.5 py-0.5 text-xs font-semibold",
+                            materialTypeBadgeClass(order.materialType)
+                          )}
                         >
                           {order.materialType}
                         </Badge>
                       </TD>
 
-                      {/* Order Date (Delivery Date) */}
-                      <TD className="text-slate-500 dark:text-white/60">
+                      <TD className="px-4 py-3 text-sm text-slate-600 dark:text-white/70 whitespace-nowrap">
                         {new Date(order.deliveryDate).toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
-                          year: "numeric"
+                          year: "numeric",
                         })}
                       </TD>
 
-                      {/* Unpaid Service Available */}
-                      <TD>
-                        {order.unpaidServiceAvailable ? (
-                          <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded px-4 py-1 border-emerald-500/20 font-bold">
-                            Paid 
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded px-4 py-1 border-rose-500/20 font-bold">
-                            Unpaid
-                          </Badge>
-                        )}
+                      <TD className="px-4 py-3 whitespace-nowrap">
+                        <Badge
+                          className={cn(
+                            "rounded-md border-0 px-2.5 py-0.5 text-xs font-semibold",
+                            paymentStatusBadgeClass(serviceStatus)
+                          )}
+                        >
+                          {serviceStatus}
+                        </Badge>
                       </TD>
 
-                      {/* Actions */}
-                      <TD className="text-right">
-                        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <TD className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -836,11 +847,12 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                         </div>
                       </TD>
                     </TR>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </TableElement>
-          </Table>
+          </div>
         </div>
 
         {/* Cards - Mobile View */}
@@ -911,16 +923,15 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
                       <span>{new Date(order.deliveryDate).toLocaleDateString()}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] uppercase text-[#378ADD]">Service Available</span>
-                      <span
-                        className={`font-semibold ${
-                          order.unpaidServiceAvailable
-                            ? "text-emerald-500"
-                            : "text-rose-500"
-                        }`}
+                      <span className="block text-[10px] uppercase text-[#378ADD]">Service Type</span>
+                      <Badge
+                        className={cn(
+                          "mt-1 rounded-md border-0 px-2 py-0.5 text-[10px] font-semibold",
+                          paymentStatusBadgeClass(getOrderPaymentStatus(order))
+                        )}
                       >
-                        {order.unpaidServiceAvailable ? "YES" : "NO"}
-                      </span>
+                        {getOrderPaymentStatus(order)}
+                      </Badge>
                     </div>
                   </div>
 

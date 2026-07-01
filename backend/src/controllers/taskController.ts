@@ -9,6 +9,7 @@ import {
   getTaskById,
   getTasks,
   getTaskStats,
+  getUpcomingTeamTasks,
   patchTaskStatusById,
   reopenTaskById,
   updateTaskById,
@@ -40,6 +41,30 @@ function parseListQuery(query: Record<string, string | undefined>) {
 
 export async function listTasks(req: AuthRequest, res: Response) {
   const parsed = parseListQuery(req.query as Record<string, string | undefined>);
+  const teamName = req.user?.team ?? req.user?.teamName;
+
+  if (
+    parsed.upcoming &&
+    !parsed.q &&
+    (req.user?.role === "team" || req.user?.role === "team_lead") &&
+    teamName &&
+    teamName !== "__none__"
+  ) {
+    const result = await getUpcomingTeamTasks(teamName, {
+      page: parsed.page,
+      limit: parsed.limit,
+      sortOrder: parsed.sortOrder,
+    });
+    res.json({
+      items: result.items,
+      total: result.total,
+      page: parsed.page,
+      limit: parsed.limit,
+      scoped: true,
+    });
+    return;
+  }
+
   const dashboardScope = dashboardTaskScopeFilter(req.user);
   const teamScope = taskVisibilityFilter(req.user);
   const scopeFilter =

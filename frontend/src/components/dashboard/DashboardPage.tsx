@@ -205,7 +205,6 @@ import type { Task } from "@/lib/task.types";
           {eyebrow}
         </p>
         <h2 className="text-xl font-bold text-white">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>}
       </div>
     );
   }
@@ -1355,8 +1354,6 @@ import type { Task } from "@/lib/task.types";
       [data]
     );
 
-    if (!ready) return null;
-
     return (
       <DashboardShell
         role={role}
@@ -1387,7 +1384,7 @@ import type { Task } from "@/lib/task.types";
           <LoadingState />
         ) : (
           <motion.div
-            initial="hidden"
+            initial={false}
             animate="visible"
             variants={stagger}
             className="space-y-8"

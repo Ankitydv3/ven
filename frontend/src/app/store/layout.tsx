@@ -1,5 +1,5 @@
-import { DashboardPortalLayout } from "@/components/layout/dashboard-portal-layout";
+import { PortalDashboardLayout } from "@/components/layout/portal-dashboard-layout";
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardPortalLayout role="store">{children}</DashboardPortalLayout>;
+  return <PortalDashboardLayout role="store">{children}</PortalDashboardLayout>;
 }

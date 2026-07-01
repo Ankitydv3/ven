@@ -1,4 +1,4 @@
-import { AlertsPage } from "@/components/alerts/AlertsPage";
+import { LazyAlertsPage } from "@/lib/lazy-pages";
 
 export const metadata = {
   title: "Alerts",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function AdminAlertsPage() {
-  return <AlertsPage />;
+  return <LazyAlertsPage />;
 }

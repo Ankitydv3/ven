@@ -256,7 +256,7 @@ async function createComplaint(req, res) {
     const timeSlot = payload.timeSlot?.trim() || "";
     const locationCoordinates = payload.locationCoordinates?.trim() || "";
     const assignedTeam = payload.assignedTeam?.trim() || "";
-    const salesPerson = payload.salesPerson?.trim() || "";
+    const salesPerson = payload.salesPerson?.trim() || order.salesPerson?.trim() || "";
     const availabilityStr = [
         availableDate && `Date: ${availableDate}`,
         timeSlot && `Slot: ${timeSlot}`,
@@ -414,9 +414,7 @@ async function listComplaints(req, res) {
                 ? { status }
                 : isActiveAssignedScope
                     ? activeStatusFilter
-                    : scope === "reviewed"
-                        ? { status: { $ne: "Pending Review" } }
-                        : {};
+                    : activeStatusFilter;
         const andClauses = [
             statusFilter,
             Object.keys(teamFilter).length > 0 ? teamFilter : { assignedTeam: "__none__" },
@@ -458,7 +456,7 @@ async function listComplaints(req, res) {
         [items, total] = await Promise.all([
             Complaint_1.default.find(filter)
                 .select(listSelect)
-                .sort({ createdAt: -1, _id: -1 })
+                .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(Number(limit))
                 .lean()
@@ -548,12 +546,7 @@ async function listComplaints(req, res) {
             workflowStage,
         };
     });
-    const MY_TASKS_HIDDEN = new Set(["In Progress", "Completed", "Cancelled"]);
-    const responseItems = scope === "my_tasks"
-        ? enrichedItems.filter((item) => item.taskScheduleStatus && !MY_TASKS_HIDDEN.has(item.taskScheduleStatus))
-        : enrichedItems;
-    const responseTotal = scope === "my_tasks" ? responseItems.length : total;
-    res.json({ items: responseItems, total: responseTotal, page: Number(page), limit: Number(limit) });
+    res.json({ items: enrichedItems, total, page: Number(page), limit: Number(limit) });
 }
 function canAccessComplaint(user, complaint) {
     if (user.role && (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin")) {

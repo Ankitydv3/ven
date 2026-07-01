@@ -21,17 +21,42 @@ const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const teamRoutes_1 = __importDefault(require("./routes/teamRoutes"));
 const materialRequestRoutes_1 = __importDefault(require("./routes/materialRequestRoutes"));
 const errorHandler_1 = require("./middleware/errorHandler");
+function getAllowedOrigins() {
+    const defaults = ["http://localhost:3000", "http://127.0.0.1:3000"];
+    const fromEnv = (process.env.CLIENT_URL ?? "http://localhost:3000")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+    return [...new Set([...fromEnv, ...defaults])];
+}
+const allowedOrigins = getAllowedOrigins();
+function isOriginAllowed(origin) {
+    return !origin || allowedOrigins.includes(origin);
+}
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
-app.use((0, cors_1.default)({ origin: process.env.CLIENT_URL ?? "http://localhost:3000", credentials: true }));
+app.use((0, cors_1.default)({
+    origin(origin, callback) {
+        if (isOriginAllowed(origin)) {
+            callback(null, origin ?? allowedOrigins[0]);
+        }
+        else {
+            callback(new Error(`Origin ${origin} not allowed by CORS`));
+        }
+    },
+    credentials: true,
+}));
 app.use(express_1.default.json({ limit: "2mb" }));
 app.use((0, morgan_1.default)("dev"));
 app.use("/uploads", express_1.default.static(path_1.default.join(process.cwd(), "uploads"), {
     setHeaders(res) {
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-        res.setHeader("Access-Control-Allow-Origin", process.env.CLIENT_URL ?? "http://localhost:3000");
+        const requestOrigin = res.req.headers.origin;
+        if (typeof requestOrigin === "string" && allowedOrigins.includes(requestOrigin)) {
+            res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+        }
     },
 }));
 app.get("/health", (_req, res) => {

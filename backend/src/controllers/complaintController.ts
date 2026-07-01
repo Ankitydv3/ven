@@ -240,7 +240,7 @@ export async function createComplaint(req: Request, res: Response) {
   const timeSlot = payload.timeSlot?.trim() || "";
   const locationCoordinates = payload.locationCoordinates?.trim() || "";
   const assignedTeam = payload.assignedTeam?.trim() || "";
-  const salesPerson = payload.salesPerson?.trim() || "";
+  const salesPerson = payload.salesPerson?.trim() || order.salesPerson?.trim() || "";
 
   const availabilityStr = [
     availableDate && `Date: ${availableDate}`,

@@ -24,10 +24,6 @@ export default function AdminAnalyticsPage() {
     enabled: ready,
   });
 
-  if (!ready) {
-    return null;
-  }
-
   return (
     <DashboardShell
       role="admin"

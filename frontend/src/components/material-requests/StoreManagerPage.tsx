@@ -17,13 +17,13 @@ import {
   PackageX,
   Hourglass,
   History,
+  ImageOff,
   CheckSquare,
   Square,
   RefreshCw,
   X,
   Eye,
 } from "lucide-react";
-import { MaterialRequestImageThumb } from "@/components/material-requests/MaterialRequestImageThumb";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
@@ -134,6 +134,33 @@ function UrgencyTag({ urgency }: { urgency: Urgency }) {
       <span className={cn("h-1.5 w-1.5 rounded-full", isUrgent ? "animate-pulse bg-red-400" : "bg-amber-400")} />
       {isUrgent ? "Overdue" : "Aging"}
     </span>
+  );
+}
+
+function RequestImage({
+  url,
+  alt,
+  size = "md",
+}: {
+  url?: string;
+  alt: string;
+  size?: "sm" | "md";
+}) {
+  const dims = size === "sm" ? "h-12 w-12" : "h-16 w-16";
+  if (!url) {
+    return (
+      <div
+        className={cn(
+          dims,
+          "flex shrink-0 items-center justify-center rounded-lg border border-dashed border-white/10 bg-white/[0.02] text-slate-500"
+        )}
+      >
+        <ImageOff className="h-4 w-4" />
+      </div>
+    );
+  }
+  return (
+    <img src={url} alt={alt} className={cn(dims, "shrink-0 rounded-lg border border-white/10 object-cover")} />
   );
 }
 
@@ -355,13 +382,7 @@ function RequestRow({
         </button>
       </TD>
       <TD>
-        <MaterialRequestImageThumb
-          id={req._id}
-          hasImage={req.hasImage}
-          imageUrl={req.imageUrl}
-          alt={req.materialName}
-          size="sm"
-        />
+        <RequestImage url={req.imageUrl} alt={req.materialName} size="sm" />
       </TD>
       <TD className="font-mono text-sm">{req.requestId}</TD>
       <TD>{req.requestedBy}</TD>
@@ -432,13 +453,7 @@ function RequestCard({
         <button onClick={(e) => { e.stopPropagation(); onToggleSelect(); }} className="mt-1 text-slate-400 hover:text-white">
           {selected ? <CheckSquare className="h-4 w-4 text-blue-400" /> : <Square className="h-4 w-4" />}
         </button>
-        <MaterialRequestImageThumb
-          id={req._id}
-          hasImage={req.hasImage}
-          imageUrl={req.imageUrl}
-          alt={req.materialName}
-          size="sm"
-        />
+        <RequestImage url={req.imageUrl} alt={req.materialName} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -617,8 +632,8 @@ function ReviewModal({
   onRemarksChange: (v: string) => void;
   availability: "AVAILABLE" | "OUT_OF_STOCK" | null;
   onAvailabilityChange: (v: "AVAILABLE" | "OUT_OF_STOCK") => void;
-  decision: "WAIT" | "GRANT" | null;
-  onDecisionChange: (v: "WAIT" | "GRANT" | null) => void;
+  decision: "WAIT" | "DECLINE" | "GRANT" | null;
+  onDecisionChange: (v: "WAIT" | "DECLINE" | "GRANT") => void;
   revisitDate: string;
   onRevisitDateChange: (v: string) => void;
   revisitTimeSlot: string;
@@ -635,15 +650,12 @@ function ReviewModal({
         </DialogHeader>
         {request && (
           <div className="space-y-5 text-sm">
-            {(request.hasImage || request.imageUrl) && (
+            {request.imageUrl && (
               <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-                <MaterialRequestImageThumb
-                  id={request._id}
-                  hasImage={request.hasImage ?? Boolean(request.imageUrl)}
-                  imageUrl={request.imageUrl}
+                <img
+                  src={request.imageUrl}
                   alt={request.materialName}
-                  loadImmediately
-                  detail
+                  className="max-h-48 w-full object-contain"
                 />
               </div>
             )}
@@ -689,19 +701,13 @@ function ReviewModal({
                     )}
                     onClick={() => onAvailabilityChange("OUT_OF_STOCK")}
                   >
-                    <PackageX className="mr-1.5 h-3.5 w-3.5" /> Out of Stock
+                    <PackageX className="mr-1.5 h-3.5 w-3.5" /> Not Available
                   </Button>
                 </div>
 
                 {availability === "AVAILABLE" && (
                   <>
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
-                      <p className="font-semibold text-emerald-300">Stock is available</p>
-                      <p className="mt-1 text-slate-300">
-                        {request.quantity} {request.unit} of {request.materialName} is in stock.
-                      </p>
-                    </div>
-                    <p className="text-[11px] text-slate-500">2. Choose action</p>
+                    <p className="text-[11px] text-slate-500">2. Available Material Actions</p>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -717,70 +723,34 @@ function ReviewModal({
                         className={cn("flex-1 rounded-xl", decision === "WAIT" && "bg-orange-600")}
                         onClick={() => onDecisionChange("WAIT")}
                       >
-                        Reschedule
+                        Wait
                       </Button>
                     </div>
-                    {decision === "GRANT" && (
-                      <p className="text-xs text-slate-400">
-                        Material will be granted and forwarded to the requester.
-                      </p>
-                    )}
                   </>
                 )}
 
                 {availability === "OUT_OF_STOCK" && (
                   <>
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs">
-                      <p className="font-semibold text-red-300">Out of stock</p>
-                      <p className="mt-1 text-slate-300">
-                        We are out of stock. We will notify the requester when {request.materialName} becomes
-                        available.
-                      </p>
+                    <p className="text-[11px] text-slate-500">2. Not Available Action</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={decision === "WAIT" ? "default" : "outline"}
+                        className={cn("flex-1 rounded-xl", decision === "WAIT" && "bg-orange-600")}
+                        onClick={() => onDecisionChange("WAIT")}
+                      >
+                        Wait
+                      </Button>
                     </div>
-                    <p className="text-[11px] text-slate-500">2. Wait for stock replenishment</p>
                   </>
                 )}
               </div>
             </div>
 
-            {decision === "WAIT" && availability === "AVAILABLE" && (
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-                <p className="col-span-2 text-xs text-emerald-200">
-                  Stock is available — select when the requester should collect.
-                </p>
-                <div>
-                  <p className="mb-1 text-[10px] uppercase font-bold text-emerald-400">Reschedule date *</p>
-                  <input
-                    type="date"
-                    value={revisitDate}
-                    min={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => onRevisitDateChange(e.target.value)}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-white"
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-[10px] uppercase font-bold text-emerald-400">Time slot</p>
-                  <select
-                    value={revisitTimeSlot}
-                    onChange={(e) => onRevisitTimeSlotChange(e.target.value)}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-app px-2 text-sm text-white"
-                  >
-                    <option value="">Select slot</option>
-                    {["9:00 AM - 12:00 PM", "12:00 PM - 3:00 PM", "3:00 PM - 6:00 PM", "Full Day"].map((s) => (
-                      <option key={s} value={s} className="bg-app">{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {decision === "WAIT" && availability === "OUT_OF_STOCK" && (
+            {(decision === "WAIT") && (
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
-                <p className="col-span-2 text-xs text-orange-200">
-                  Out of stock — we will notify once stock arrives. Set expected wait period.
-                </p>
                 <div>
-                  <p className="mb-1 text-[10px] uppercase font-bold text-orange-400">Wait till date *</p>
+                  <p className="mb-1 text-[10px] uppercase font-bold text-orange-400">Revisit date *</p>
                   <input
                     type="date"
                     value={revisitDate}
@@ -811,7 +781,7 @@ function ReviewModal({
                 value={remarks}
                 onChange={(e) => onRemarksChange(e.target.value)}
                 className="min-h-[70px] rounded-xl border-white/10 bg-white/5"
-                placeholder="Instructions / comments..."
+                placeholder={decision === "DECLINE" ? "Reason for declining..." : "Instructions / comments..."}
               />
             </div>
 
@@ -821,11 +791,7 @@ function ReviewModal({
               onClick={onSubmit}
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
-              {decision === "GRANT"
-                ? "Grant & Forward"
-                : availability === "OUT_OF_STOCK"
-                  ? "Confirm — Wait for Stock"
-                  : "Confirm Reschedule"}
+              Submit Decision
             </Button>
             <AuditTimeline history={request.history} />
           </div>
@@ -850,7 +816,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
   const [selected, setSelected] = useState<MaterialRequest | null>(null);
   const [remarks, setRemarks] = useState("");
   const [availability, setAvailability] = useState<"AVAILABLE" | "OUT_OF_STOCK" | null>(null);
-  const [decision, setDecision] = useState<"WAIT" | "GRANT" | null>(null);
+  const [decision, setDecision] = useState<"WAIT" | "DECLINE" | "GRANT" | null>(null);
   const [revisitDate, setRevisitDate] = useState("");
   const [revisitTimeSlot, setRevisitTimeSlot] = useState("");
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
@@ -1014,11 +980,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
   async function handleAction() {
     if (!selected || !decision || !availability) return;
     if (decision === "WAIT" && !revisitDate) {
-      toast.error(
-        availability === "OUT_OF_STOCK"
-          ? "Wait till date is required when material is out of stock"
-          : "Reschedule date is required"
-      );
+      toast.error("Revisit date is required when material is not in stock");
       return;
     }
     try {
@@ -1041,14 +1003,6 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
-  }
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
   }
 
   const title = view === "requests" ? "Material requests" : "Store manager dashboard";
@@ -1279,10 +1233,7 @@ export function StoreManagerPage({ view = "dashboard" }: { view?: "dashboard" | 
         remarks={remarks}
         onRemarksChange={setRemarks}
         availability={availability}
-        onAvailabilityChange={(v) => {
-          setAvailability(v);
-          setDecision(v === "OUT_OF_STOCK" ? "WAIT" : null);
-        }}
+        onAvailabilityChange={setAvailability}
         decision={decision}
         onDecisionChange={setDecision}
         revisitDate={revisitDate}

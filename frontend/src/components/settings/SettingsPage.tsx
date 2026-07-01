@@ -99,8 +99,6 @@ export function SettingsPage({ role = "admin" }: SettingsPageProps) {
     }
   });
 
-  if (!ready) return null;
-
   return (
     <DashboardShell
       role={role}

@@ -19,6 +19,7 @@ const orderBaseSchema = zod_1.z.object({
     state: zod_1.z.string().trim().min(2, "State is required"),
     pincode: zod_1.z.string().trim().min(4, "Pincode is required"),
     materialType: zod_1.z.enum(["Aluminium", "uPVC"]),
+    salesPerson: zod_1.z.string().trim().optional().default(""),
     deliveryDate: zod_1.z.string().or(zod_1.z.date()).transform((val) => new Date(val)),
     complaintType: zod_1.z.enum(complaintIssueTypes).optional(),
     complaintDescription: zod_1.z.string().trim().optional().default(""),

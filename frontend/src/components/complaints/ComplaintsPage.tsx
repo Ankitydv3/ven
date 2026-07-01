@@ -12,15 +12,16 @@
     ClipboardList,
     CheckCircle2,
     AlertTriangle,
-    Clock,
     ChevronLeft,
     ChevronRight,
     SlidersHorizontal,
     Loader2,
     Users,
     RefreshCw,
+    Play,
     Download,
     Eye,
+    MoreVertical,
   } from "lucide-react";
   import { toast } from "sonner";
   import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -40,23 +41,28 @@
   import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
     DropdownMenuTrigger,
   } from "@/components/ui/dropdown-menu";
+  import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select";
   import { Label } from "@/components/ui/label";
   import { Textarea } from "@/components/ui/textarea";
-  import { getComplaintDetailsPath, getMyTasksPath } from "@/lib/record-navigation";
-  import { complaintListScope } from "@/lib/active-complaints";
+  import { ComplaintRegistrationForm } from "@/components/forms/complaint-registration-form";
+  import { getComplaintDetailsPath } from "@/lib/record-navigation";
+  import { ACTIVE_COMPLAINT_SCOPE } from "@/lib/active-complaints";
   import { useQuery, useQueryClient } from "@tanstack/react-query";
-  import {
-    useComplaints,
-    useComplaintStats,
-    complaintKeys,
-    prependComplaintToListCache,
-  } from "@/hooks/useComplaints";
+  import { useComplaints, useComplaintStats } from "@/hooks/useComplaints";
   import { useTeams } from "@/hooks/use-teams";
   import { useSession } from "@/hooks/use-session";
-  import { assignComplaint, fetchComplaints, scheduleRevisit } from "@/services/complaints";
+  import { assignComplaint, fetchComplaints, startComplaint, scheduleRevisit } from "@/services/complaints";
   import { fetchAssignableUsers } from "@/services/users";
+  import * as XLSX from "xlsx";
   import { getApiErrorMessage } from "@/lib/api";
   import { readUser } from "@/lib/storage";
   import { canManageComplaints } from "@/lib/permissions";
@@ -72,23 +78,9 @@
 import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests";
   import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
   import { ComplaintSummaryText } from "@/components/shared/complaint-summary-text";
-  import dynamic from "next/dynamic";
-
-  const ComplaintRegistrationForm = dynamic(
-    () =>
-      import("@/components/forms/complaint-registration-form").then(
-        (mod) => mod.ComplaintRegistrationForm
-      ),
-    {
-      loading: () => (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
-        </div>
-      ),
-    }
-  );
 
   const DISPLAY_STATUSES = workflowDisplayStatuses;
+  const ROWS_PER_PAGE_OPTIONS = [10, 20, 50] as const;
 
   type DisplayStatusFilter = (typeof DISPLAY_STATUSES)[number];
 
@@ -117,8 +109,320 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
   }
 
   function statusBadgeClass(status: WorkflowStatus) {
-    if (status === "Delayed") return "bg-rose-500/15 text-rose-400";
-    return workflowStageBadgeClass[status as WorkflowStage] ?? "bg-slate-500/15 text-slate-400";
+    if (status === "Delayed") return "bg-rose-500/20 text-rose-300 border-rose-500/40";
+    return workflowStageBadgeClass[status as WorkflowStage] ?? "bg-slate-500/20 text-slate-300 border-slate-500/40";
+  }
+
+  function ComplaintStatusBadge({
+    status,
+    complaint,
+  }: {
+    status: WorkflowStatus;
+    complaint: Complaint;
+  }) {
+    const pendingDays =
+      status === "Pending Review" && complaint.createdAt
+        ? (() => {
+            const date = new Date(complaint.createdAt);
+            const now = new Date();
+            return Math.floor(Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+          })()
+        : 0;
+
+    return (
+      <div className="flex min-w-0 max-w-full flex-col gap-0.5 overflow-hidden">
+        <span
+          className={cn(
+            "inline-flex w-fit max-w-full items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold leading-snug [overflow-wrap:anywhere]",
+            statusBadgeClass(status)
+          )}
+          title={status}
+        >
+          {status}
+        </span>
+        {status === "Revisit" && (
+          <span className="text-[9px] font-bold text-blue-400">Rescheduled</span>
+        )}
+        {pendingDays > 0 && (
+          <span className="text-[10px] font-bold text-rose-500">+{pendingDays}</span>
+        )}
+      </div>
+    );
+  }
+
+  function ComplaintActionsMenu({
+    complaint,
+    role,
+    canManage,
+    canAssign,
+    onView,
+    onStartWork,
+    onAssign,
+    onReschedule,
+    assignDisabledReason,
+  }: {
+    complaint: Complaint;
+    role: "admin" | "team";
+    canManage: boolean;
+    canAssign: boolean;
+    onView: () => void;
+    onStartWork: () => void;
+    onAssign: () => void;
+    onReschedule: () => void;
+    assignDisabledReason?: string;
+  }) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-slate-400 hover:bg-white/10 hover:text-white"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44 border-white/10 bg-app text-white">
+          <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={onView}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </DropdownMenuItem>
+          {role === "team" && complaint.status === "Assigned" && (
+            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={onStartWork}>
+              <Play className="mr-2 h-4 w-4 text-emerald-400" />
+              Start Work
+            </DropdownMenuItem>
+          )}
+          {canManage && complaint.status !== "Completed" && (
+            <DropdownMenuItem
+              className="focus:bg-white/5 focus:text-white"
+              disabled={!canAssign}
+              title={!canAssign ? assignDisabledReason : undefined}
+              onClick={() => canAssign && onAssign()}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              {complaint.assignedTeam ? "Reassign" : "Assign"}
+            </DropdownMenuItem>
+          )}
+          {canManage && complaint.status !== "Completed" && (
+            <DropdownMenuItem className="focus:bg-white/5 focus:text-white" onClick={onReschedule}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reschedule
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  function formatMaterialPaymentLabel(label: string) {
+    if (label === "Payment Pending (Onsite)") return "Pending (Onsite)";
+    if (label === "Payment Received") return "Received";
+    return label;
+  }
+
+  function PaymentStatusBadge({ complaint }: { complaint: Complaint }) {
+    const materialPaymentLabel = complaint.materialPaymentStatus;
+    const isPaid = complaint.paymentStatus === "Paid";
+    const isPartial = complaint.paymentStatus === "Partially Paid";
+
+    if (materialPaymentLabel) {
+      const displayLabel = formatMaterialPaymentLabel(materialPaymentLabel);
+      return (
+        <span
+          className={cn(
+            "inline-flex max-w-full items-center truncate rounded-full border px-1.5 py-0.5 text-[9px] font-semibold",
+            getMaterialPaymentStatusBadgeClass(materialPaymentLabel)
+          )}
+          title={materialPaymentLabel}
+        >
+          {displayLabel}
+        </span>
+      );
+    }
+
+    if (isPartial) {
+      return (
+        <span
+          className="inline-flex max-w-full items-center truncate rounded-full border border-amber-500/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300"
+          title="Partially Paid"
+        >
+          Partial
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className={cn(
+          "inline-flex max-w-full items-center truncate rounded-full border px-1.5 py-0.5 text-[9px] font-semibold",
+          isPaid
+            ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+            : "border-rose-500/40 bg-rose-500/20 text-rose-300"
+        )}
+        title={isPaid ? "Paid" : "Unpaid"}
+      >
+        {isPaid ? "Paid" : "Unpaid"}
+      </span>
+    );
+  }
+
+  function ComplaintMobileCard({
+    complaint,
+    role,
+    canManage,
+    onView,
+    onStartWork,
+    onAssign,
+    onReschedule,
+  }: {
+    complaint: Complaint;
+    role: "admin" | "team";
+    canManage: boolean;
+    onView: () => void;
+    onStartWork: () => void;
+    onAssign: () => void;
+    onReschedule: () => void;
+  }) {
+    const rowStatus = getDisplayStatus(complaint);
+    const canAssign = canManage && canAssignComplaint(complaint);
+
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 transition-colors">
+        <div className="mb-2.5 flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={onView}
+              className="font-mono text-sm font-bold text-white hover:underline"
+            >
+              {complaint.complaintId}
+            </button>
+            <p className="mt-0.5 truncate text-sm font-bold text-white">{complaint.clientName}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">
+              {complaint.createdAt ? format(new Date(complaint.createdAt), "dd MMM yyyy, hh:mm a") : "—"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-start gap-1">
+            <ComplaintStatusBadge status={rowStatus} complaint={complaint} />
+            <ComplaintActionsMenu
+              complaint={complaint}
+              role={role}
+              canManage={canManage}
+              canAssign={canAssign}
+              onView={onView}
+              onStartWork={onStartWork}
+              onAssign={onAssign}
+              onReschedule={onReschedule}
+              assignDisabledReason={assignLockReason(complaint)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5 border-t border-white/[0.06] pt-2.5 text-xs">
+          <div className="flex gap-2">
+            <span className="w-16 shrink-0 text-slate-500">Address</span>
+            <span className={cn("min-w-0 flex-1 text-slate-300", wrapTextClass)}>{complaint.location || "—"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 shrink-0 text-slate-500">Type</span>
+            <span className={cn("min-w-0 flex-1 text-slate-200", wrapTextClass)}>
+              {complaint.complaintType === "Other"
+                ? complaint.complaintDescription
+                : complaint.complaintType || complaint.title || "—"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 shrink-0 text-slate-500">Payment</span>
+            <PaymentStatusBadge complaint={complaint} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 shrink-0 text-slate-500">Team</span>
+            {complaint.assignedTeam ? (
+              <span className={cn("rounded-lg border px-1.5 py-0.5 text-[10px] font-medium", teamBadgeClass(complaint.assignedTeam))}>
+                {complaint.assignedTeam}
+              </span>
+            ) : (
+              <span className="text-slate-500">—</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function ComplaintsPaginationBar({
+    limit,
+    page,
+    totalPages,
+    onLimitChange,
+    onPageChange,
+    className,
+  }: {
+    limit: number;
+    page: number;
+    totalPages: number;
+    onLimitChange: (value: number) => void;
+    onPageChange: (page: number) => void;
+    className?: string;
+  }) {
+    return (
+      <div className={cn("border-t border-white/10 bg-[#0a0a0a] px-3 py-2", className)}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>Show</span>
+            <Select
+              value={String(limit)}
+              onValueChange={(value) => {
+                onLimitChange(Number(value));
+                onPageChange(1);
+              }}
+            >
+              <SelectTrigger className="h-7 w-[4rem] rounded-md border-white/10 bg-white/5 px-2 text-xs text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent side="top" position="popper" className="z-[140] border-white/10 bg-app text-white">
+                {ROWS_PER_PAGE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>rows</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              className="h-7 gap-1 rounded-md border-white/10 bg-transparent px-2.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Previous
+            </Button>
+            <span className="whitespace-nowrap text-xs text-slate-400">
+              Page <span className="font-medium text-white">{page}</span> of{" "}
+              <span className="font-medium text-white">{totalPages}</span>
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              className="h-7 gap-1 rounded-md border-white/10 bg-transparent px-2.5 text-xs text-white hover:bg-white/5 disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   function formatComplaintDate(date: string | undefined) {
@@ -152,19 +456,11 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
     if (!createdAt) return <span className="text-slate-500">—</span>;
     const date = new Date(createdAt);
     return (
-      <div className="flex flex-col">
-        <span className="font-medium text-white">{format(date, "dd MMM yyyy")}</span>
-        <span className="text-[10px] text-slate-500">{format(date, "hh:mm a")}</span>
-      </div>
+      <span className="block truncate text-[11px] leading-tight" title={format(date, "dd MMM yyyy, hh:mm a")}>
+        <span className="font-medium text-white">{format(date, "dd MMM yy")}</span>
+        <span className="block text-[10px] text-slate-500">{format(date, "hh:mm a")}</span>
+      </span>
     );
-  }
-
-  function buildPageNumbers(current: number, total: number) {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-    const pages = new Set([1, total, current, current - 1, current + 1]);
-    return Array.from(pages)
-      .filter((p) => p >= 1 && p <= total)
-      .sort((a, b) => a - b);
   }
 
   function canAssignComplaint(complaint: Complaint) {
@@ -220,15 +516,16 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
     onClose,
     title,
     filters,
+    onStartWork,
     role,
   }: {
     isOpen: boolean;
     onClose: () => void;
     title: string;
     filters: any;
+    onStartWork: (complaint: Complaint) => void;
     role: "admin" | "team";
   }) {
-    const router = useRouter();
     const { data, isLoading } = useQuery({
       queryKey: ["complaints-details", filters],
       queryFn: () => fetchComplaints({ ...filters, limit: 50 }),
@@ -262,12 +559,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                 {items.map((item) => (
                   <div
                     key={item._id}
-                    className={cn(summaryListCardClass, "cursor-pointer transition-colors hover:bg-white/[0.06]")}
-                    onClick={() => {
-                      if (item.complaintId) {
-                        router.push(getComplaintDetailsPath(role, item.complaintId));
-                      }
-                    }}
+                    className={summaryListCardClass}
                   >
                     <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
@@ -302,16 +594,16 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
                         </div>
                       </div>
 
-                      {role === "team" && item.complaintId && (
+                      {role === "team" && item.status === "Assigned" && (
                         <button
                           onClick={() => {
-                            router.push(getMyTasksPath(role, { complaintId: item.complaintId }));
+                            onStartWork(item);
                             onClose();
                           }}
-                          className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-all"
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-all"
                         >
-                          <ChevronRight className="h-3 w-3" />
-                          My Tasks
+                          <Play className="h-3 w-3" />
+                          Start Work
                         </button>
                       )}
                     </div>
@@ -361,7 +653,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
     const [revisitTarget, setRevisitTarget] = useState<Complaint | null>(null);
     const [selectedUserId, setSelectedUserId] = useState("");
     const [pending, startTransition] = useTransition();
-    const limit = 10;
+    const [limit, setLimit] = useState(10);
 
     const { data: assignableUsers = [], isLoading: usersLoading } = useQuery({
       queryKey: ["users", "assignable"],
@@ -395,9 +687,9 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           : {}),
         page,
         limit,
-        scope: complaintListScope(role),
+        scope: role === "team" ? ACTIVE_COMPLAINT_SCOPE : ("reviewed" as const),
       }),
-      [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit, role]
+      [appliedSearch, displayStatus, teamFilter, dateFilterActive, dateRange, page, limit]
     );
 
     const statsParams = useMemo(
@@ -410,28 +702,12 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
       [dateFilterActive, dateRange, teamFilter]
     );
 
-    const [deferStats, setDeferStats] = useState(false);
-    useEffect(() => {
-      const timer = window.setTimeout(() => setDeferStats(true), 0);
-      return () => window.clearTimeout(timer);
-    }, []);
-
     const { data, isLoading, isError, error, refetch } = useComplaints(listParams, ready);
-    useEffect(() => {
-      if (!ready) return;
-      void queryClient.invalidateQueries({ queryKey: complaintKeys.all });
-    }, [ready, queryClient]);
-    const { data: stats, isLoading: statsLoading } = useComplaintStats(
-      statsParams,
-      ready && deferStats
-    );
+    const { data: stats, isLoading: statsLoading } = useComplaintStats(statsParams);
 
     const items = data?.items ?? [];
     const total = data?.total ?? 0;
     const totalPages = Math.max(1, Math.ceil(total / limit));
-    const pageNumbers = buildPageNumbers(page, totalPages);
-    const showingFrom = total === 0 ? 0 : (page - 1) * limit + 1;
-    const showingTo = Math.min(page * limit, total);
 
     const activeFilterCount = useMemo(() => {
       let count = 0;
@@ -463,7 +739,7 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           onClick: () => setDetailModal({
             isOpen: true,
             title: "All Complaints",
-            filters: { ...statsParams, scope: "all" }
+            filters: { ...statsParams, scope: "reviewed" }
           }),
         },
         {
@@ -550,6 +826,19 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
       });
     };
 
+    const handleStartWork = (complaint: Complaint) => {
+      startTransition(async () => {
+        try {
+          await startComplaint(complaint._id);
+          toast.success("Work started successfully");
+          await refetch();
+          await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, "Failed to start work"));
+        }
+      });
+    };
+
     const handleScheduleRevisitSubmit = (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       if (!revisitTarget) return;
@@ -614,7 +903,6 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "—",
         ]);
 
-        const XLSX = await import("xlsx");
         const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Complaints");
@@ -626,8 +914,6 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
       }
     };
 
-    if (!ready) return null;
-
     return (
       <DashboardShell
         role={role}
@@ -638,8 +924,10 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
           {...detailModal}
           role={role}
           onClose={() => setDetailModal((p) => ({ ...p, isOpen: false }))}
+          onStartWork={handleStartWork}
         />
-        <div className="space-y-4">
+        <div className="relative -mb-6 pb-14">
+          <div className="min-w-0 space-y-4">
           {/* ── KPI Cards ── */}
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -813,293 +1101,173 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
             </div>
           </div>
 
-          {/* ── Table ── */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
-            <div className="overflow-x-auto">
-              <TableElement>
-                <THead>
-                  <tr className="border-b border-white/10">
-                    <TH className="w-[12%] text-xs">Complaint Received On</TH>
-                    <TH className="w-[10%] text-xs">ID</TH>
-                    <TH className="w-[12%] text-xs">Customer Name</TH>
-                    <TH className="w-[15%] text-xs">Address</TH>
-                    <TH className="w-[10%] text-xs">Payment</TH>
-                    <TH className="w-[10%] text-xs">Complaint Type</TH>
-                    <TH className="w-[10%] text-xs">Assigned Team</TH>
-                    <TH className="w-[10%] text-xs">Status</TH>
-                    <TH className="w-[8%] text-xs text-right">
-                      {role === "team" ? "Action" : <>Assign/<br /> Reassign/<br /> Reschedule</>}
-                    </TH>
-                  </tr>
-                </THead>
-                <tbody>
-                  {isError ? (
-                    <TR>
-                      <TD colSpan={canManage ? 10 : 9}>
-                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                          <p className="font-medium text-rose-300">Failed to load complaints</p>
-                          <p className="text-sm text-slate-400">
-                            {getApiErrorMessage(error, "The request timed out or the server is unavailable.")}
-                          </p>
-                          <Button
-                            variant="outline"
-                            className="border-white/10"
-                            onClick={() => void refetch()}
-                          >
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Retry
-                          </Button>
-                        </div>
-                      </TD>
-                    </TR>
-                  ) : isLoading && !data ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TR key={i}>
-                        <TD colSpan={canManage ? 10 : 9}>
-                          <Skeleton className="h-10 rounded-lg bg-white/[0.04]" />
-                        </TD>
-                      </TR>
-                    ))
-                  ) : items.length === 0 ? (
-                    <TR>
-                      <TD colSpan={canManage ? 10 : 9}>
-                        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                          <p className="font-medium text-white">No complaints found</p>
-                          <p className="text-sm text-slate-400">
-                            Try adjusting your search or filters.
-                          </p>
-                        </div>
-                      </TD>
-                    </TR>
-                  ) : (
-                    items.map((complaint, index) => {
-                          const rowStatus = getDisplayStatus(complaint);
-                          const serial = (page - 1) * limit + index + 1;
-                          const isPaid =
-                            complaint.paymentStatus === "Paid" ||
-                            complaint.paymentStatus === "Partially Paid";
-                          const materialPaymentLabel = complaint.materialPaymentStatus;
-                          const canAssign = canManage && canAssignComplaint(complaint);
-
-                          return (
-                            <TR
-                              key={complaint._id}
-                              className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.04] cursor-pointer transition-colors"
-                              onClick={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
-                            >
-                              <TD className="text-xs text-slate-400">
-                                {formatReceivedOn(complaint.createdAt)}
-                              </TD>
-                              <TD>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(getComplaintDetailsPath(role, complaint.complaintId));
-                                  }}
-                                  className="text-xs font-medium text-blue-400 hover:underline"
-                                >
-                                  {complaint.complaintId}
-                                </button>
-                              </TD>
-                              <TD>
-                                <div className="flex flex-col">
-                                  <span className="font-semibold text-white">{complaint.clientName}</span>
-                                  <span className="text-[10px] font-bold text-blue-400/80 mt-1 uppercase tracking-wider">
-                                    {complaint.createdAt ? formatComplaintAge(complaint.createdAt) : "—"}
-                                  </span>
-                                </div>
-                              </TD>
-                              <TD className={cn("text-xs text-slate-400 max-w-[180px] whitespace-normal", wrapTextClass)}>{complaint.location}</TD>
-                              <TD>
-                                {materialPaymentLabel ? (
-                                  <Badge className={cn("rounded-full border-0 font-normal text-[10px]", getMaterialPaymentStatusBadgeClass(materialPaymentLabel))}>
-                                    {materialPaymentLabel}
-                                  </Badge>
-                                ) : (
-                                  <Badge
-                                    className={cn(
-                                      "rounded-full border-0 font-normal text-[10px]",
-                                      isPaid
-                                        ? "bg-emerald-500/15 text-emerald-400"
-                                        : "bg-rose-500/15 text-rose-400"
-                                    )}
-                                  >
-                                    {isPaid ? "Paid" : "Unpaid"}
-                                  </Badge>
-                                )}
-                              </TD>
-                              <TD className={cn("max-w-[180px] text-xs text-slate-200 whitespace-normal", wrapTextClass)}>
-                                {complaint.complaintType === "Other" ? complaint.complaintDescription : (complaint.complaintType || complaint.title)}
-                              </TD>
-                              <TD>
-                                {complaint.assignedTeam ? (
-                                  <div className="flex flex-col gap-1">
-                                    <span
-                                      className={cn(
-                                        "inline-flex rounded-lg border px-2 py-0.5 text-[10px] font-medium w-fit",
-                                        teamBadgeClass(complaint.assignedTeam)
-                                      )}
-                                    >
-                                      {complaint.assignedTeam}
-                                    </span>
-                                    {complaint.availableDate && (
-                                      <div className="flex flex-col gap-0.5 mt-0.5">
-                                        <div className="flex items-center gap-1 text-[9px] text-blue-400 font-bold">
-                                          <Calendar className="h-2.5 w-2.5" />
-                                          {format(new Date(complaint.availableDate), "dd MMM")}
-                                        </div>
-                                        <div className="flex items-center gap-1 text-[9px] text-slate-500">
-                                          <Clock className="h-2.5 w-2.5" />
-                                          {complaint.timeSlot || "Any time"}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-slate-500">—</span>
-                                )}
-                              </TD>
-                              <TD>
-                                <div className="flex flex-col gap-1">
-                                  <Badge className={cn("rounded-full border-0 font-normal text-[10px] w-fit", statusBadgeClass(rowStatus))}>
-                                    {rowStatus}
-                                  </Badge>
-                                  {rowStatus === "Revisit" && (
-                                    <div className="flex items-center gap-1 text-[9px] text-blue-400 font-bold ml-0.5">
-                                      <RefreshCw className="h-2.5 w-2.5" />
-                                      Rescheduled
-                                    </div>
-                                  )}
-                                  {rowStatus === "Pending Review" && (
-                                    <span className="text-[10px] font-bold text-rose-500 ml-1">
-                                      {(() => {
-                                        if (!complaint.createdAt) return "";
-                                        const date = new Date(complaint.createdAt);
-                                        const now = new Date();
-                                        const diffDays = Math.floor(Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-                                        return diffDays > 0 ? `+${diffDays}` : "";
-                                      })()}
-                                    </span>
-                                  )}
-                                </div>
-                              </TD>
-                              <TD className="text-right">
-                                <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                  {role === "team" ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      title="Open in My Tasks"
-                                      onClick={() =>
-                                        router.push(
-                                          getMyTasksPath(role, { complaintId: complaint.complaintId })
-                                        )
-                                      }
-                                      className="h-7 w-7 p-0 text-slate-400 hover:bg-white/10 hover:text-white"
-                                    >
-                                      <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                  ) : (
-                                    <>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
-                                    className="h-7 w-7 p-0 text-slate-400 hover:text-white"
-                                  >
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                  {canManage && complaint.status !== "Completed" && (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        disabled={!canAssign}
-                                        title={!canAssign ? assignLockReason(complaint) : undefined}
-                                        onClick={() => canAssign && setAssignTarget(complaint)}
-                                        className="h-7 rounded-lg border-white/10 bg-white/5 px-2 text-[10px] text-white hover:bg-white/10 disabled:opacity-40"
-                                      >
-                                        <Users className="h-3 w-3" />
-                                        {complaint.assignedTeam ? "Reassign" : "Assign"}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        title="Reschedule"
-                                        onClick={() => setRevisitTarget(complaint)}
-                                        className="h-7 w-7 p-0 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10"
-                                      >
-                                        <RefreshCw className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </>
-                                  )}
-                                    </>
-                                  )}
-                                </div>
-                              </TD>
-                            </TR>
-                          );
-                    })
-                  )}
-                </tbody>
-              </TableElement>
+          {/* ── Complaints list ── */}
+          {isError ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-12 text-center">
+              <p className="font-medium text-rose-300">Failed to load complaints</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {getApiErrorMessage(error, "The request timed out or the server is unavailable.")}
+              </p>
+              <Button variant="outline" className="mt-4 border-white/10" onClick={() => void refetch()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
             </div>
+          ) : isLoading && !data ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 rounded-xl bg-white/[0.04] md:h-10 md:rounded-lg" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-12 text-center">
+              <p className="font-medium text-white">No complaints found</p>
+              <p className="mt-1 text-sm text-slate-400">Try adjusting your search or filters.</p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-3 md:hidden">
+                {items.map((complaint) => (
+                  <ComplaintMobileCard
+                    key={complaint._id}
+                    complaint={complaint}
+                    role={role}
+                    canManage={canManage}
+                    onView={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
+                    onStartWork={() => handleStartWork(complaint)}
+                    onAssign={() => setAssignTarget(complaint)}
+                    onReschedule={() => setRevisitTarget(complaint)}
+                  />
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+                <TableElement className="w-full table-fixed">
+                  <THead>
+                    <tr className="border-b border-white/10">
+                      <TH className="w-[10%] px-1.5 py-2 text-[10px]">ID</TH>
+                      <TH className="w-[8%] px-1.5 py-2 text-[10px]">Received</TH>
+                      <TH className="w-[10%] px-1.5 py-2 text-[10px]">Customer</TH>
+                      <TH className="w-[20%] px-1.5 py-2 text-[10px]">Address</TH>
+                      <TH className="w-[10%] px-1 py-2 text-[10px]">Payment</TH>
+                      <TH className="w-[11%] px-1 py-2 text-[10px]">Type</TH>
+                      <TH className="w-[15%] px-1 pr-0.5 py-2 text-[10px]">Team</TH>
+                      <TH className="w-[13%] pl-0.5 pr-1 py-2 text-[10px]">Status</TH>
+                      <TH className="w-[3%] px-0 py-2 text-[10px]" />
+                    </tr>
+                  </THead>
+                  <tbody>
+                    {items.map((complaint) => {
+                      const rowStatus = getDisplayStatus(complaint);
+                      const canAssign = canManage && canAssignComplaint(complaint);
+
+                      return (
+                        <TR
+                          key={complaint._id}
+                          className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.04] transition-colors"
+                        >
+                          <TD className="max-w-0 overflow-hidden px-1.5 py-2">
+                            <button
+                              type="button"
+                              onClick={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
+                              className="block max-w-full text-left font-mono text-xs font-bold leading-tight text-white hover:underline [overflow-wrap:anywhere]"
+                              title={complaint.complaintId}
+                            >
+                              {complaint.complaintId}
+                            </button>
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-1.5 py-2 text-[10px] text-slate-400">
+                            {formatReceivedOn(complaint.createdAt)}
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-1.5 py-2 min-w-0">
+                            <div className="min-w-0">
+                              <span className="block truncate text-[10px] font-semibold text-white" title={complaint.clientName}>
+                                {complaint.clientName}
+                              </span>
+                              <span className="text-[9px] font-bold text-blue-400/80 uppercase tracking-wider">
+                                {complaint.createdAt ? formatComplaintAge(complaint.createdAt) : "—"}
+                              </span>
+                            </div>
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-1.5 py-2 min-w-0 text-[10px] text-slate-400 truncate" title={complaint.location}>
+                            {complaint.location}
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-1 py-2 min-w-0">
+                            <PaymentStatusBadge complaint={complaint} />
+                          </TD>
+                          <TD
+                            className="max-w-0 overflow-hidden px-1 py-2 min-w-0 text-[10px] text-slate-200 truncate"
+                            title={complaint.complaintType === "Other" ? complaint.complaintDescription : (complaint.complaintType || complaint.title)}
+                          >
+                            {complaint.complaintType === "Other" ? complaint.complaintDescription : (complaint.complaintType || complaint.title)}
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-1 pr-0.5 py-2 min-w-0">
+                            {complaint.assignedTeam ? (
+                              <div
+                                className="min-w-0"
+                                title={
+                                  complaint.availableDate
+                                    ? `${complaint.assignedTeam} · ${format(new Date(complaint.availableDate), "dd MMM")} · ${complaint.timeSlot || "Any time"}`
+                                    : complaint.assignedTeam
+                                }
+                              >
+                                <span
+                                  className={cn(
+                                    "inline-flex max-w-full truncate rounded-lg border px-1.5 py-0.5 text-[10px] font-medium",
+                                    teamBadgeClass(complaint.assignedTeam)
+                                  )}
+                                >
+                                  {complaint.assignedTeam}
+                                </span>
+                                {complaint.availableDate && (
+                                  <span className="mt-0.5 block text-[9px] leading-snug text-slate-500 [overflow-wrap:anywhere]">
+                                    {format(new Date(complaint.availableDate), "dd MMM")} · {complaint.timeSlot || "Any"}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">—</span>
+                            )}
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden pl-0.5 pr-1 py-2 min-w-0">
+                            <ComplaintStatusBadge status={rowStatus} complaint={complaint} />
+                          </TD>
+                          <TD className="max-w-0 overflow-hidden px-0 py-2 w-[3%]">
+                            <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                              <ComplaintActionsMenu
+                                complaint={complaint}
+                                role={role}
+                                canManage={canManage}
+                                canAssign={canAssign}
+                                onView={() => router.push(getComplaintDetailsPath(role, complaint.complaintId))}
+                                onStartWork={() => handleStartWork(complaint)}
+                                onAssign={() => setAssignTarget(complaint)}
+                                onReschedule={() => setRevisitTarget(complaint)}
+                                assignDisabledReason={assignLockReason(complaint)}
+                              />
+                            </div>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </tbody>
+                </TableElement>
+              </div>
+            </>
+          )}
           </div>
 
-          {/* ── Pagination ── */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-400">
-              Showing{" "}
-              <span className="font-medium text-white">{showingFrom}</span> to{" "}
-              <span className="font-medium text-white">{showingTo}</span> of{" "}
-              <span className="font-medium text-white">{total}</span>
-            </p>
-
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-
-                {pageNumbers.map((pageNum, idx) => {
-                  const prev = pageNumbers[idx - 1];
-                  const showEllipsis = prev !== undefined && pageNum - prev > 1;
-                  return (
-                    <span key={pageNum} className="flex items-center gap-1">
-                      {showEllipsis && <span className="px-1 text-slate-500">…</span>}
-                      <button
-                        type="button"
-                        onClick={() => setPage(pageNum)}
-                        className={cn(
-                          "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-medium transition-colors",
-                          pageNum === page
-                            ? "bg-blue-600 text-white"
-                            : "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                        )}
-                      >
-                        {pageNum}
-                      </button>
-                    </span>
-                  );
-                })}
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            )}
+          <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-[#0a0a0a] px-4 py-2 lg:left-[280px] lg:px-8">
+            <ComplaintsPaginationBar
+              limit={limit}
+              page={page}
+              totalPages={totalPages}
+              onLimitChange={setLimit}
+              onPageChange={setPage}
+              className="border-t-0 bg-transparent px-0 py-0"
+            />
           </div>
         </div>
 
@@ -1277,23 +1445,18 @@ import { getMaterialPaymentStatusBadgeClass } from "@/services/material-requests
 
         {/* ── New Complaint Dialog ── */}
         <Dialog open={showNewComplaint} onOpenChange={setShowNewComplaint}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px] border-white/10 bg-app text-white">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-white">New Complaint</DialogTitle>
-              <DialogDescription className="text-slate-400">
+          <DialogContent className="max-h-[92vh] overflow-y-auto w-[calc(100vw-0.75rem)] max-w-[calc(100vw-0.75rem)] gap-2 border-white/10 bg-app p-3 text-white sm:max-w-[720px] sm:gap-3 sm:p-6">
+            <DialogHeader className="space-y-1 pb-0">
+              <DialogTitle className="text-lg font-semibold text-white">New Complaint</DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
                 Register a new complaint for review and team assignment.
               </DialogDescription>
             </DialogHeader>
             <ComplaintRegistrationForm
               source="MANUAL"
-              onSuccess={async (complaint) => {
+              onSuccess={() => {
                 setShowNewComplaint(false);
-                setPage(1);
-                if (complaint) {
-                  prependComplaintToListCache(queryClient, listParams, complaint, limit);
-                }
-                await queryClient.invalidateQueries({ queryKey: complaintKeys.all });
-                await queryClient.refetchQueries({ queryKey: complaintKeys.all });
+                void refetch();
               }}
             />
           </DialogContent>
