@@ -73,7 +73,7 @@ import { fetchDashboardPage } from "@/services/dashboard";
 import { fetchComplaints } from "@/services/complaints";
 import { fetchTasks, patchTaskStatus } from "@/services/task.service";
 import { fetchOrders } from "@/services/orders";
-import { materialStatusLabel, getMaterialStatusBadgeClass } from "@/services/material-requests";
+import { materialStatusLabel, getDashboardMaterialStatusBadgeClass } from "@/services/material-requests";
 import type { DashboardPageData, DashboardPendingAction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { modalViewportClass, summaryListCardClass, wrapTextClass } from "@/lib/responsive-text";
@@ -200,11 +200,11 @@ import type { Task } from "@/lib/task.types";
   ═══════════════════════════════════════════════════════ */
   function SectionLabel({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
     return (
-      <div className="mb-5">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
+      <div className="mb-3">
+        <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
           {eyebrow}
         </p>
-        <h2 className="text-xl font-bold text-white">{title}</h2>
+        <h2 className="text-lg font-bold text-white sm:text-xl">{title}</h2>
       </div>
     );
   }
@@ -230,42 +230,35 @@ import type { Task } from "@/lib/task.types";
     onClick?: () => void;
   }) {
     return (
-      <motion.div variants={fadeUp} onClick={onClick}>
+      <motion.div variants={fadeUp} onClick={onClick} className="h-full">
     <GlassCard
       glow={color.glow}
       className={cn(
-        "relative p-4 lg:p-5 group",
+        "relative flex h-full flex-col p-3 group",
         onClick ? "cursor-pointer" : "cursor-default"
       )}
     >
-      {/* Icon + Label */}
-      <div className="flex items-center gap-3 mb-4">
+      {/* Icon + Value */}
+      <div className="mb-2 flex items-center gap-2.5">
         <div
-          className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
           style={{
             background: `linear-gradient(135deg, ${color.gradient[0]}, ${color.gradient[1]})`,
             boxShadow: `0 4px 20px ${color.glow}`,
           }}
         >
-          <Icon className="h-5 w-5 text-white" />
+          <Icon className="h-4 w-4 text-white" />
         </div>
 
-        <div>
-          <p className="text-3xl font-bold tracking-tight text-white">
-        {value.toLocaleString()}
-      </p>
-        
-        </div>
+        <p className="text-2xl font-bold tracking-tight text-white">
+          {value.toLocaleString()}
+        </p>
       </div>
 
-      {/* Value */}
-      <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="text-xs text-slate-400">
-            Monitor and track performance
-          </p>
+      <p className="min-h-5 text-sm font-semibold leading-tight text-white line-clamp-2">{label}</p>
 
       {/* Delta */}
-      <div className="mt-3 flex items-center gap-1.5">
+      <div className="mt-auto flex items-center gap-1 pt-2">
         {positive ? (
           <TrendingUp className={cn("h-3.5 w-3.5", color.text)} />
         ) : (
@@ -306,7 +299,7 @@ import type { Task } from "@/lib/task.types";
       <div className="space-y-8 animate-pulse">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-[140px] rounded-2xl" style={{ background: SURFACE }} />
+            <div key={i} className="h-[110px] rounded-2xl" style={{ background: SURFACE }} />
           ))}
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -853,6 +846,33 @@ import type { Task } from "@/lib/task.types";
   /* ═══════════════════════════════════════════════════════
     SUMMARY TABLES
   ═══════════════════════════════════════════════════════ */
+  const SUMMARY_TABLE_SCROLL_H = "calc(2.25rem + 3 * 3.25rem)";
+  const summaryTh = "py-2 px-2 sm:px-3 !text-[10px] tracking-wider";
+  const summaryTd = "py-1.5 px-2 sm:px-3 align-middle";
+  const summaryTHead = "sticky top-0 z-10 bg-[#0c1624]/95 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.05)]";
+  const summaryTableLayout = "table-fixed w-full";
+
+  function SummaryTableScroll({
+    children,
+    rowCount,
+  }: {
+    children: ReactNode;
+    rowCount: number;
+  }) {
+    const scrollable = rowCount > 3;
+    return (
+      <div
+        className={cn(
+          "overflow-x-auto custom-scrollbar rounded-xl border border-white/[0.06] bg-white/[0.02]",
+          scrollable && "overflow-y-auto"
+        )}
+        style={scrollable ? { maxHeight: SUMMARY_TABLE_SCROLL_H } : undefined}
+      >
+        {children}
+      </div>
+    );
+  }
+
   function SummaryTables({ data, role }: { data: DashboardPageData; role: "admin" | "team" | "store" }) {
     const queryClient = useQueryClient();
     const router = useRouter();
@@ -888,37 +908,44 @@ import type { Task } from "@/lib/task.types";
       <div className={cn("grid gap-6", showSiteVisits ? "xl:grid-cols-2" : "grid-cols-1")}>
         {/* Site Visits — hidden for sub-admin (only their approval queue below) */}
         {showSiteVisits && (
-        <GlassCard className="p-5 lg:p-6 shadow-xl">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
+        <GlassCard className="p-4 lg:p-5 shadow-xl">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
                 Today&apos;s Schedule
               </p>
-              <h3 className="text-lg font-bold text-white">Site Visits</h3>
+              <h3 className="text-base font-bold text-white sm:text-lg">Site Visits</h3>
             </div>
             <span
-              className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+              className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider sm:px-3 sm:py-1 sm:text-[11px]"
               style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
             >
               {data.todaysSiteVisits?.length ?? 0} Tasks
             </span>
           </div>
-          <div className="overflow-x-auto custom-scrollbar">
-            <Table className="bg-transparent min-w-[600px]">
-              <TableElement>
-                <THead>
+          <SummaryTableScroll rowCount={data.todaysSiteVisits?.length ?? 0}>
+            <Table className="min-w-[480px] overflow-visible rounded-none border-0 bg-transparent shadow-none sm:min-w-[560px]">
+              <TableElement className={summaryTableLayout}>
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[26%]" />
+                  <col className="hidden md:table-column md:w-[24%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
+                <THead className={summaryTHead}>
                   <tr className="border-b border-white/5">
-                    <TH className="w-[100px] py-4">Task ID</TH>
-                    <TH>Customer</TH>
-                    <TH>Location</TH>
-                    <TH className="w-[120px]">Status</TH>
-                    <TH className="w-[80px] text-right">Action</TH>
+                    <TH className={summaryTh}>Task ID</TH>
+                    <TH className={summaryTh}>Customer</TH>
+                    <TH className={cn("hidden md:table-cell", summaryTh)}>Location</TH>
+                    <TH className={summaryTh}>Status</TH>
+                    <TH className={cn("text-right", summaryTh)}>Action</TH>
                   </tr>
                 </THead>
-                <tbody className="divide-y divide-white/[0.02]">
+                <tbody className="divide-y divide-white/[0.04]">
                   {(data.todaysSiteVisits?.length ?? 0) === 0 ? (
                     <TR>
-                      <TD colSpan={5} className="py-12 text-center text-slate-500 text-sm italic">
+                      <TD colSpan={5} className="py-6 text-center text-slate-500 text-sm italic">
                         No site visits scheduled today.
                       </TD>
                     </TR>
@@ -929,7 +956,7 @@ import type { Task } from "@/lib/task.types";
                         className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
                         onClick={() => navigateToTask(router, role, visit)}
                       >
-                        <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">
+                        <TD className={cn(summaryTd, "font-mono text-[10px] font-bold text-blue-400 sm:text-[11px]")}>
                           <Link
                             href={
                               role === "team"
@@ -944,28 +971,33 @@ import type { Task } from "@/lib/task.types";
                             {visit.taskId}
                           </Link>
                         </TD>
-                        <TD className="py-4 font-medium text-slate-200">{visit.complaint?.clientName ?? visit.title}</TD>
-                        <TD className={cn("py-4 max-w-[200px] text-slate-400 text-xs whitespace-normal", wrapTextClass)}>
+                        <TD className={cn(summaryTd, "font-medium text-slate-200 text-xs sm:text-sm")}>
+                          <p className="truncate">{visit.complaint?.clientName ?? visit.title}</p>
+                          <p className={cn("mt-0.5 text-[10px] text-slate-500 md:hidden", wrapTextClass)}>
+                            {visit.complaint?.location ?? "—"}
+                          </p>
+                        </TD>
+                        <TD className={cn("hidden md:table-cell max-w-[180px] text-slate-400 text-xs whitespace-normal", summaryTd, wrapTextClass)}>
                           {visit.complaint?.location ?? "—"}
                         </TD>
-                        <TD className="py-4">
-                          <Badge variant={taskBadge(visit.status)} className="font-bold">{visit.status}</Badge>
+                        <TD className={summaryTd}>
+                          <Badge variant={taskBadge(visit.status)} className="text-[10px] font-bold whitespace-nowrap">{visit.status}</Badge>
                         </TD>
-                        <TD className="py-4 text-right">
-                          <div className="flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <TD className={cn(summaryTd, "text-right")}>
+                          <div className="flex justify-end items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                              className="h-7 w-7 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
                               onClick={() => navigateToTask(router, role, visit)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
                             {role === "team" && visit.status === "Pending" && (
                               <button
                                 onClick={() => void handleStartTask(visit)}
                                 disabled={startingTaskId === visit._id}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50"
+                                className="inline-flex h-7 items-center gap-1 rounded-lg bg-blue-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50 sm:px-2.5 sm:text-[10px]"
                               >
                                 {startingTaskId === visit._id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -983,20 +1015,20 @@ import type { Task } from "@/lib/task.types";
                 </tbody>
               </TableElement>
             </Table>
-          </div>
+          </SummaryTableScroll>
         </GlassCard>
         )}
 
         {/* Tasks to do / Recent complaints */}
-        <GlassCard className="p-5 lg:p-6 shadow-xl">
+        <GlassCard className="p-4 lg:p-5 shadow-xl">
           {showMaterialTasks && (
             <>
-              <div className="mb-6 flex items-center justify-between">
-                <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
                     Action Required
                   </p>
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-base font-bold text-white sm:text-lg">
                     {isSubAdmin && user?.subAdminType === "accountant"
                       ? "Payment & Material Tasks"
                       : isSubAdmin
@@ -1005,28 +1037,35 @@ import type { Task } from "@/lib/task.types";
                   </h3>
                 </div>
                 <span
-                  className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider sm:px-3 sm:py-1 sm:text-[11px]"
                   style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
                 >
                   {data.pendingActions?.length ?? 0} Pending
                 </span>
               </div>
-              <div className="overflow-x-auto custom-scrollbar">
-                <Table className="bg-transparent min-w-[650px]">
-                  <TableElement>
-                    <THead>
+              <SummaryTableScroll rowCount={data.pendingActions?.length ?? 0}>
+                <Table className="min-w-[480px] overflow-visible rounded-none border-0 bg-transparent shadow-none sm:min-w-[560px]">
+                  <TableElement className={summaryTableLayout}>
+                    <colgroup>
+                      <col className="w-[18%]" />
+                      <col className="w-[24%]" />
+                      <col className="hidden lg:table-column lg:w-[24%]" />
+                      <col className="w-[26%]" />
+                      <col className="w-[8%]" />
+                    </colgroup>
+                    <THead className={summaryTHead}>
                       <tr className="border-b border-white/5">
-                        <TH className="w-[110px] py-4">Request ID</TH>
-                        <TH>Material</TH>
-                        <TH>Complaint</TH>
-                        <TH className="w-[140px]">Status</TH>
-                        <TH className="w-[60px] text-right">Action</TH>
+                        <TH className={summaryTh}>Request ID</TH>
+                        <TH className={summaryTh}>Material</TH>
+                        <TH className={cn("hidden lg:table-cell", summaryTh)}>Complaint</TH>
+                        <TH className={summaryTh}>Status</TH>
+                        <TH className={cn("text-right", summaryTh)}>Action</TH>
                       </tr>
                     </THead>
-                    <tbody className="divide-y divide-white/[0.02]">
+                    <tbody className="divide-y divide-white/[0.04]">
                       {(data.pendingActions?.length ?? 0) === 0 ? (
                         <TR>
-                          <TD colSpan={5} className="py-10 text-center text-slate-500 text-sm italic">
+                          <TD colSpan={5} className="py-6 text-center text-slate-500 text-sm italic">
                             No material requests waiting for your action.
                           </TD>
                         </TR>
@@ -1037,16 +1076,22 @@ import type { Task } from "@/lib/task.types";
                             className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
                             onClick={() => handleOpenMaterialRequest(item)}
                           >
-                            <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">{item.requestId}</TD>
-                            <TD className="py-4">
-                              <p className="font-medium text-slate-200">{item.materialName}</p>
-                              <p className="text-xs text-slate-500">
+                            <TD className={cn(summaryTd, "font-mono text-xs font-bold text-blue-400 sm:text-[13px]")}>{item.requestId}</TD>
+                            <TD className={summaryTd}>
+                              <p className="truncate text-xs font-medium text-slate-200 sm:text-sm">{item.materialName}</p>
+                              <p className="text-[10px] text-slate-500">
                                 {item.quantity} {item.unit} · {item.requestedBy}
                               </p>
+                              {item.complaintId && (
+                                <p className="mt-0.5 truncate text-[10px] text-slate-400 lg:hidden">
+                                  {item.complaintId}
+                                  {item.clientName ? ` · ${item.clientName}` : ""}
+                                </p>
+                              )}
                             </TD>
-                            <TD className="py-4 text-slate-300 text-sm">
+                            <TD className={cn("hidden lg:table-cell text-slate-300 text-xs", summaryTd)}>
                               {item.complaintId ? (
-                                <span>
+                                <span className="line-clamp-2">
                                   {item.complaintId}
                                   {item.clientName ? ` · ${item.clientName}` : ""}
                                 </span>
@@ -1054,22 +1099,22 @@ import type { Task } from "@/lib/task.types";
                                 "—"
                               )}
                             </TD>
-                            <TD className="py-4">
-                              <Badge className={cn("font-bold", getMaterialStatusBadgeClass(item.status))}>
+                            <TD className={summaryTd}>
+                              <span className={getDashboardMaterialStatusBadgeClass(item.status)}>
                                 {materialStatusLabel[item.status] ?? item.status}
-                              </Badge>
+                              </span>
                             </TD>
-                            <TD className="py-4 text-right">
+                            <TD className={cn(summaryTd, "text-right")}>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                                className="h-7 w-7 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenMaterialRequest(item);
                                 }}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-3.5 w-3.5" />
                               </Button>
                             </TD>
                           </TR>
@@ -1078,43 +1123,51 @@ import type { Task } from "@/lib/task.types";
                     </tbody>
                   </TableElement>
                 </Table>
-              </div>
+              </SummaryTableScroll>
             </>
           )}
 
           {showRecentComplaints && (
             <>
-              <div className={cn("mb-6 flex items-center justify-between", showMaterialTasks && "mt-8 border-t border-white/5 pt-8")}>
-                <div>
+              <div className={cn("mb-3 flex items-center justify-between gap-3", showMaterialTasks && "mt-5 border-t border-white/5 pt-5 sm:mt-6 sm:pt-6")}>
+                <div className="min-w-0">
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
                     Latest Activity
                   </p>
-                  <h3 className="text-lg font-bold text-white">Recent Complaints</h3>
+                  <h3 className="text-base font-bold text-white sm:text-lg">Recent Complaints</h3>
                 </div>
                 <span
-                  className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider sm:px-3 sm:py-1 sm:text-[11px]"
                   style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
                 >
                   {data.recentComplaints?.length ?? 0} Entries
                 </span>
               </div>
-              <div className="overflow-x-auto custom-scrollbar">
-                <Table className="bg-transparent min-w-[650px]">
-                  <TableElement>
-                    <THead>
+              <SummaryTableScroll rowCount={data.recentComplaints?.length ?? 0}>
+                <Table className="min-w-[480px] overflow-visible rounded-none border-0 bg-transparent shadow-none sm:min-w-[600px]">
+                  <TableElement className={summaryTableLayout}>
+                    <colgroup>
+                      <col className="w-[16%]" />
+                      <col className="w-[24%]" />
+                      <col className="w-[18%]" />
+                      <col className="hidden sm:table-column sm:w-[16%]" />
+                      <col className="hidden md:table-column md:w-[18%]" />
+                      <col className="w-[8%]" />
+                    </colgroup>
+                    <THead className={summaryTHead}>
                       <tr className="border-b border-white/5">
-                        <TH className="w-[100px] py-4">ID</TH>
-                        <TH>Customer</TH>
-                        <TH className="w-[120px]">Status</TH>
-                        <TH className="w-[100px]">Date</TH>
-                        <TH className="w-[140px]">Assigned Team</TH>
-                        <TH className="w-[60px] text-right">Action</TH>
+                        <TH className={summaryTh}>ID</TH>
+                        <TH className={summaryTh}>Customer</TH>
+                        <TH className={summaryTh}>Status</TH>
+                        <TH className={cn("hidden sm:table-cell", summaryTh)}>Date</TH>
+                        <TH className={cn("hidden md:table-cell", summaryTh)}>Assigned Team</TH>
+                        <TH className={cn("text-right", summaryTh)}>Action</TH>
                       </tr>
                     </THead>
-                    <tbody className="divide-y divide-white/[0.02]">
+                    <tbody className="divide-y divide-white/[0.04]">
                       {(data.recentComplaints?.length ?? 0) === 0 ? (
                         <TR>
-                          <TD colSpan={6} className="py-12 text-center text-slate-500 text-sm italic">
+                          <TD colSpan={6} className="py-6 text-center text-slate-500 text-sm italic">
                             No recent complaints found.
                           </TD>
                         </TR>
@@ -1125,7 +1178,7 @@ import type { Task } from "@/lib/task.types";
                             className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
                             onClick={() => navigateToComplaint(router, role, c)}
                           >
-                            <TD className="py-4 font-mono text-[11px] font-bold text-blue-400">
+                            <TD className={cn(summaryTd, "font-mono text-[10px] font-bold text-blue-400 sm:text-[11px]")}>
                               <Link
                                 href={getComplaintDetailsPath(role, c.complaintId)}
                                 onClick={(e) => e.stopPropagation()}
@@ -1134,10 +1187,20 @@ import type { Task } from "@/lib/task.types";
                                 {c.complaintId}
                               </Link>
                             </TD>
-                            <TD className="py-4 font-medium text-slate-200">{c.clientName ?? "—"}</TD>
-                            <TD className="py-4">
+                            <TD className={cn(summaryTd, "font-medium text-slate-200 text-xs sm:text-sm")}>
+                              <p className="truncate">{c.clientName ?? "—"}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500 sm:hidden">
+                                {c.createdAt
+                                  ? new Date(c.createdAt).toLocaleDateString()
+                                  : c.updatedAt
+                                    ? new Date(c.updatedAt).toLocaleDateString()
+                                    : "—"}
+                                {c.assignedTeam ? ` · ${c.assignedTeam}` : ""}
+                              </p>
+                            </TD>
+                            <TD className={summaryTd}>
                               <Badge
-                                className="font-bold"
+                                className="text-[9px] font-bold whitespace-nowrap sm:text-[10px]"
                                 variant={
                                   c.status === "Completed" || c.status === "Resolved"
                                     ? "success"
@@ -1149,39 +1212,39 @@ import type { Task } from "@/lib/task.types";
                                 {c.status}
                               </Badge>
                             </TD>
-                            <TD className="py-4 text-slate-400 text-xs">
+                            <TD className={cn("hidden sm:table-cell text-slate-400 text-[10px]", summaryTd)}>
                               {c.createdAt
                                 ? new Date(c.createdAt).toLocaleDateString()
                                 : c.updatedAt
                                   ? new Date(c.updatedAt).toLocaleDateString()
                                   : "—"}
                             </TD>
-                            <TD className="py-4">
+                            <TD className={cn("hidden md:table-cell", summaryTd)}>
                               {c.assignedTeam ? (
                                 <TeamBadge name={c.assignedTeam} />
                               ) : (
-                                <span className="text-slate-500 text-[11px] italic">Not Assigned</span>
+                                <span className="text-slate-500 text-[10px] italic">Not Assigned</span>
                               )}
                             </TD>
-                            <TD className="py-4 text-right">
-                               <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <TD className={cn(summaryTd, "text-right")}>
+                               <div className="flex justify-end items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                  <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 w-8 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
+                                    className="h-7 w-7 p-0 text-slate-500 hover:bg-white/10 hover:text-white"
                                     onClick={() => navigateToComplaint(router, role, c)}
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <Eye className="h-3.5 w-3.5" />
                                   </Button>
                                   {role === "team" && c.complaintId && (
                                     <button
                                       onClick={() =>
                                         router.push(getMyTasksPath(role, { complaintId: c.complaintId }))
                                       }
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
                                       title="Open in My Tasks"
                                     >
-                                      <ChevronRight className="h-4 w-4" />
+                                      <ChevronRight className="h-3.5 w-3.5" />
                                     </button>
                                   )}
                               </div>
@@ -1192,7 +1255,7 @@ import type { Task } from "@/lib/task.types";
                     </tbody>
                   </TableElement>
                 </Table>
-              </div>
+              </SummaryTableScroll>
             </>
           )}
         </GlassCard>
@@ -1387,12 +1450,12 @@ import type { Task } from "@/lib/task.types";
             initial={false}
             animate="visible"
             variants={stagger}
-            className="space-y-8"
+            className="space-y-5"
           >
             {!isFullAdmin && data && activitySection(data)}
 
             {/* ── Section: Complaint Overview KPIs ── */}
-            <motion.section variants={fadeUp} className="space-y-4">
+            <motion.section variants={fadeUp} className="space-y-2">
               <SectionLabel
                 eyebrow="Complaints"
                 title="Complaint Overview"
@@ -1400,7 +1463,7 @@ import type { Task } from "@/lib/task.types";
               />
               <motion.div
                 variants={stagger}
-                className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+                className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3 lg:grid-cols-5"
               >
                 {summaryCards.map((c) => (
                   <KpiCard key={c.label} {...c} />
@@ -1410,7 +1473,7 @@ import type { Task } from "@/lib/task.types";
             </motion.section>
 
             {/* ── Section: Task Overview KPIs ── */}
-            <motion.section variants={fadeUp} className="space-y-4">
+            <motion.section variants={fadeUp} className="space-y-2">
               <SectionLabel
                 eyebrow="Tasks"
                 title="Task Overview"
@@ -1418,7 +1481,7 @@ import type { Task } from "@/lib/task.types";
               />
               <motion.div
                 variants={stagger}
-                className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+                className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3 lg:grid-cols-5"
               >
                 {taskCards.map((c) => (
                   <KpiCard key={c.label} {...c} />

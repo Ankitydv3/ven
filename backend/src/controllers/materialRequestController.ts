@@ -105,9 +105,7 @@ export async function serviceHeadReviewHandler(req: AuthRequest, res: Response) 
     req.body.serviceHeadRemarks,
     req.body.revisitDate,
     req.body.revisitTimeSlot,
-    req.body.stockDecision,
-    req.body.paymentRequired,
-    req.body.paymentAction
+    req.body.stockDecision
   );
 
   res.json({

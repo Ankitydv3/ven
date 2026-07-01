@@ -12,7 +12,7 @@ import {
   type OrderPayload
 } from "@/services/orders";
 
-const orderKeys = {
+export const orderKeys = {
   all: ["orders"] as const,
   lists: () => [...orderKeys.all, "list"] as const,
   list: (filters: OrderFilters) => [...orderKeys.lists(), filters] as const,
@@ -25,7 +25,7 @@ async function refreshOrderLists(queryClient: QueryClient) {
   await queryClient.refetchQueries({ queryKey: orderKeys.lists() });
 }
 
-export function useOrders(filters: OrderFilters) {
+export function useOrders(filters: OrderFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => fetchOrders(filters),
@@ -34,6 +34,7 @@ export function useOrders(filters: OrderFilters) {
     refetchOnMount: true,
     retry: 1,
     retryDelay: 2_000,
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -28,8 +28,8 @@ export function isMyTasksQueueItem(item: {
 }
 
 export function myTasksQueueSort(
-  a: { assignedDate?: Date | string | null; createdAt?: Date | string | null },
-  b: { assignedDate?: Date | string | null; createdAt?: Date | string | null }
+  a: { assignedDate?: Date | string | null; createdAt?: Date | string | null; [key: string]: unknown },
+  b: { assignedDate?: Date | string | null; createdAt?: Date | string | null; [key: string]: unknown }
 ) {
   const aAssigned = a.assignedDate ? new Date(a.assignedDate).getTime() : 0;
   const bAssigned = b.assignedDate ? new Date(b.assignedDate).getTime() : 0;

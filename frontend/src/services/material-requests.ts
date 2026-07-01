@@ -262,6 +262,37 @@ export function getMaterialStatusBadgeClass(status: string) {
   }`;
 }
 
+export const dashboardMaterialStatusBadgeShape =
+  "inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-[9px] font-semibold leading-tight ring-1 ring-inset sm:text-[10px] sm:px-3 sm:py-1";
+
+export const dashboardMaterialStatusBadgeClass: Record<string, string> = {
+  PENDING: "bg-amber-500/10 text-amber-300 ring-amber-400/30",
+  PENDING_SERVICE_HEAD: "bg-violet-500/10 text-violet-300 ring-violet-400/30",
+  DENIED: "bg-rose-500/10 text-rose-300 ring-rose-400/30",
+  AWAITING_ACCOUNTS: "bg-sky-500/10 text-sky-300 ring-sky-400/30",
+  PAYMENT_PENDING_ONSITE: "bg-orange-500/10 text-orange-300 ring-orange-400/30",
+  AWAITING_STOCK_CHECK: "bg-purple-500/10 text-purple-300 ring-purple-400/30",
+  AWAITING_STORE: "bg-cyan-500/10 text-cyan-300 ring-cyan-400/30",
+  AWAITING_MATERIAL_RECEIVED: "bg-blue-500/10 text-blue-300 ring-blue-400/30",
+  AWAITING_FINAL_GRANT: "bg-blue-500/10 text-blue-300 ring-blue-400/30",
+  PENDING_FINAL_DECISION: "bg-indigo-500/10 text-indigo-300 ring-indigo-400/30",
+  WAITING_FOR_STOCK: "bg-orange-500/10 text-orange-300 ring-orange-400/30",
+  DECLINED_BY_STORE: "bg-red-500/10 text-red-300 ring-red-400/30",
+  GRANTED_BY_STORE: "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30",
+  WAITING_BY_STORE: "bg-amber-500/10 text-amber-300 ring-amber-400/30",
+  WAITING: "bg-orange-500/10 text-orange-300 ring-orange-400/30",
+  OUT_OF_STOCK: "bg-red-500/10 text-red-300 ring-red-400/30",
+  GRANTED: "bg-teal-500/10 text-teal-300 ring-teal-400/30",
+  REJECTED: "bg-rose-500/10 text-rose-300 ring-rose-400/30",
+  COMPLETED: "bg-slate-500/10 text-slate-300 ring-slate-400/30",
+};
+
+export function getDashboardMaterialStatusBadgeClass(status: string) {
+  return `${dashboardMaterialStatusBadgeShape} ${
+    dashboardMaterialStatusBadgeClass[status] ?? "bg-slate-500/10 text-slate-300 ring-slate-400/30"
+  }`;
+}
+
 export function getMaterialPaymentStatusBadgeClass(status?: string) {
   if (status === "Payment Received") {
     return cn(materialPaymentBadgeShape, "border-emerald-500/40 bg-emerald-500/20 text-emerald-300");

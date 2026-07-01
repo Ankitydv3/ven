@@ -96,11 +96,11 @@ async function updateTaskHandler(req, res) {
     res.json({ message: "Task updated successfully", task });
 }
 async function patchTaskStatusHandler(req, res) {
-    const existing = await (0, taskService_1.findTaskByLookup)(req.params.id, { lean: true });
-    if (!existing) {
+    const taskDoc = await (0, taskService_1.findTaskByLookup)(req.params.id);
+    if (!taskDoc || !("_id" in taskDoc)) {
         throw new ApiError_1.ApiError(404, "Task not found");
     }
-    await (0, taskService_1.assertTaskAccess)(req.user, existing, { forMutation: true });
+    await (0, taskService_1.assertTaskAccess)(req.user, taskDoc, { forMutation: true });
     if (!(0, permissions_1.canUpdateScheduleProgress)(req.user?.role)) {
         throw new ApiError_1.ApiError(403, "You do not have permission to update task status");
     }

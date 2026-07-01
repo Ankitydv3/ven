@@ -60,6 +60,7 @@ const materialRequestService_1 = require("../services/materialRequestService");
 const MaterialRequest_1 = __importDefault(require("../models/MaterialRequest"));
 const Payment_1 = __importDefault(require("../models/Payment"));
 const workflowService_1 = require("../services/workflowService");
+const myTasksQueueService_1 = require("../services/myTasksQueueService");
 const Complaint_1 = __importDefault(require("../models/Complaint"));
 const complaintId_1 = require("../utils/complaintId");
 const ApiError_1 = require("../utils/ApiError");
@@ -414,7 +415,9 @@ async function listComplaints(req, res) {
                 ? { status }
                 : isActiveAssignedScope
                     ? activeStatusFilter
-                    : activeStatusFilter;
+                    : scope === "reviewed"
+                        ? { status: { $ne: "Pending Review" } }
+                        : {};
         const andClauses = [
             statusFilter,
             Object.keys(teamFilter).length > 0 ? teamFilter : { assignedTeam: "__none__" },
@@ -449,14 +452,17 @@ async function listComplaints(req, res) {
     }
     const skip = (Number(page) - 1) * Number(limit);
     const queryTimeoutMs = 20_000;
-    const listSelect = "complaintId clientName mobileNumber email orderId title description complaintType complaintDescription location assignedTeam assignedUserId assignedUserName status siteVisitStatus paymentStatus createdAt updatedAt assignedDate completedDate priority availableDate timeSlot";
+    const listSelect = "complaintId clientName mobileNumber email orderId title description complaintType complaintDescription location assignedTeam assignedUserId assignedUserName status siteVisitStatus paymentStatus createdAt updatedAt assignedDate completedDate priority availableDate timeSlot assignedBy";
+    const listSort = isActiveAssignedScope
+        ? { assignedDate: -1, createdAt: -1, _id: -1 }
+        : { createdAt: -1, _id: -1 };
     let items;
     let total;
     try {
         [items, total] = await Promise.all([
             Complaint_1.default.find(filter)
                 .select(listSelect)
-                .sort({ createdAt: -1 })
+                .sort(listSort)
                 .skip(skip)
                 .limit(Number(limit))
                 .lean()
@@ -472,46 +478,64 @@ async function listComplaints(req, res) {
         return;
     }
     const complaintIds = items.map((item) => item.complaintId);
+    const isQueueScope = scope === "my_tasks" || scope === "active_assigned";
     let taskByComplaintId = new Map();
     let materialByComplaint = new Map();
     let materialPaymentMap = new Map();
     try {
-        const enrichment = await Promise.race([
-            (async () => {
-                const [tasks, materials] = await Promise.all([
-                    (0, complaintAssignmentService_1.getActiveTasksByComplaintIds)(complaintIds),
-                    (0, materialRequestService_1.getActiveMaterialRequestsByComplaintIds)(complaintIds),
-                ]);
-                const paymentIds = [
-                    ...new Set([...materials.values()]
-                        .map((request) => request?.paymentId)
-                        .filter(Boolean)),
-                ];
-                const materialPayments = paymentIds.length
-                    ? await Payment_1.default.find({ paymentId: { $in: paymentIds } })
-                        .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost")
-                        .lean()
-                        .maxTimeMS(10_000)
-                    : [];
-                return {
-                    tasks,
-                    materials,
-                    payments: materialPayments,
-                };
-            })(),
-            new Promise((_, reject) => {
-                setTimeout(() => reject(new Error("Complaint list enrichment timed out")), 8_000);
-            }),
-        ]);
-        taskByComplaintId = enrichment.tasks;
-        materialByComplaint = enrichment.materials;
-        materialPaymentMap = new Map(enrichment.payments.map((payment) => [payment.paymentId, payment]));
+        if (isQueueScope) {
+            taskByComplaintId = await (0, complaintAssignmentService_1.getMyTasksQueueTasksByComplaintIds)(complaintIds);
+        }
+        else {
+            taskByComplaintId = await (0, complaintAssignmentService_1.getActiveTasksByComplaintIds)(complaintIds);
+        }
     }
     catch {
-        // Return the complaint list even if task/material/payment enrichment is slow.
+        // Task lookup failed — list still returns complaint rows.
+    }
+    try {
+        if (isQueueScope) {
+            materialByComplaint = await Promise.race([
+                (0, materialRequestService_1.getActiveMaterialRequestsByComplaintIds)(complaintIds),
+                new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error("Complaint list enrichment timed out")), 3_000);
+                }),
+            ]);
+        }
+        else {
+            const enrichment = await Promise.race([
+                (async () => {
+                    const materials = await (0, materialRequestService_1.getActiveMaterialRequestsByComplaintIds)(complaintIds);
+                    const paymentIds = [
+                        ...new Set([...materials.values()]
+                            .map((request) => request?.paymentId)
+                            .filter(Boolean)),
+                    ];
+                    const materialPayments = paymentIds.length > 0
+                        ? await Payment_1.default.find({ paymentId: { $in: paymentIds } })
+                            .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost")
+                            .lean()
+                            .maxTimeMS(10_000)
+                        : [];
+                    return {
+                        materials,
+                        payments: materialPayments,
+                    };
+                })(),
+                new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error("Complaint list enrichment timed out")), 8_000);
+                }),
+            ]);
+            materialByComplaint = enrichment.materials;
+            materialPaymentMap = new Map(enrichment.payments.map((payment) => [payment.paymentId, payment]));
+        }
+    }
+    catch {
+        // Return the complaint list even if material/payment enrichment is slow.
     }
     const enrichedItems = items.map((item) => {
         const task = taskByComplaintId.get(item.complaintId);
+        const queueTask = isQueueScope ? task : undefined;
         const materialRequest = materialByComplaint.get(item.complaintId);
         const linkedPayment = materialRequest?.paymentId
             ? materialPaymentMap.get(materialRequest.paymentId)
@@ -527,6 +551,10 @@ async function listComplaints(req, res) {
             taskScheduleStatus: task?.status ?? null,
             taskScheduleDueDate: task?.dueDateKey ?? task?.dueDate ?? null,
             taskId: task?.taskId ?? null,
+            taskObjectId: task?._id ? String(task._id) : null,
+            taskCreatedBy: task?.createdBy ?? null,
+            taskCreatedAt: task?.createdAt ?? null,
+            taskHistoryPreview: queueTask?.historyPreview ?? [],
             materialRequestStatus: materialRequest?.status ?? null,
             materialRequestId: materialRequest?.requestId ?? null,
             materialRequestObjectId: materialRequest?._id ? String(materialRequest._id) : null,
@@ -546,7 +574,13 @@ async function listComplaints(req, res) {
             workflowStage,
         };
     });
-    res.json({ items: enrichedItems, total, page: Number(page), limit: Number(limit) });
+    const responseItems = scope === "my_tasks"
+        ? enrichedItems.filter(myTasksQueueService_1.isMyTasksQueueItem).sort((a, b) => (0, myTasksQueueService_1.myTasksQueueSort)(a, b))
+        : scope === "active_assigned"
+            ? enrichedItems.filter(myTasksQueueService_1.isMyTasksQueueItem).sort((a, b) => (0, myTasksQueueService_1.myTasksQueueSort)(a, b))
+            : enrichedItems;
+    const responseTotal = total;
+    res.json({ items: responseItems, total: responseTotal, page: Number(page), limit: Number(limit) });
 }
 function canAccessComplaint(user, complaint) {
     if (user.role && (user.role === "super_admin" || user.role === "admin" || user.role === "sub_admin")) {

@@ -13,6 +13,7 @@ exports.resetComplaintForNewAssignment = resetComplaintForNewAssignment;
 exports.recordComplaintAssignment = recordComplaintAssignment;
 exports.getActiveTaskForComplaint = getActiveTaskForComplaint;
 exports.getActiveTasksByComplaintIds = getActiveTasksByComplaintIds;
+exports.getMyTasksQueueTasksByComplaintIds = getMyTasksQueueTasksByComplaintIds;
 const Task_1 = __importDefault(require("../models/Task"));
 exports.TERMINAL_COMPLAINT_STATUSES = [
     "Completed",
@@ -106,4 +107,61 @@ async function getActiveTasksByComplaintIds(complaintIds) {
         }
     }
     return map;
+}
+/** Rich task payload for My Tasks queue — includes timeline text without photo blobs. */
+async function getMyTasksQueueTasksByComplaintIds(complaintIds) {
+    if (!complaintIds.length) {
+        return new Map();
+    }
+    const rows = await Task_1.default.aggregate([
+        {
+            $match: {
+                complaintId: { $in: complaintIds },
+                $or: [
+                    { isActive: true },
+                    { isActive: { $exists: false }, status: { $nin: ["Completed", "Cancelled"] } },
+                ],
+            },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+            $group: {
+                _id: "$complaintId",
+                doc: { $first: "$$ROOT" },
+            },
+        },
+        {
+            $project: {
+                _id: "$doc._id",
+                complaintId: "$doc.complaintId",
+                taskId: "$doc.taskId",
+                status: "$doc.status",
+                dueDate: "$doc.dueDate",
+                dueDateKey: "$doc.dueDateKey",
+                assignedUserId: "$doc.assignedUserId",
+                assignedUserName: "$doc.assignedUserName",
+                assignedTeamName: "$doc.assignedTeamName",
+                createdBy: "$doc.createdBy",
+                createdAt: "$doc.createdAt",
+                description: "$doc.description",
+                remarks: "$doc.remarks",
+                priority: "$doc.priority",
+                historyPreview: {
+                    $map: {
+                        input: { $slice: [{ $ifNull: ["$doc.history", []] }, -20] },
+                        as: "entry",
+                        in: {
+                            action: "$$entry.action",
+                            by: "$$entry.by",
+                            role: "$$entry.role",
+                            status: "$$entry.status",
+                            remarks: "$$entry.remarks",
+                            createdAt: "$$entry.createdAt",
+                        },
+                    },
+                },
+            },
+        },
+    ]).option({ maxTimeMS: 10_000 });
+    return new Map(rows.map((row) => [row.complaintId, row]));
 }

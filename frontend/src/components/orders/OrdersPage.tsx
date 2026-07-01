@@ -136,7 +136,7 @@ export function OrdersPage({ role }: { role: "admin" | "team" }) {
     limit
   }), [appliedSearch, materialType, paymentStatus, orderStatus, page, limit]);
 
-  const { data, isLoading, refetch } = useOrders(activeFilters, ready);
+  const { data, isLoading, refetch } = useOrders(activeFilters, { enabled: ready });
   const items = data?.items || [];
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));

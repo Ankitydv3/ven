@@ -84,7 +84,7 @@ async function serviceHeadReviewHandler(req, res) {
         name: req.user?.name ?? "Service Head",
         role: req.user?.role ?? "sub_admin",
         subAdminType: req.user?.subAdminType,
-    }, req.body.serviceHeadRemarks, req.body.revisitDate, req.body.revisitTimeSlot, req.body.stockDecision, req.body.paymentRequired, req.body.paymentAction);
+    }, req.body.serviceHeadRemarks, req.body.revisitDate, req.body.revisitTimeSlot, req.body.stockDecision);
     res.json({
         message: req.body.decision === "APPROVED"
             ? "Material request approved"

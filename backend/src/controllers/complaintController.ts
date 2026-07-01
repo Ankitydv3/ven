@@ -479,9 +479,9 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   const queryTimeoutMs = 20_000;
   const listSelect =
     "complaintId clientName mobileNumber email orderId title description complaintType complaintDescription location assignedTeam assignedUserId assignedUserName status siteVisitStatus paymentStatus createdAt updatedAt assignedDate completedDate priority availableDate timeSlot assignedBy";
-  const listSort = isActiveAssignedScope
-    ? ({ assignedDate: -1, createdAt: -1, _id: -1 } as const)
-    : ({ createdAt: -1, _id: -1 } as const);
+  const listSort: Record<string, 1 | -1> = isActiveAssignedScope
+    ? { assignedDate: -1, createdAt: -1, _id: -1 }
+    : { createdAt: -1, _id: -1 };
 
   type ComplaintListRow = {
     complaintId: string;
@@ -638,9 +638,9 @@ export async function listComplaints(req: AuthRequest, res: Response) {
 
   const responseItems =
     scope === "my_tasks"
-      ? enrichedItems.filter(isMyTasksQueueItem).sort(myTasksQueueSort)
+      ? enrichedItems.filter(isMyTasksQueueItem).sort((a, b) => myTasksQueueSort(a, b))
       : scope === "active_assigned"
-        ? enrichedItems.filter(isMyTasksQueueItem).sort(myTasksQueueSort)
+        ? enrichedItems.filter(isMyTasksQueueItem).sort((a, b) => myTasksQueueSort(a, b))
         : enrichedItems;
   const responseTotal = total;
 
