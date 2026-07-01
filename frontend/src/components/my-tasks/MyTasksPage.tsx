@@ -48,6 +48,8 @@ import {
 import { cn } from "@/lib/utils";
 import { wrapTextClass } from "@/lib/responsive-text";
 import { getApiErrorMessage, warmBackendConnection } from "@/lib/api";
+import { compressImageFile } from "@/lib/compress-image";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
@@ -278,6 +280,7 @@ function TaskDetailPanel({
   const [nextStatus, setNextStatus] = useState<TaskStatus | "">("");
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<string>("");
+  const [compressingPhoto, setCompressingPhoto] = useState(false);
   const [materialName, setMaterialName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
@@ -349,17 +352,23 @@ function TaskDetailPanel({
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Photo must be under 5MB");
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Photo must be under 8MB");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPhotoPreview(result);
-      setPhotoFile(result);
-    };
-    reader.readAsDataURL(file);
+    void (async () => {
+      setCompressingPhoto(true);
+      try {
+        const compressed = await compressImageFile(file);
+        setPhotoPreview(compressed);
+        setPhotoFile(compressed);
+      } catch {
+        toast.error("Could not process photo. Try another image.");
+      } finally {
+        setCompressingPhoto(false);
+        e.target.value = "";
+      }
+    })();
   };
 
   const handleStart = async () => {
@@ -440,7 +449,6 @@ function TaskDetailPanel({
       if (completedStatus === "Completed") {
         openFeedback(feedbackTargetFromTask(result.task ?? task));
       }
-      void onRefresh();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update status"));
     }
@@ -790,10 +798,10 @@ function TaskDetailPanel({
                 </div>
                 <Button
                   onClick={() => void handleUpdateStatus()}
-                  disabled={patchMutation.isPending || !nextStatus}
+                  disabled={patchMutation.isPending || compressingPhoto || !nextStatus}
                   className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-500"
                 >
-                  {patchMutation.isPending ? (
+                  {patchMutation.isPending || compressingPhoto ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     submitButtonLabel
@@ -839,9 +847,9 @@ function TaskDetailPanel({
                     {entry.remarks && (
                       <p className="mt-1 text-xs text-slate-500">{entry.remarks}</p>
                     )}
-                    {"photoUrl" in entry && entry.photoUrl && (
+                    {"photoUrl" in entry && entry.photoUrl && resolveAvatarUrl(entry.photoUrl as string) && (
                       <img
-                        src={entry.photoUrl as string}
+                        src={resolveAvatarUrl(entry.photoUrl as string)!}
                         alt="Timeline attachment"
                         className="mt-2 max-h-24 rounded-lg border border-white/10 object-cover"
                       />

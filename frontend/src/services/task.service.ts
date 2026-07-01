@@ -56,10 +56,14 @@ export async function patchTaskStatus(
     revisitDate?: string;
   }
 ) {
-  const { data } = await api.patch<TaskMutationResponse>(`/tasks/${id}/status`, {
-    status,
-    ...options,
-  });
+  const { data } = await api.patch<TaskMutationResponse>(
+    `/tasks/${encodeURIComponent(id)}/status`,
+    {
+      status,
+      ...options,
+    },
+    { timeout: 90_000 }
+  );
   return data;
 }
 

@@ -16,6 +16,7 @@ import {
   todayDateKey,
 } from "../utils/dateKey";
 import { supersedeComplaintTasks, activeTaskQuery } from "./complaintAssignmentService";
+import { persistInlineTaskPhoto } from "../utils/taskPhotoStorage";
 
 export type TaskStatus =
   | "Pending"
@@ -1009,6 +1010,8 @@ export async function patchTaskStatusById(
   const allowReopen = isAdminRole(actor.role) && status === "Pending" && task.status === "Completed";
   await applyStatusChange(task, status, { allowReopen });
 
+  const storedPhotoUrl = options?.photoUrl ? persistInlineTaskPhoto(options.photoUrl) : "";
+
   const historyStatus = status;
 
   const actionLabel =
@@ -1028,7 +1031,7 @@ export async function patchTaskStatusById(
     role: actor.role,
     status: historyStatus,
     remarks: options?.notes ?? "",
-    photoUrl: options?.photoUrl ?? "",
+    photoUrl: storedPhotoUrl,
     createdAt: new Date(),
   });
 
@@ -1071,7 +1074,7 @@ export async function patchTaskStatusById(
       quantity: options.quantity,
       unit: options.unit?.trim() || "—",
       remarks: options.notes ?? `Material needed for task ${task.taskId}`,
-      imageUrl: options?.photoUrl ?? "",
+      imageUrl: storedPhotoUrl,
       taskId: task.taskId,
       complaintId: task.complaintId ?? undefined,
       requestedBy: actor.name ?? "User",
@@ -1089,11 +1092,11 @@ export async function patchTaskStatusById(
       assignedUserName: task.assignedUserName,
       assignedTeamName: task.assignedTeamName,
     }, {
-      photoUrl: options?.photoUrl,
+      photoUrl: storedPhotoUrl,
     });
   }
 
-  return task.toObject();
+  return sanitizeTaskHistoryForApi(task.toObject() as Record<string, unknown>);
 }
 
 export async function reopenTaskById(id: string, actor: { name: string }) {
