@@ -92,13 +92,16 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
     complaint.createdAt ??
     new Date().toISOString();
   const priority = (complaint.priority as TaskPriority | undefined) ?? "Medium";
-  const status = (complaint.taskScheduleStatus as TaskStatus | undefined) ?? "Pending";
+  const status =
+    (complaint.taskScheduleStatus as TaskStatus | undefined) ??
+    (complaint.workflowStage === "In Progress" ? "In Progress" : undefined) ??
+    "Pending";
   const createdAt =
     complaint.taskCreatedAt ?? complaint.assignedDate ?? complaint.createdAt ?? undefined;
 
   return {
-    _id: complaint.taskObjectId ?? complaint._id,
-    taskId: complaint.taskId ?? complaint.complaintId,
+    _id: complaint.taskObjectId ?? "",
+    taskId: complaint.taskId ?? "",
     complaintId: complaint.complaintId,
     title: complaint.title,
     description: complaint.description ?? complaint.complaintDescription ?? "",
@@ -134,8 +137,10 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
 
 /** Backend accepts Mongo id or human-readable taskId (e.g. TSK-2026-0027). */
 function getTaskMutationId(task: Task): string {
-  if (/^[a-fA-F0-9]{24}$/.test(task._id)) return task._id;
-  return task.taskId;
+  if (task.taskId?.startsWith("TSK-")) return task.taskId;
+  if (task.taskId && !task.taskId.startsWith("CMP-")) return task.taskId;
+  if (task._id && /^[a-fA-F0-9]{24}$/.test(task._id)) return task._id;
+  return task.taskId || task.complaintId || task._id;
 }
 
 function StatCard({
@@ -916,11 +921,12 @@ function TaskDetailPanel({
 }
 
 export function MyTasksPage({ role }: { role: "admin" | "team" }) {
-  const { ready } = useSession(role);
+  const { ready, user: sessionUser } = useSession(role);
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const user = readUser();
-  const canUpdate = canUpdateScheduleProgress(user?.role);
+  const user = sessionUser ?? readUser();
+  const canUpdate =
+    role === "team" && canUpdateScheduleProgress(user?.role ?? "team");
 
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [appliedSearch, setAppliedSearch] = useState(searchParams.get("q") ?? "");
@@ -1234,7 +1240,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
               <TaskDetailPanel
                 task={selectedTask}
                 complaint={selectedComplaint}
-                canUpdate={canUpdate && Boolean(selectedTask.taskId)}
+                canUpdate={canUpdate && Boolean(selectedTask.taskId?.startsWith("TSK-"))}
                 onRefresh={handleRefreshDetail}
                 onTaskUpdated={handleTaskUpdated}
               />

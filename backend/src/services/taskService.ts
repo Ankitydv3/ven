@@ -545,6 +545,16 @@ export async function findTaskByLookup(id: string, options?: { lean?: boolean })
       ? await Task.findById(id).lean().maxTimeMS(QUERY_TIMEOUT_MS)
       : await Task.findById(id).maxTimeMS(QUERY_TIMEOUT_MS);
     if (byId) return byId;
+
+    // Legacy clients may send a complaint Mongo _id instead of the task _id.
+    const complaint = await Complaint.findById(id).select("complaintId").lean().maxTimeMS(QUERY_TIMEOUT_MS);
+    if (complaint?.complaintId) {
+      const byComplaintId = Task.findOne(activeTaskQuery(complaint.complaintId)).sort({ createdAt: -1 });
+      const task = useLean
+        ? await byComplaintId.lean().maxTimeMS(QUERY_TIMEOUT_MS)
+        : await byComplaintId.maxTimeMS(QUERY_TIMEOUT_MS);
+      if (task) return task;
+    }
   }
 
   let task = useLean
