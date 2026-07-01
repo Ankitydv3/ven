@@ -512,6 +512,7 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   }
 
   const complaintIds = items.map((item) => item.complaintId);
+  const isQueueScope = scope === "my_tasks" || scope === "active_assigned";
 
   let taskByComplaintId: Awaited<ReturnType<typeof getActiveTasksByComplaintIds>> = new Map();
   let materialByComplaint: Awaited<ReturnType<typeof getActiveMaterialRequestsByComplaintIds>> = new Map();
@@ -526,12 +527,15 @@ export async function listComplaints(req: AuthRequest, res: Response) {
   >();
 
   try {
+    taskByComplaintId = await getActiveTasksByComplaintIds(complaintIds);
+  } catch {
+    // Task lookup failed — list still returns complaint rows.
+  }
+
+  try {
     const enrichment = await Promise.race([
       (async () => {
-        const [tasks, materials] = await Promise.all([
-          getActiveTasksByComplaintIds(complaintIds),
-          getActiveMaterialRequestsByComplaintIds(complaintIds),
-        ]);
+        const materials = await getActiveMaterialRequestsByComplaintIds(complaintIds);
 
         const paymentIds = [
           ...new Set(
@@ -541,31 +545,33 @@ export async function listComplaints(req: AuthRequest, res: Response) {
           ),
         ];
 
-        const materialPayments = paymentIds.length
-          ? await Payment.find({ paymentId: { $in: paymentIds } })
-              .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost")
-              .lean()
-              .maxTimeMS(10_000)
-          : [];
+        const materialPayments =
+          paymentIds.length > 0
+            ? await Payment.find({ paymentId: { $in: paymentIds } })
+                .select("paymentId materialPaymentStatus totalAmount receivedAt serviceCost materialCost")
+                .lean()
+                .maxTimeMS(isQueueScope ? 4_000 : 10_000)
+            : [];
 
         return {
-          tasks,
           materials,
           payments: materialPayments,
         };
       })(),
       new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Complaint list enrichment timed out")), 8_000);
+        setTimeout(
+          () => reject(new Error("Complaint list enrichment timed out")),
+          isQueueScope ? 4_000 : 8_000
+        );
       }),
     ]);
 
-    taskByComplaintId = enrichment.tasks;
     materialByComplaint = enrichment.materials;
     materialPaymentMap = new Map(
       enrichment.payments.map((payment) => [payment.paymentId, payment])
     );
   } catch {
-    // Return the complaint list even if task/material/payment enrichment is slow.
+    // Return the complaint list even if material/payment enrichment is slow.
   }
 
   const enrichedItems = items.map((item) => {

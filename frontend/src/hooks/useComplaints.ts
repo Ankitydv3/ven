@@ -24,15 +24,19 @@ export function useComplaint(id: string) {
   });
 }
 
-export function useComplaints(params: ComplaintListParams, enabled = true) {
+export function useComplaints(
+  params: ComplaintListParams,
+  enabled = true,
+  options?: { staleTime?: number; refetchOnMount?: boolean }
+) {
   return useQuery({
     queryKey: complaintKeys.list(params),
     queryFn: () => fetchComplaints(params),
     enabled,
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
-    staleTime: 30_000,
-    refetchOnMount: true,
+    staleTime: options?.staleTime ?? 30_000,
+    refetchOnMount: options?.refetchOnMount ?? true,
     retry: 1,
     retryDelay: 2_000,
   });

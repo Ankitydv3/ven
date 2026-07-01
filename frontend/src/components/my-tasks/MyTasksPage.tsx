@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Filter,
@@ -23,6 +24,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useSession } from "@/hooks/use-session";
 import { useComplaints } from "@/hooks/useComplaints";
 import { isMyTasksQueueComplaint, MY_TASKS_SCOPE, sortMyTasksQueueComplaints } from "@/lib/active-complaints";
+import { prefetchMyTasksList } from "@/lib/prefetch-dashboard-routes";
 import type { Complaint } from "@/lib/types";
 import { getComplaintWorkflowStage, workflowStageBadgeClass } from "@/lib/workflow";
 import { usePatchTaskStatus } from "@/hooks/usePatchTaskStatus";
@@ -881,6 +883,7 @@ function TaskDetailPanel({
 export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const { ready } = useSession(role);
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const user = readUser();
   const canUpdate = canUpdateScheduleProgress(user?.role);
 
@@ -893,18 +896,24 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const detailRequestRef = useRef(0);
   const urlLoadedRef = useRef<string | null>(null);
   const autoSelectedRef = useRef(false);
 
   const limit = 10;
+  const listParams = useMemo(
+    () => ({
+      q: appliedSearch || undefined,
+      displayStatus: statusFilter !== "All" ? statusFilter : undefined,
+      scope: MY_TASKS_SCOPE,
+      page,
+      limit,
+    }),
+    [appliedSearch, statusFilter, page, limit]
+  );
 
-  const { data, isLoading, refetch } = useComplaints({
-    q: appliedSearch || undefined,
-    displayStatus: statusFilter !== "All" ? statusFilter : undefined,
-    scope: MY_TASKS_SCOPE,
-    page,
-    limit,
+  const { data, isLoading, refetch } = useComplaints(listParams, true, {
+    staleTime: 60_000,
+    refetchOnMount: false,
   });
 
   const complaints = data?.items ?? [];
@@ -944,26 +953,33 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     return { total, inProgress, pending, revisit };
   }, [complaints, total]);
 
-  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
-    const requestId = ++detailRequestRef.current;
+  const selectComplaint = useCallback((complaint: Complaint) => {
     setSelectedComplaintId(complaint.complaintId);
     setSelectedComplaint(complaint);
     setSelectedTask(stubTaskFromComplaint(complaint));
-
-    const lookupId = complaint.taskId ?? complaint.complaintId;
-    try {
-      const detail = await fetchTask(lookupId);
-      if (detailRequestRef.current !== requestId) return;
-      setSelectedTask(detail);
-    } catch {
-      if (detailRequestRef.current !== requestId) return;
-      // Keep list summary visible; actions still work via taskId from the queue.
-    }
   }, []);
 
   useEffect(() => {
     warmBackendConnection();
-  }, []);
+    void prefetchMyTasksList(queryClient);
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!selectedComplaint?.taskId && !selectedComplaint?.complaintId) return;
+    let cancelled = false;
+    const lookupId = selectedComplaint.taskId ?? selectedComplaint.complaintId;
+    const timer = window.setTimeout(() => {
+      void fetchTask(lookupId)
+        .then((detail) => {
+          if (!cancelled) setSelectedTask(detail);
+        })
+        .catch(() => {});
+    }, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [selectedComplaint?.complaintId, selectedComplaint?.taskId]);
 
   useEffect(() => {
     const q = searchParams.get("q");
@@ -983,15 +999,15 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     );
     if (!target) return;
     urlLoadedRef.current = urlComplaintId;
-    void loadComplaintWorkDetail(target);
-  }, [urlComplaintId, complaints, loadComplaintWorkDetail]);
+    selectComplaint(target);
+  }, [urlComplaintId, complaints, selectComplaint]);
 
   useEffect(() => {
     if (autoSelectedRef.current || urlComplaintId) return;
     if (queueComplaints.length === 0) return;
     autoSelectedRef.current = true;
-    void loadComplaintWorkDetail(queueComplaints[0]);
-  }, [queueComplaints, urlComplaintId, loadComplaintWorkDetail]);
+    selectComplaint(queueComplaints[0]);
+  }, [queueComplaints, urlComplaintId, selectComplaint]);
 
   const handleSearch = () => {
     setAppliedSearch(search.trim());
@@ -999,8 +1015,10 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   };
 
   const handleSelectComplaint = (complaint: Complaint) => {
-    void loadComplaintWorkDetail(complaint);
+    selectComplaint(complaint);
   };
+
+  const showListLoading = isLoading && complaints.length === 0;
 
   const handleTaskUpdated = useCallback((task: Task) => {
     setSelectedTask(task);
@@ -1143,7 +1161,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
         <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
           <div className={cn(panelClass, "flex flex-col p-4")}>
             <h3 className="mb-3 text-sm font-semibold text-white">Assigned Complaints</h3>
-            {isLoading ? (
+            {showListLoading ? (
               <div className="flex flex-1 items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40" />
               </div>

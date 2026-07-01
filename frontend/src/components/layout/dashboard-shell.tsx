@@ -48,6 +48,7 @@
       import { useQueryClient } from "@tanstack/react-query";
       import {
         prefetchCommonAdminRoutes,
+        prefetchCommonTeamRoutes,
         prefetchDashboardRoute,
       } from "@/lib/prefetch-dashboard-routes";
 
@@ -374,9 +375,9 @@
               return;
             }
             if (role === "team") {
-              void prefetchDashboardRoute(queryClient, "/team/complaints", role);
+              prefetchCommonTeamRoutes(queryClient);
             }
-          }, 1200);
+          }, 400);
           return () => window.clearTimeout(timer);
         }, [queryClient, role]);
 
