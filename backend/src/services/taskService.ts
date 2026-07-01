@@ -563,6 +563,11 @@ export async function getTaskById(id: string) {
     throw new ApiError(404, "Task not found");
   }
 
+  const trimmedTask =
+    Array.isArray(task.history) && task.history.length > MAX_TASK_HISTORY_ENTRIES
+      ? { ...task, history: task.history.slice(-MAX_TASK_HISTORY_ENTRIES) }
+      : task;
+
   let complaint = null;
   if (task.complaintId) {
     complaint = await Complaint.findOne({ complaintId: task.complaintId })
@@ -571,7 +576,7 @@ export async function getTaskById(id: string) {
       .maxTimeMS(QUERY_TIMEOUT_MS);
   }
 
-  return sanitizeTaskHistoryForApi({ ...task, complaint });
+  return sanitizeTaskHistoryForApi({ ...trimmedTask, complaint });
 }
 
 export async function getCalendarTaskCounts(options: CalendarOptions) {

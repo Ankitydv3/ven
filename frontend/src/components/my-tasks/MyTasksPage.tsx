@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -47,7 +47,7 @@ import {
 } from "@/lib/task-constants";
 import { cn } from "@/lib/utils";
 import { wrapTextClass } from "@/lib/responsive-text";
-import { getApiErrorMessage } from "@/lib/api";
+import { getApiErrorMessage, warmBackendConnection } from "@/lib/api";
 import { canUpdateScheduleProgress } from "@/lib/permissions";
 import { readUser } from "@/lib/storage";
 import { useFeedbackPrompt } from "@/components/feedback/FeedbackPromptProvider";
@@ -116,6 +116,12 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
     },
     history: [],
   };
+}
+
+/** Backend accepts Mongo id or human-readable taskId (e.g. TSK-2026-0027). */
+function getTaskMutationId(task: Task): string {
+  if (/^[a-fA-F0-9]{24}$/.test(task._id)) return task._id;
+  return task.taskId;
 }
 
 function StatCard({
@@ -358,7 +364,7 @@ function TaskDetailPanel({
 
   const handleStart = async () => {
     try {
-      const result = await patchMutation.mutateAsync({ id: task._id, status: "In Progress" });
+      const result = await patchMutation.mutateAsync({ id: getTaskMutationId(task), status: "In Progress" });
       if (result.task) {
         onTaskUpdated(result.task);
       }
@@ -398,7 +404,7 @@ function TaskDetailPanel({
     const completedStatus = nextStatus;
     try {
       const result = await patchMutation.mutateAsync({
-        id: task._id,
+        id: getTaskMutationId(task),
         status: nextStatus,
         notes: notes.trim() || undefined,
         photoUrl: photoFile || undefined,
@@ -879,8 +885,9 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [detailReady, setDetailReady] = useState(false);
+  const detailRequestRef = useRef(0);
+  const urlLoadedRef = useRef<string | null>(null);
+  const autoSelectedRef = useRef(false);
 
   const limit = 10;
 
@@ -929,62 +936,54 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     return { total, inProgress, pending, revisit };
   }, [complaints, total]);
 
-  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint, options?: { silent?: boolean }) => {
+  const loadComplaintWorkDetail = useCallback(async (complaint: Complaint) => {
+    const requestId = ++detailRequestRef.current;
     setSelectedComplaintId(complaint.complaintId);
     setSelectedComplaint(complaint);
     setSelectedTask(stubTaskFromComplaint(complaint));
-    setDetailReady(false);
-    if (!options?.silent) {
-      setLoadingDetail(true);
-    }
+
     const lookupId = complaint.taskId ?? complaint.complaintId;
     try {
       const detail = await fetchTask(lookupId);
+      if (detailRequestRef.current !== requestId) return;
       setSelectedTask(detail);
-      setDetailReady(true);
-    } catch (error) {
-      if (!options?.silent) {
-        toast.error(
-          getApiErrorMessage(
-            error,
-            "Full task details are slow to load — showing summary. Pull to refresh or try again."
-          )
-        );
-      }
-    } finally {
-      if (!options?.silent) {
-        setLoadingDetail(false);
-      }
+    } catch {
+      if (detailRequestRef.current !== requestId) return;
+      // Keep list summary visible; actions still work via taskId from the queue.
     }
   }, []);
 
   useEffect(() => {
+    warmBackendConnection();
+  }, []);
+
+  useEffect(() => {
     const q = searchParams.get("q");
-    const complaintId = searchParams.get("complaintId") ?? searchParams.get("id");
     if (q) {
       setSearch(q);
       setAppliedSearch(q);
     }
-    if (complaintId && complaints.length > 0) {
-      const target = complaints.find(
-        (c) => c.complaintId === complaintId || c._id === complaintId
-      );
-      if (target) {
-        void loadComplaintWorkDetail(target);
-      }
-    }
-  }, [searchParams, complaints, loadComplaintWorkDetail]);
+  }, [searchParams]);
+
+  const urlComplaintId = searchParams.get("complaintId") ?? searchParams.get("id");
 
   useEffect(() => {
-    if (
-      queueComplaints.length > 0 &&
-      !selectedComplaintId &&
-      !searchParams.get("id") &&
-      !searchParams.get("complaintId")
-    ) {
-      void loadComplaintWorkDetail(queueComplaints[0]);
-    }
-  }, [queueComplaints, selectedComplaintId, searchParams, loadComplaintWorkDetail]);
+    if (!urlComplaintId || complaints.length === 0) return;
+    if (urlLoadedRef.current === urlComplaintId) return;
+    const target = complaints.find(
+      (c) => c.complaintId === urlComplaintId || c._id === urlComplaintId
+    );
+    if (!target) return;
+    urlLoadedRef.current = urlComplaintId;
+    void loadComplaintWorkDetail(target);
+  }, [urlComplaintId, complaints, loadComplaintWorkDetail]);
+
+  useEffect(() => {
+    if (autoSelectedRef.current || urlComplaintId) return;
+    if (queueComplaints.length === 0) return;
+    autoSelectedRef.current = true;
+    void loadComplaintWorkDetail(queueComplaints[0]);
+  }, [queueComplaints, urlComplaintId, loadComplaintWorkDetail]);
 
   const handleSearch = () => {
     setAppliedSearch(search.trim());
@@ -997,7 +996,6 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
   const handleTaskUpdated = useCallback((task: Task) => {
     setSelectedTask(task);
-    setDetailReady(true);
     setSelectedComplaint((prev) => {
       if (!prev || prev.complaintId !== task.complaintId) return prev;
       return {
@@ -1018,7 +1016,6 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     try {
       const detail = await fetchTask(lookupId);
       setSelectedTask(detail);
-      setDetailReady(true);
     } catch {
       // Keep the last known task state if a background refresh fails.
     }
@@ -1032,7 +1029,6 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
         try {
           const detail = await fetchTask(updated.taskId);
           setSelectedTask(detail);
-          setDetailReady(true);
         } catch {
           // Ignore secondary refresh failures.
         }
@@ -1192,21 +1188,13 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
 
           <div className={cn(panelClass, "min-h-[600px] p-5")}>
             {selectedComplaint && selectedTask ? (
-              <div className="relative h-full">
-                {loadingDetail && (
-                  <div className="absolute right-0 top-0 z-10 flex items-center gap-2 rounded-full bg-slate-900/90 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
-                    Loading details…
-                  </div>
-                )}
-                <TaskDetailPanel
-                  task={selectedTask}
-                  complaint={selectedComplaint}
-                  canUpdate={canUpdate && detailReady}
-                  onRefresh={handleRefreshDetail}
-                  onTaskUpdated={handleTaskUpdated}
-                />
-              </div>
+              <TaskDetailPanel
+                task={selectedTask}
+                complaint={selectedComplaint}
+                canUpdate={canUpdate && Boolean(selectedTask.taskId)}
+                onRefresh={handleRefreshDetail}
+                onTaskUpdated={handleTaskUpdated}
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-slate-400">
                 <ClipboardList className="mb-3 h-12 w-12 opacity-30" />
