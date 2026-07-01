@@ -88,33 +88,34 @@ export async function updateTaskHandler(req: AuthRequest, res: Response) {
 }
 
 export async function patchTaskStatusHandler(req: AuthRequest, res: Response) {
-  const existing = await findTaskByLookup(req.params.id as string, { lean: true });
-  if (!existing) {
+  const taskDoc = await findTaskByLookup(req.params.id as string);
+  if (!taskDoc || !("_id" in taskDoc)) {
     throw new ApiError(404, "Task not found");
   }
-  await assertTaskAccess(req.user, existing, { forMutation: true });
+  await assertTaskAccess(req.user, taskDoc, { forMutation: true });
 
   if (!canUpdateScheduleProgress(req.user?.role)) {
     throw new ApiError(403, "You do not have permission to update task status");
   }
 
-  const taskDoc = await Task.findById(existing._id);
-  if (!taskDoc) {
-    throw new ApiError(404, "Task not found");
-  }
-
-  const task = await patchTaskStatusById(req.params.id as string, req.body.status, {
-    id: req.user?.id ?? "",
-    role: req.user?.role ?? "",
-    name: req.user?.name ?? "",
-  }, {
-    notes: req.body.notes,
-    photoUrl: req.body.photoUrl,
-    materialName: req.body.materialName,
-    quantity: req.body.quantity,
-    unit: req.body.unit,
-    revisitDate: req.body.revisitDate,
-  }, taskDoc);
+  const task = await patchTaskStatusById(
+    req.params.id as string,
+    req.body.status,
+    {
+      id: req.user?.id ?? "",
+      role: req.user?.role ?? "",
+      name: req.user?.name ?? "",
+    },
+    {
+      notes: req.body.notes,
+      photoUrl: req.body.photoUrl,
+      materialName: req.body.materialName,
+      quantity: req.body.quantity,
+      unit: req.body.unit,
+      revisitDate: req.body.revisitDate,
+    },
+    taskDoc as InstanceType<typeof Task>
+  );
   res.json({ message: "Task status updated", task });
 }
 

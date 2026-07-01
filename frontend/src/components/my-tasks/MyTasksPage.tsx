@@ -294,6 +294,7 @@ function TaskDetailPanel({
   const patchMutation = usePatchTaskStatus();
   const completeOnsiteMutation = useCompleteOnsiteMaterialPayment();
   const { openFeedback } = useFeedbackPrompt();
+  const user = readUser();
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [nextStatus, setNextStatus] = useState<TaskStatus | "">("");
@@ -390,16 +391,38 @@ function TaskDetailPanel({
     })();
   };
 
-  const handleStart = async () => {
-    try {
-      const result = await patchMutation.mutateAsync({ id: getTaskMutationId(task), status: "In Progress" });
-      if (result.task) {
-        onTaskUpdated(result.task);
+  const handleStart = () => {
+    const previousTask = task;
+    const startedAt = new Date().toISOString();
+    const optimisticTask: Task = {
+      ...task,
+      status: "In Progress",
+      history: [
+        {
+          action: "Task Started",
+          by: user?.name ?? "You",
+          role: user?.role ?? "team",
+          status: "In Progress",
+          createdAt: startedAt,
+        },
+        ...(task.history ?? []),
+      ],
+    };
+    onTaskUpdated(optimisticTask);
+    toast.success("Task started");
+
+    patchMutation.mutate(
+      { id: getTaskMutationId(task), status: "In Progress" },
+      {
+        onSuccess: (result) => {
+          if (result.task) onTaskUpdated(result.task);
+        },
+        onError: (error) => {
+          onTaskUpdated(previousTask);
+          toast.error(getApiErrorMessage(error, "Failed to Update Task"));
+        },
       }
-      toast.success("Task started");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to Update Task"));
-    }
+    );
   };
 
   const handleUpdateStatus = async () => {
@@ -551,15 +574,10 @@ function TaskDetailPanel({
           {showStartButton && (
             <Button
               size="sm"
-              onClick={() => void handleStart()}
-              disabled={patchMutation.isPending}
+              onClick={handleStart}
               className="rounded-full bg-blue-600 hover:bg-blue-500"
             >
-              {patchMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-3.5 w-3.5" />
-              )}
+              <Play className="mr-1 h-3.5 w-3.5" />
               Update Task
             </Button>
           )}

@@ -951,7 +951,8 @@ export async function patchTaskStatusById(
   }
 
   const needsPaymentCheck =
-    Boolean(task.complaintId) && (status === "Completed" || isTeamRole(actor.role));
+    Boolean(task.complaintId) &&
+    (status === "Completed" || task.status === "Need Material");
   const pendingOnsite = needsPaymentCheck
     ? await getPendingOnsiteMaterialPayment(task.complaintId)
     : null;
