@@ -19,6 +19,7 @@ import {
   calculateMaterialPaymentDetails,
   resolveServiceEligibility,
 } from "./materialPaymentService";
+import { dateKeyFromValue } from "../utils/dateKey";
 
 export type MaterialRequestStatus =
   | "PENDING"
@@ -409,45 +410,73 @@ async function finalizeMaterialGrantWithReschedule(
     remarks: serviceHeadRemarks ?? "",
     createdAt: new Date(),
   });
+
+  const revisit = new Date(revisitDate);
+  const dueDateKey = dateKeyFromValue(revisit);
+  const slotNote = revisitTimeSlot ? `Rescheduled slot: ${revisitTimeSlot}` : "";
+
   await request.save();
 
-  await addTaskHistory(request.taskId ?? undefined, historyAction, actor.name, actor.role);
+  const sideEffects: Promise<unknown>[] = [];
 
   if (request.complaintId) {
-    const complaintUpdate: Record<string, string> = { siteVisitStatus: "Material Granted" };
-    complaintUpdate.availableDate = revisitDate;
+    const complaintUpdate: Record<string, string> = {
+      siteVisitStatus: "Material Granted",
+      availableDate: revisitDate,
+    };
     if (revisitTimeSlot) complaintUpdate.timeSlot = revisitTimeSlot;
-    await Complaint.updateOne({ complaintId: request.complaintId }, { $set: complaintUpdate });
+    sideEffects.push(
+      Complaint.updateOne({ complaintId: request.complaintId }, { $set: complaintUpdate })
+    );
   }
 
   if (request.taskId) {
-    const task = await Task.findOne({ taskId: request.taskId });
-    if (task) {
-      task.status = "Pending";
-      task.dueDate = new Date(revisitDate);
-      const { dateKeyFromValue } = require("../utils/dateKey");
-      task.dueDateKey = dateKeyFromValue(task.dueDate);
-      if (revisitTimeSlot) {
-        task.remarks = (task.remarks ? task.remarks + " | " : "") + "Rescheduled slot: " + revisitTimeSlot;
-      }
-      task.history.push({
-        action: "Material Granted & Rescheduled",
-        by: actor.name,
-        role: actor.role,
-        status: "Pending",
-        remarks: serviceHeadRemarks ?? "",
-        photoUrl: "",
-        createdAt: new Date(),
-      });
-      await task.save();
-    }
+    sideEffects.push(
+      Task.updateOne(
+        { taskId: request.taskId },
+        {
+          $set: {
+            status: "Pending",
+            dueDate: revisit,
+            dueDateKey,
+            ...(slotNote ? { remarks: slotNote } : {}),
+          },
+          $push: {
+            history: {
+              $each: [
+                {
+                  action: historyAction,
+                  by: actor.name,
+                  role: actor.role,
+                  status: "Need Material",
+                  createdAt: new Date(),
+                },
+                {
+                  action: "Material Granted & Rescheduled",
+                  by: actor.name,
+                  role: actor.role,
+                  status: "Pending",
+                  remarks: serviceHeadRemarks ?? "",
+                  photoUrl: "",
+                  createdAt: new Date(),
+                },
+              ],
+            },
+          },
+        }
+      )
+    );
   }
 
   if (request.requestedById) {
-    await createMaterialAlert("material_granted", request, STATUS_MESSAGES.GRANTED, {
-      userId: request.requestedById,
-    });
+    sideEffects.push(
+      createMaterialAlert("material_granted", request, STATUS_MESSAGES.GRANTED, {
+        userId: request.requestedById,
+      })
+    );
   }
+
+  await Promise.all(sideEffects);
 }
 
 export async function getMaterialRequestPaymentDetails(id: string) {

@@ -10,7 +10,9 @@ import {
   useCreateMaterialRequest,
   useMaterialRequests,
   useServiceHeadReviewMaterial,
+  materialRequestKeys,
 } from "@/hooks/useMaterialRequests";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -212,7 +214,6 @@ function MaterialRequestActions({
       );
       resetReviewForm();
       setOpen(false);
-      onDone();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update request"));
     }
@@ -587,7 +588,14 @@ function MaterialRequestActions({
                     disabled={serviceHeadMutation.isPending || !revisitDate}
                     onClick={() => void handleServiceHead("APPROVED")}
                   >
-                    Confirm Received & Reschedule
+                    {serviceHeadMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Confirming…
+                      </>
+                    ) : (
+                      "Confirm Received & Reschedule"
+                    )}
                   </Button>
                 )}
               </div>
@@ -612,6 +620,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
   const isAdminView = role === "admin";
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { ready } = useSession(role);
   const user = readUser();
   const {
@@ -619,10 +628,13 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
     isLoading,
     isError,
     error,
-    refetch,
   } = useMaterialRequests({
     limit: isAdminView ? 100 : 50,
   });
+
+  const refreshRequests = () => {
+    void queryClient.invalidateQueries({ queryKey: materialRequestKeys.all });
+  };
 
   const requests: MaterialRequest[] = Array.isArray(data) ? data : data?.items ?? [];
 
@@ -703,7 +715,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
         imageUrl: "",
       });
       setImagePreview("");
-      void refetch();
+      void refreshRequests();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to submit request"));
     }
@@ -900,7 +912,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
           ) : isError ? (
             <div className="py-16 text-center">
               <p className="text-red-400">{getApiErrorMessage(error, "Failed to load requests")}</p>
-              <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              <Button variant="outline" className="mt-3" onClick={() => void refreshRequests()}>
                 Retry
               </Button>
             </div>
@@ -989,7 +1001,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                       <MaterialRequestActions
                         req={req}
                         role={role}
-                        onDone={() => void refetch()}
+                        onDone={() => void refreshRequests()}
                         autoOpen={actionTargetId === req._id}
                       />
                     </div>
@@ -1085,7 +1097,7 @@ export function UserMaterialRequestsPage({ role }: { role: "admin" | "team" }) {
                             <MaterialRequestActions
                               req={req}
                               role={role}
-                              onDone={() => void refetch()}
+                              onDone={() => void refreshRequests()}
                               autoOpen={actionTargetId === req._id}
                             />
                           </div>

@@ -144,7 +144,8 @@ export async function serviceHeadReviewMaterialRequest(
 ) {
   const { data } = await api.patch<{ message: string; request: MaterialRequest }>(
     `/material-requests/${id}/service-head`,
-    payload
+    payload,
+    { timeout: 90_000 }
   );
   return data;
 }
