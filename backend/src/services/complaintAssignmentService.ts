@@ -128,3 +128,88 @@ export async function getActiveTasksByComplaintIds(complaintIds: string[]) {
   }
   return map;
 }
+
+export type MyTasksQueueTask = {
+  _id: Types.ObjectId;
+  complaintId: string;
+  taskId: string;
+  status: string;
+  dueDate?: Date;
+  dueDateKey?: string;
+  assignedUserId?: Types.ObjectId | null;
+  assignedUserName?: string;
+  assignedTeamName?: string;
+  createdBy?: string;
+  createdAt?: Date;
+  description?: string;
+  remarks?: string;
+  priority?: string;
+  historyPreview: Array<{
+    action: string;
+    by: string;
+    role?: string;
+    status: string;
+    remarks?: string;
+    createdAt?: Date;
+  }>;
+};
+
+/** Rich task payload for My Tasks queue — includes timeline text without photo blobs. */
+export async function getMyTasksQueueTasksByComplaintIds(complaintIds: string[]) {
+  if (!complaintIds.length) {
+    return new Map<string, MyTasksQueueTask>();
+  }
+
+  const rows = await Task.aggregate<MyTasksQueueTask>([
+    {
+      $match: {
+        complaintId: { $in: complaintIds },
+        $or: [
+          { isActive: true },
+          { isActive: { $exists: false }, status: { $nin: ["Completed", "Cancelled"] } },
+        ],
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: "$complaintId",
+        doc: { $first: "$$ROOT" },
+      },
+    },
+    {
+      $project: {
+        _id: "$doc._id",
+        complaintId: "$doc.complaintId",
+        taskId: "$doc.taskId",
+        status: "$doc.status",
+        dueDate: "$doc.dueDate",
+        dueDateKey: "$doc.dueDateKey",
+        assignedUserId: "$doc.assignedUserId",
+        assignedUserName: "$doc.assignedUserName",
+        assignedTeamName: "$doc.assignedTeamName",
+        createdBy: "$doc.createdBy",
+        createdAt: "$doc.createdAt",
+        description: "$doc.description",
+        remarks: "$doc.remarks",
+        priority: "$doc.priority",
+        historyPreview: {
+          $map: {
+            input: { $slice: [{ $ifNull: ["$doc.history", []] }, -20] },
+            as: "entry",
+            in: {
+              action: "$$entry.action",
+              by: "$$entry.by",
+              role: "$$entry.role",
+              status: "$$entry.status",
+              remarks: "$$entry.remarks",
+              createdAt: "$$entry.createdAt",
+            },
+          },
+        },
+      },
+    },
+  ]).option({ maxTimeMS: 10_000 });
+
+  return new Map(rows.map((row) => [row.complaintId, row]));
+}

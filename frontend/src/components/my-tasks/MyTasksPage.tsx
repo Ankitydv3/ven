@@ -93,9 +93,11 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
     new Date().toISOString();
   const priority = (complaint.priority as TaskPriority | undefined) ?? "Medium";
   const status = (complaint.taskScheduleStatus as TaskStatus | undefined) ?? "Pending";
+  const createdAt =
+    complaint.taskCreatedAt ?? complaint.assignedDate ?? complaint.createdAt ?? undefined;
 
   return {
-    _id: complaint._id,
+    _id: complaint.taskObjectId ?? complaint._id,
     taskId: complaint.taskId ?? complaint.complaintId,
     complaintId: complaint.complaintId,
     title: complaint.title,
@@ -104,8 +106,17 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
     status,
     assignedTeamName: complaint.assignedTeam,
     assignedUserName: complaint.assignedUserName,
-    createdBy: complaint.assignedBy ?? "Admin",
+    createdBy: complaint.taskCreatedBy ?? complaint.assignedBy ?? "Admin",
+    createdAt,
     dueDate: typeof dueDate === "string" ? dueDate : new Date(dueDate).toISOString(),
+    history: (complaint.taskHistoryPreview ?? []).map((entry) => ({
+      action: entry.action,
+      by: entry.by,
+      role: entry.role,
+      status: entry.status,
+      remarks: entry.remarks,
+      createdAt: entry.createdAt,
+    })),
     complaint: {
       complaintId: complaint.complaintId,
       clientName: complaint.clientName,
@@ -118,7 +129,6 @@ function stubTaskFromComplaint(complaint: Complaint): Task {
       assignedBy: complaint.assignedBy,
       assignedDate: complaint.assignedDate,
     },
-    history: [],
   };
 }
 
@@ -156,10 +166,12 @@ function ComplaintListCard({
   complaint,
   selected,
   onSelect,
+  onIntent,
 }: {
   complaint: Complaint;
   selected: boolean;
   onSelect: () => void;
+  onIntent?: () => void;
 }) {
   const stage = complaint.workflowStage ?? getComplaintWorkflowStage(complaint);
   const title =
@@ -170,6 +182,11 @@ function ComplaintListCard({
   return (
     <button
       type="button"
+      onPointerEnter={() => onIntent?.()}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        onIntent?.();
+      }}
       onClick={onSelect}
       className={cn(
         "w-full rounded-xl border p-4 text-left transition-all",
@@ -965,23 +982,6 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
   }, [queryClient]);
 
   useEffect(() => {
-    if (!selectedComplaint?.taskId && !selectedComplaint?.complaintId) return;
-    let cancelled = false;
-    const lookupId = selectedComplaint.taskId ?? selectedComplaint.complaintId;
-    const timer = window.setTimeout(() => {
-      void fetchTask(lookupId)
-        .then((detail) => {
-          if (!cancelled) setSelectedTask(detail);
-        })
-        .catch(() => {});
-    }, 600);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [selectedComplaint?.complaintId, selectedComplaint?.taskId]);
-
-  useEffect(() => {
     const q = searchParams.get("q");
     if (q) {
       setSearch(q);
@@ -1014,9 +1014,7 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
     setPage(1);
   };
 
-  const handleSelectComplaint = (complaint: Complaint) => {
-    selectComplaint(complaint);
-  };
+  const handleSelectComplaint = selectComplaint;
 
   const showListLoading = isLoading && complaints.length === 0;
 
@@ -1178,7 +1176,8 @@ export function MyTasksPage({ role }: { role: "admin" | "team" }) {
                     key={complaint._id}
                     complaint={complaint}
                     selected={selectedComplaintId === complaint.complaintId}
-                    onSelect={() => handleSelectComplaint(complaint)}
+                    onIntent={() => selectComplaint(complaint)}
+                    onSelect={() => selectComplaint(complaint)}
                   />
                 ))}
               </div>

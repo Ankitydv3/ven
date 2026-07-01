@@ -309,6 +309,17 @@ export interface Complaint {
   taskScheduleStatus?: string | null;
   taskScheduleDueDate?: string | null;
   taskId?: string | null;
+  taskObjectId?: string | null;
+  taskCreatedBy?: string | null;
+  taskCreatedAt?: string | null;
+  taskHistoryPreview?: Array<{
+    action: string;
+    by: string;
+    role?: string;
+    status: string;
+    remarks?: string;
+    createdAt?: string;
+  }>;
   materialRequestStatus?: string | null;
   materialRequestId?: string | null;
   materialRequestObjectId?: string | null;
